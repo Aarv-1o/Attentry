@@ -21,7 +21,7 @@ test("doctor: the project, git, hooks, mode and MCP, with what to do", async () 
     assert.match(await doctor(folder), /✓ MCP tools: added \(Claude Code, for .+shop\)/);
   });
   await withClaudeSettings({ mcpServers: { detron: { command: "node", args: [join(project, "moved/detron.mjs"), "mcp"] } } }, async () => {
-    assert.match(await doctor(project), /✗ MCP tools: added \(Claude Code, for every folder\), but .+moved\/detron\.mjs isn't there/);
+    assert.match(await doctor(project), /✗ MCP tools: added \(Claude Code, for every folder\), but .+moved[\\/]detron\.mjs isn't there/);
   });
   await mkdir(join(project, ".git"));
   await withClaudeSettings({}, async () => assert.match(await doctor(project), /✓ Git: yes/));
