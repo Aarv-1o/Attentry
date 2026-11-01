@@ -1,4 +1,4 @@
-import { isTestFile } from "../../index/files.ts";
+import { isGenerated, isTestFile } from "../../index/files.ts";
 import type { FunctionInfo } from "../../index/functions.ts";
 import { isName, JSX_MARKER, LITERAL_PREFIX } from "../../index/shape.ts";
 import { supportFor } from "../../languages/index.ts";
@@ -77,7 +77,8 @@ class Clusters {
 }
 
 export function findDuplicates(all: FunctionInfo[]): DuplicateGroup[] {
-  const fns = all.filter((f) => !isTestFile(f.file));
+  // Generated code (an API client) repeats itself by design, and nobody edits it by hand.
+  const fns = all.filter((f) => !isTestFile(f.file) && !isGenerated(f.file));
   const groups: DuplicateGroup[] = [];
 
   // 1. Exact copies: same structure, same values, only names differ.

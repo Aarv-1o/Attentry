@@ -49,6 +49,8 @@ test("help, unknown commands and missing folders", async () => {
   const missing = await cli("scan", "no/such/folder");
   assert.equal(missing.code, 2);
   assert.match(missing.text, /that folder doesn't exist/);
+  const badOut = await cli("scan", flagRepo, "--markdown", "--out", "no/such/folder/report.md");
+  assert.deepEqual(badOut, { code: 1, text: "Can't write no/such/folder/report.md: that folder doesn't exist.\n" });
 });
 
 test("scan says which files it couldn't check", async () => {

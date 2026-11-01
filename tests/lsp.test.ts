@@ -101,6 +101,10 @@ test("the language server shows your changes, explains them, and offers safe fix
     assert.deepEqual(list.items.map((i: any) => [i.part, i.severity, i.file, i.line, i.does]), [["cleanup", "info", "index.js", 6, "`calcTax(total)`: it returns `total * 0.18`."]]);
     assert.equal(list.older, 1);
     assert.match(await server.request("detron/report", { format: "person" }), /^Clean-up \(1\)\n {2}index\.js:6/);
+    // The editor's full report: rendered Markdown, links naming each file in full.
+    const md = await server.request("detron/report", { format: "markdown" });
+    assert.match(md, /^# Detron report: /);
+    assert.ok(md.includes(`](${pathToFileURL(root).href}/index.js#L6)`), "links open the file at its line");
     assert.match(await server.request("detron/explain", { id: list.items[0].id }), /## Dead functions \(1\)/);
 
     const before = server.count();

@@ -38,6 +38,7 @@ test("does not flag files reached in other ways", async () => {
     "index.html": '<script src="/static/js/chat.js"></script>\n',
     "static/js/chat.js": "console.info(1);\n",
     "tests/test_plan.py": "def test_plan():\n    pass\n",
+    "backend/app/alembic/versions/e2412789c190_initialize_models.py": "def upgrade():\n    pass\n",
   }), ["likely worker.py"]); // worker.py itself: imports others, but nothing reaches it
 });
 
