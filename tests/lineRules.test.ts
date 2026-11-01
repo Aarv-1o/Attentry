@@ -156,3 +156,15 @@ test("deep nesting and long parameter lists", async () => {
     ].join("\n"),
   }), ["1 deep-nesting likely", "4 long-params maybe"]);
 });
+
+test("a reason on the except line counts; a lint directive alone doesn't", async () => {
+  assert.deepEqual(await check("a.py", `try:
+    a()
+except Exception:  # noqa: BLE001 the DB is already down: keep the first error
+    pass
+try:
+    a()
+except Exception:  # noqa: BLE001
+    pass
+`, "empty-catch"), ["7 empty-catch likely"]);
+});
