@@ -141,3 +141,4 @@ Supports JavaScript, TypeScript (incl. JSX/TSX), Python and Astro.
 - What V1 will do: [SPEC.md](SPEC.md)
 - Rules for anyone (human or agent) working on this repo: [AGENTS.md](AGENTS.md)
 - Research behind the decisions: [docs/research.md](docs/research.md)
+- How to test Detron by hand (features, security, load): [docs/TESTING.md](docs/TESTING.md)
