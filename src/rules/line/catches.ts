@@ -8,9 +8,12 @@ const statementsOf = (body: Node | undefined) => (body?.namedChildren ?? []).fil
 // A comment that says why ("best effort", "non-critical") makes it a decision, not a bug.
 // "/* ignore */" only repeats what the empty block already says.
 const NOT_A_REASON = new Set(["ignore", "ignored", "noop", "no-op", "empty", "nothing", "swallow", "silence", "todo"]);
-const givesReason = (body: Node | undefined, syntax: Syntax) =>
-  !!body?.namedChildren.some(
-    (s) => s.type === "comment" && syntax.commentText(s.text).toLowerCase().split(/\W+/).some((w) => w && !NOT_A_REASON.has(w)),
+// Lint directives (`# noqa: BLE001`) silence a linter; they don't say why.
+const DIRECTIVES = /\b(noqa|pylint|pragma|type:\s*ignore|eslint[\w-]*)\b(:\s*[\w,-]+)?/gi;
+// In the block, or on the catch line itself (`except Exception:  # the DB is already down`).
+const givesReason = (clause: Node, body: Node | undefined, syntax: Syntax) =>
+  [...clause.namedChildren, ...(body?.namedChildren ?? [])].some(
+    (s) => s.type === "comment" && syntax.commentText(s.text).replace(DIRECTIVES, " ").toLowerCase().split(/\W+/).some((w) => w && !NOT_A_REASON.has(w)),
   );
 const BROAD_ERRORS = /^\(?\s*(Exception|BaseException)\s*\)?$/;
 const isLog = (statement: Node, syntax: Syntax) => statement.type === "expression_statement" && syntax.logCall.test(statement.text.trim());
@@ -32,7 +35,7 @@ export function catchRules({ parsed, file, syntax, frontend }: FileContext): Lin
     const handlers = node.parent?.namedChildren.filter((c) => c.type === syntax.catchClause).length ?? 1;
 
     // A comment saying why makes any of these a decision, not a bug.
-    if (givesReason(body, syntax)) continue;
+    if (givesReason(node, body, syntax)) continue;
     if (statements.length === 0) {
       const type = syntax.catchType(node);
       // Ignoring one named error (`except json.JSONDecodeError: pass`) is usually on purpose.

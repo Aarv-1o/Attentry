@@ -60,9 +60,13 @@ async function walk(root: string, dir = root): Promise<string[]> {
   return found;
 }
 
+// Coding agents' own folders: installed skills and commands are someone else's code, often the
+// same skill installed several times, never the app's.
+const AGENT_TOOLING = /(^|\/)\.(agents|claude|cursor|codex|gemini|windsurf|cline|roo|kiro|github\/(prompts|agents|skills))\//;
+
 // Every file in the repo (respecting .gitignore), as sorted repo-relative paths with "/" separators.
 export async function listRepoFiles(root: string): Promise<string[]> {
-  return ((await gitFiles(root)) ?? (await walk(root))).sort();
+  return ((await gitFiles(root)) ?? (await walk(root))).filter((f) => !AGENT_TOOLING.test(f)).sort();
 }
 
 // The app a file belongs to: the deepest folder above it with a package.json or Python project file.

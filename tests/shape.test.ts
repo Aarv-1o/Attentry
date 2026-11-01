@@ -44,3 +44,31 @@ def b(y):
 `, "python");
   assert.equal(s.a, s.b);
 });
+
+test("opposite functions aren't copies: property names and outside calls are kept", async () => {
+  const s = await shapes(`
+const follow = async (name, id) => prisma.user.update({ where: { username: name }, data: { followedBy: { connect: { id } } } });
+const unfollow = async (name, id) => prisma.user.update({ where: { username: name }, data: { followedBy: { disconnect: { id } } } });
+function grow(items) { return items.push(Math.max(1, 2)); }
+function shrink(items) { return items.pop(Math.min(1, 2)); }
+function save(x) { return createUser(x); }
+function remove(x) { return deleteUser(x); }
+function renamed(list) { const { id } = list; for (const item of list) createUser(item, id); }
+function renamedToo(rows) { const { id } = rows; for (const row of rows) createUser(row, id); }`, "javascript");
+  assert.notEqual(s.follow, s.unfollow);
+  assert.notEqual(s.grow, s.shrink);
+  assert.notEqual(s.save, s.remove);
+  assert.equal(s.renamed, s.renamedToo, "local names still don't matter");
+  const py = await shapes(`
+def follow(user_id):
+    return db.table("follows").insert(user_id=user_id)
+
+def unfollow(user_id):
+    return db.table("follows").delete(user_id=user_id)
+
+def again(uid):
+    return db.table("follows").insert(user_id=uid)
+`, "python");
+  assert.notEqual(py.follow, py.unfollow);
+  assert.equal(py.follow, py.again);
+});

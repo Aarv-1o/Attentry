@@ -37,12 +37,22 @@ export async function commentRules({ parsed, file, syntax }: FileContext): Promi
     if (!tree.rootNode.hasError) codeRows.push(c.startPosition.row);
     tree.delete();
   }
+  const commentRows = new Set(comments.map((c) => c.startPosition.row));
+  const codeRowSet = new Set(codeRows);
   // Grouped into blocks; blank lines between commented lines don't break a block.
   const onlyBlankBetween = (a: number, b: number) => lines.slice(a + 1, b).every((l) => !l.trim());
   for (let i = 0; i < codeRows.length; ) {
     let j = i;
     while (j + 1 < codeRows.length && onlyBlankBetween(codeRows[j]!, codeRows[j + 1]!)) j++;
     const count = j - i + 1;
+    // One indented line inside a comment of prose is an example or a formula it explains
+    // (`#   ZX_HOSTS=a.com,b.com`), not old code.
+    const prose = (row: number) => commentRows.has(row) && !codeRowSet.has(row);
+    const indented = /^(#|\/\/)\s{2,}\S/.test(lines[codeRows[i]!]!.trim());
+    if (count === 1 && indented && (prose(codeRows[i]! - 1) || prose(codeRows[i]! + 1))) {
+      i = j + 1;
+      continue;
+    }
     found.push({
       rule: "commented-out-code",
       file,
@@ -55,10 +65,12 @@ export async function commentRules({ parsed, file, syntax }: FileContext): Promi
   }
 
   // Comments that only restate the next line: `// Initialize Firebase` above initializeApp(...).
-  const codeRowSet = new Set(codeRows);
   for (const comment of comments) {
     const row = comment.startPosition.row;
     if (codeRowSet.has(row)) continue;
+    // The last line of a longer comment: the lines above it say why, and the whole comment
+    // counts ("Capture phase: the stage is its own scroll container" above addEventListener).
+    if (commentRows.has(row - 1) && !codeRowSet.has(row - 1)) continue;
     const text = syntax.commentText(comment.text);
     const next = lines.slice(row + 1).find((l) => l.trim())?.trim() ?? "";
     if (!next || next.startsWith(comment.text.slice(0, 1)) || DIRECTIVE.test(text) || EXPLAINS_WHY.test(text) || DIVIDER.test(comment.text) || DEFINITION.test(next)) continue;

@@ -65,3 +65,20 @@ test("typescript is used wherever there's TypeScript, even with no tsc script", 
   const plainJs = await buildIndex(await makeRepo({ "package.json": pkg, "src/a.js": "export const a = 1;\n" }));
   assert.deepEqual((await findUnusedPackages(plainJs)).map((p) => p.name), ["typescript"]);
 });
+
+test("tools found by their config file, commands outside scripts, and framework peers count as used", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({
+      dependencies: { remotion: "1", "react-dom": "1", "@fontsource/inter": "1" },
+      devDependencies: { prettier: "1", eslint: "1", "eslint-config-prettier": "1", prisma: "1", "ts-node": "1", stylelint: "1" },
+      prisma: { seed: "ts-node seed.ts" },
+    }),
+    ".prettierrc": "{}\n",
+    "eslint.config.mjs": "export default [];\n",
+    "prisma/schema.prisma": "model User { id Int @id }\n",
+    "src/Video.tsx": 'import { AbsoluteFill } from "remotion";\nexport const V = () => <AbsoluteFill />;\n',
+  });
+  const found = await findUnusedPackages(await buildIndex(root));
+  // No stylelint config, and the font is never loaded: both really unused.
+  assert.deepEqual(found.map((p) => p.name), ["@fontsource/inter", "stylelint"]);
+});

@@ -1,6 +1,6 @@
 import { isTestFile } from "../../index/files.ts";
 import type { FunctionInfo } from "../../index/functions.ts";
-import { JSX_MARKER, LITERAL_PREFIX } from "../../index/shape.ts";
+import { isName, JSX_MARKER, LITERAL_PREFIX } from "../../index/shape.ts";
 import { supportFor } from "../../languages/index.ts";
 import type { Confidence } from "../confidence.ts";
 
@@ -28,7 +28,7 @@ const markupHeavy = (fn: FunctionInfo) => fn.shape.filter((t) => t === JSX_MARKE
 
 // Structure only: names and values blanked out, in overlapping 3-token windows.
 function structure(fn: FunctionInfo): Set<string> {
-  const t = fn.shape.map((s) => (s.startsWith(LITERAL_PREFIX) ? "lit" : s.startsWith("$") ? "id" : s));
+  const t = fn.shape.map((s) => (s.startsWith(LITERAL_PREFIX) ? "lit" : isName(s) ? "id" : s));
   const set = new Set<string>();
   for (let i = 0; i + 3 <= t.length; i++) set.add(`${t[i]} ${t[i + 1]} ${t[i + 2]}`);
   return set;

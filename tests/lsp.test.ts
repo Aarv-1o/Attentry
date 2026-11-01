@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -60,6 +61,9 @@ const OLD = `export function load(url) {\n  try {\n    return fetch(url);\n  } c
 const NEW = `${OLD}function calcTax(total) {\n  return total * 0.18;\n}\n`;
 
 test("the language server shows your changes, explains them, and offers safe fixes", { timeout: 60_000 }, async () => {
+  // Connecting the agent points its hooks at the built Detron: build it on a fresh clone.
+  const detron = join(import.meta.dirname, "../dist/detron.mjs");
+  if (!existsSync(detron)) execFileSync(process.execPath, [join(import.meta.dirname, "../scripts/build.mjs")]);
   const root = await makeRepo({ "index.js": OLD });
   git(root, "init", "-q");
   git(root, "add", ".");

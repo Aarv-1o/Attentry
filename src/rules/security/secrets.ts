@@ -62,12 +62,29 @@ function secretIn(node: Node): { what: string; confidence: Confidence } | undefi
 
 // process.env.JWT_SECRET || "secret", os.getenv("SECRET_KEY", "dev"): production quietly runs
 // with a key anyone can read here.
-const FALLBACK_JS = /(process\.env|import\.meta\.env)\.(\w*(SECRET|KEY|TOKEN|PASSWORD|PASS)\w*)\s*(\|\||\?\?)\s*["'`]/i;
+const ENV_JS = /^(process\.env|import\.meta\.env)\.(\w*(SECRET|KEY|TOKEN|PASSWORD|PASS)\w*)$/i;
 // Public by design: browser env vars, site keys, publishable keys.
 const PUBLIC_NAME = /^(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|PUBLIC|NUXT_PUBLIC)_|SITE_?KEY|PUBLISHABLE|PUBLIC_?KEY|ANON_?KEY/i;
-const FALLBACK_PY = /\b(os\.getenv|os\.environ\.get|config)\(\s*["'](\w*(SECRET|KEY|TOKEN|PASSWORD)\w*)["']\s*,\s*["']/i;
+const ENV_PY = /^(os\.getenv|os\.environ\.get|config)$/;
+const SECRET_ENV = /^\w*(SECRET|KEY|TOKEN|PASSWORD)\w*$/i;
 // Env vars the bundler puts into the browser.
 const PUBLIC_ENV = /\b(process\.env|import\.meta\.env)\.((NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC|PUBLIC|NUXT_PUBLIC)_\w*(SECRET|SERVICE_ROLE|PRIVATE|OPENAI|ANTHROPIC|STRIPE_SECRET|SK_|DATABASE|DB_PASS|ADMIN)\w*)/;
+
+// process.env.X || "..." and os.environ.get("X", "..."): the env var's name, and whether the
+// fallback is empty. Only the read itself, not every expression around it (one finding each).
+function fallbackOf(node: Node): { name: string; empty: boolean } | undefined {
+  if (node.type === "binary_expression" && /^(\|\||\?\?)$/.test(node.childForFieldName("operator")?.text ?? "")) {
+    const name = ENV_JS.exec(node.childForFieldName("left")?.text.replace(/\s+/g, "") ?? "")?.[2];
+    const right = node.childForFieldName("right");
+    if (name && right && STRINGS.has(right.type)) return { name, empty: unquote(right.text) === "" };
+  }
+  if (node.type === "call" && ENV_PY.test(node.childForFieldName("function")?.text ?? "")) {
+    const [key, value] = node.childForFieldName("arguments")?.namedChildren ?? [];
+    const name = key?.type === "string" ? unquote(key.text) : undefined;
+    if (name && SECRET_ENV.test(name) && value?.type === "string") return { name, empty: unquote(value.text) === "" };
+  }
+  return undefined;
+}
 
 export function secretRules({ parsed, file }: FileContext): LineFinding[] {
   if (isTestFile(file) || /(^|\/)(\w+\.)?(example|sample|template|fixtures?)\b/i.test(file)) return [];
@@ -79,9 +96,12 @@ export function secretRules({ parsed, file }: FileContext): LineFinding[] {
       // Django's generated key is a placeholder that's easy to ship.
       if (/^SECRET_KEY$/.test(assignedName(node) ?? "") && /django-insecure-/.test(node.text)) add(node, "secret-fallback", "likely", "Django's SECRET_KEY is the generated insecure one");
     }
-    if (node.type === "binary_expression" || node.type === "call") {
-      const m = (node.type === "call" ? FALLBACK_PY : FALLBACK_JS).exec(node.text);
-      if (m && !PUBLIC_NAME.test(m[2]!)) add(node, "secret-fallback", "likely", `${m[2]} falls back to a value written in the code when it isn't set`);
+    const fallback = fallbackOf(node);
+    if (fallback && !PUBLIC_NAME.test(fallback.name)) {
+      // "" is "not set": the code that uses it decides (a feature stays off, a check fails).
+      // Only a hint, since an empty key that's still used to sign or verify is a real hole.
+      if (fallback.empty) add(node, "secret-fallback", "maybe", `${fallback.name} defaults to empty: check the code refuses to run without it`);
+      else add(node, "secret-fallback", "likely", `${fallback.name} falls back to a value written in the code when it isn't set`);
     }
     if (node.type === "member_expression" && !(node.parent?.type === "member_expression")) {
       const m = PUBLIC_ENV.exec(node.text);

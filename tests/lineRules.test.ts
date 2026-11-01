@@ -93,6 +93,17 @@ y = 2  # noqa: E501
 // return cached;
 const a = 1;
 `, "commented-out-code"), ["2 commented-out-code likely", "5 commented-out-code likely"]);
+
+  // An indented example inside prose explains the text around it.
+  assert.deepEqual(await check("app/mcp.py", `
+# The allowed hosts are explicit and configurable:
+#
+#   ZX_MCP_ALLOWED_HOSTS=rooms.example.com,api.example.com
+#
+# A transform from a shape's space into the slide:
+#   slide_x = ox + child_x * sx
+x = 1
+`, "commented-out-code"), []);
 });
 
 test("comments that repeat the code, but not ones that explain why, or section headers", async () => {
@@ -114,6 +125,11 @@ const ArrowIcon = () => null;
 // cancelled / expired → ended: revert to the free plan
 const ENDED = ["cancelled", "expired"];
 `, "comment-repeats-code"), ["2 comment-repeats-code likely", "4 comment-repeats-code likely"]);
+  assert.deepEqual(await check("f.ts", `
+// Capture phase: the stage is its own scroll container, and a bubbled
+// listener on window never hears it scroll.
+window.addEventListener("scroll", measure, true);
+`, "comment-repeats-code"), []);
 });
 
 async function shapeIssues(files: Record<string, string>): Promise<string[]> {
@@ -155,4 +171,16 @@ test("deep nesting and long parameter lists", async () => {
       "deep(1); many(1, 2, 3, 4, 5);",
     ].join("\n"),
   }), ["1 deep-nesting likely", "4 long-params maybe"]);
+});
+
+test("a reason on the except line counts; a lint directive alone doesn't", async () => {
+  assert.deepEqual(await check("a.py", `try:
+    a()
+except Exception:  # noqa: BLE001 the DB is already down: keep the first error
+    pass
+try:
+    a()
+except Exception:  # noqa: BLE001
+    pass
+`, "empty-catch"), ["7 empty-catch likely"]);
 });
