@@ -1,44 +1,16 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join, relative, resolve } from "node:path";
+import { join, relative } from "node:path";
 import { backgroundRunning } from "../daemon/client.ts";
 import { isSource, listRepoFiles, unsupportedCode } from "../index/files.ts";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig } from "./config.ts";
 import { hookState } from "./init.ts";
+import { detronMcp, detronPath } from "./mcpSetup.ts";
 
 // `detron doctor`: is Detron set up here, and working? One check per line, with what to do when
 // it isn't. Agents can run it too, when asked "is Detron connected?".
 
-interface McpServer { command?: string; args?: string[] }
 type Check = { ok: boolean | "warn"; text: string; fix?: string };
-
-const same = (a: string, b: string) => resolve(a).replace(/\\/g, "/").toLowerCase() === resolve(b).replace(/\\/g, "/").toLowerCase();
-const readJson = async (path: string): Promise<Record<string, unknown> | undefined> => {
-  try {
-    return JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
-  } catch {
-    return undefined; // missing or unreadable: nothing set up there
-  }
-};
-
-// Claude Code's MCP servers named detron: this folder's (`claude mcp add --scope local`, kept in
-// ~/.claude.json by folder), every folder's (user scope), and the repo's own .mcp.json. Only the
-// detron entries are read.
-async function detronMcp(folders: string[]): Promise<{ where: string; server: McpServer } | undefined> {
-  const user = await readJson(join(homedir(), ".claude.json"));
-  const projects = (user?.projects ?? {}) as Record<string, { mcpServers?: Record<string, McpServer> }>;
-  for (const folder of folders) {
-    const key = Object.keys(projects).find((k) => same(k, folder));
-    const local = key ? projects[key]?.mcpServers?.detron : undefined;
-    if (local) return { where: `Claude Code, for ${folder}`, server: local };
-    const shared = ((await readJson(join(folder, ".mcp.json")))?.mcpServers as Record<string, McpServer> | undefined)?.detron;
-    if (shared) return { where: join(folder, ".mcp.json"), server: shared };
-  }
-  const everywhere = (user?.mcpServers as Record<string, McpServer> | undefined)?.detron;
-  return everywhere ? { where: "Claude Code, for every folder", server: everywhere } : undefined;
-}
 
 export async function doctor(folder: string): Promise<string> {
   const root = await projectRoot(folder);
@@ -63,7 +35,7 @@ export async function doctor(folder: string): Promise<string> {
   checks.push({ ok: true, text: `Mode: ${(await loadConfig(root)).mode}` });
 
   const mcp = await detronMcp(root === folder ? [folder] : [folder, root]);
-  const mcpPath = mcp?.server.args?.find((a) => /detron[\w.-]*\.mjs$|server\.mjs$/.test(a));
+  const mcpPath = mcp && detronPath(mcp.server);
   checks.push(!mcp
     ? { ok: "warn", text: "MCP tools (find_existing, check, explain): not added for Claude Code here", fix: "Run the `claude mcp add` line that `detron init` prints. Other agents: see the README." }
     : mcpPath && !existsSync(mcpPath)

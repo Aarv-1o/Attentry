@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { loadConfig, writeMode } from "../agent/config.ts";
 import { hookState, init } from "../agent/init.ts";
+import { addMcp, mcpState } from "../agent/mcpSetup.ts";
 import { agentStatus } from "../daemon/client.ts";
 import { collectFindings } from "../findings/collect.ts";
 import { markNotUseful } from "../findings/feedback.ts";
@@ -139,7 +140,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "detron.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own detron.* commands.
-        executeCommandProvider: { commands: ["detron.server.notUseful", "detron.server.toggleShow", "detron.server.toggleHints", "detron.server.toggleAuto", "detron.server.rescan", "detron.server.connectAgent", "detron.server.setMode"] },
+        executeCommandProvider: { commands: ["detron.server.notUseful", "detron.server.toggleShow", "detron.server.toggleHints", "detron.server.toggleAuto", "detron.server.rescan", "detron.server.connectAgent", "detron.server.connectMcp", "detron.server.setMode"] },
       },
       serverInfo: { name: "detron" },
     };
@@ -185,8 +186,13 @@ export function startServer(connection: Connection): void {
       return status(false);
     }
     if (command === "detron.server.rescan") return rescan();
-    // Not printed to the editor: init's own messages are for the terminal.
-    if (command === "detron.server.connectAgent") return void (await init(workspace, process.argv[1]!, undefined));
+    // Not printed to the editor: init's own messages are for the terminal. With `true`, also
+    // the MCP tools; what happened with those goes back to the sidebar.
+    if (command === "detron.server.connectAgent") {
+      await init(workspace, process.argv[1]!, undefined);
+      return args?.[0] === true ? addMcp(workspace, process.argv[1]!) : undefined;
+    }
+    if (command === "detron.server.connectMcp") return addMcp(workspace, process.argv[1]!);
     if (command === "detron.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
@@ -203,6 +209,7 @@ export function startServer(connection: Connection): void {
   // The agent: are Detron's hooks set up, which mode, and how its task is going right now.
   connection.onRequest("detron/agent", async () => ({
     hooks: await hookState(workspace),
+    mcp: await mcpState(workspace),
     mode: (await loadConfig(root)).mode,
     live: (await agentStatus(root)) ?? null,
   }));

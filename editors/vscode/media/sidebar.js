@@ -108,17 +108,37 @@ function scanning() {
 
 // ---- Your agent ----
 
+// The panel remembers the person's choice of connecting the MCP tools too.
+const saved = vscode.getState() ?? {};
+let withMcp = saved.withMcp ?? true;
+
+function connectionRow(name, state, help) {
+  const [tone, text] = { connected: ["ok", "Connected"], added: ["ok", "Added"], stale: ["warn", "Needs reconnecting"], missing: ["off", "Not set up"] }[state] ?? ["off", "Not set up"];
+  return `<div class="conn" title="${esc(help)}"><span>${esc(name)}</span><span class="pill ${tone}"><i></i>${text}</span></div>`;
+}
+
 function yourAgent() {
   if (!agent) return `<section class="agent"><h2>Your agent</h2><p class="quiet">Looking…</p></section>`;
   const working = agent.live && Date.now() - agent.live.lastEditAt < LIVE_MS;
-  const state = agent.hooks === "connected" ? (working ? ["live", "Working now"] : ["ok", "Connected"]) : agent.hooks === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
+  const connected = agent.hooks === "connected";
+  const state = connected ? (working ? ["live", "Working now"] : ["ok", "Connected"]) : agent.hooks === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
   const task = agent.live ? `<p class="task">${working ? "This task" : "Last task"}: ${plural(agent.live.edits, "edit")}, ${agent.live.added ? `<b>${plural(agent.live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(agent.live.lastEditAt)}`}.</p>` : "";
   const mode = agent.mode;
+  const mcpNeeded = agent.mcp && agent.mcp !== "added";
+  const connect = connected
+    ? (mcpNeeded ? `<button class="ghost wide" data-act="connectMcp">${agent.mcp === "stale" ? "Re-add the MCP tools" : "Add the MCP tools"}</button>` : "")
+    : `<p class="quiet">${agent.hooks === "stale" ? "The agent's hooks point to an old copy of Detron, which moves when the extension updates." : "Detron tells your agent about problems right after each edit, and checks in every 10 edits."}</p>
+      <label class="check"><input type="checkbox" data-act="withMcp" ${withMcp ? "checked" : ""}> Also add the MCP tools, so the agent can ask Detron itself (find_existing, check, explain)</label>
+      <button class="primary wide" data-act="connectAgent">${agent.hooks === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>`;
   return `<section class="agent">
     <h2>Your agent</h2>
     <div class="who"><span class="name">Claude Code</span><span class="pill ${state[0]}"><i></i>${state[1]}</span></div>
-    ${agent.hooks === "connected" ? task : `<p class="quiet">${agent.hooks === "stale" ? "The agent's hooks point to an old copy of Detron, which moves when the extension updates." : "Detron tells your agent about problems right after each edit, and checks in every 10 edits."}</p>
-      <button class="primary wide" data-act="connectAgent">${agent.hooks === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>`}
+    ${connected ? task : ""}
+    <div class="conns">
+      ${connectionRow("Hooks", agent.hooks, "Run on every edit, whether the agent remembers or not: tell it about copies and new problems")}
+      ${agent.mcp ? connectionRow("MCP tools", agent.mcp, "Tools the agent calls when it wants: find_existing, check, explain") : ""}
+    </div>
+    ${connect}
     <div class="mode">
       <div class="tabs" role="tablist" aria-label="How strict">
         <button role="tab" data-mode="suggest" aria-selected="${mode === "suggest"}" ${mode === "suggest" ? "disabled" : ""}>Suggest</button>
@@ -126,7 +146,7 @@ function yourAgent() {
       </div>
       <p class="quiet">${mode === "block" ? "Problems are sent back as errors, and a task can't finish while it has added security or crash problems." : "Detron tells the agent, and never stops it."}</p>
     </div>
-    <p class="quiet">Cursor and Copilot CLI use the same connection.</p>
+    <p class="quiet">Cursor and Copilot CLI use the same hooks. New tools show up in a new agent session.</p>
   </section>`;
 }
 
@@ -156,6 +176,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   const act = e.target.closest("[data-act]");
+  if (act?.dataset.act === "connectAgent") return vscode.postMessage({ type: "connectAgent", withMcp });
   if (act && act.tagName !== "INPUT") return vscode.postMessage({ type: act.dataset.act });
   const open = e.target.closest("[data-open]");
   if (open) vscode.postMessage({ type: "open", file: open.dataset.open, line: Number(open.dataset.line) });
@@ -165,6 +186,10 @@ document.addEventListener("keydown", (e) => {
 });
 document.addEventListener("change", (e) => {
   if (e.target.dataset.act === "toggleHints" || e.target.dataset.act === "toggleAuto") vscode.postMessage({ type: e.target.dataset.act });
+  if (e.target.dataset.act === "withMcp") {
+    withMcp = e.target.checked;
+    vscode.setState({ ...saved, withMcp });
+  }
 });
 window.addEventListener("message", ({ data: m }) => {
   if (m.type === "status") status = m.status;

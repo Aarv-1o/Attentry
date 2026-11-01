@@ -104,6 +104,8 @@ language server.
 - Light bulb: delete unused code (the only automatic fix), copy the fix for your agent, ignore
   with a reason, or "not useful" (a rule marked on more than 10% of its findings becomes a hint)
 - A line at the top of hotspot files: make small changes there, and test after each
+- The Detron panel connects Claude Code in one click: its hooks, and (on by default) its MCP
+  tools, through Claude Code's own `claude mcp add`. It shows whether each is set up
 
 It finds:
 

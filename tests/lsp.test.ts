@@ -113,10 +113,10 @@ test("the language server shows your changes, explains them, and offers safe fix
     assert.deepEqual(whole.diagnostics.map((d: any) => [d.code, d.severity]), [["empty-catch", 2], ["dead-function", 3]], "warnings before info");
 
     // The agent section: not connected, connect it, change the mode.
-    assert.deepEqual(await server.request("detron/agent", {}), { hooks: "missing", mode: "suggest", live: null });
+    assert.deepEqual(await server.request("detron/agent", {}), { hooks: "missing", mcp: "missing", mode: "suggest", live: null });
     await server.request("workspace/executeCommand", { command: "detron.server.connectAgent", arguments: [] });
     await server.request("workspace/executeCommand", { command: "detron.server.setMode", arguments: ["block"] });
-    assert.deepEqual(await server.request("detron/agent", {}), { hooks: "connected", mode: "block", live: null });
+    assert.deepEqual(await server.request("detron/agent", {}), { hooks: "connected", mcp: "missing", mode: "block", live: null });
 
     // Auto-check off: the status says so.
     const mark = server.count();
