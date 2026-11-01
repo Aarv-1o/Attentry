@@ -53,7 +53,12 @@ Copilot CLI read them too). Then, in every agent session:
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
 - **Every 10 edits** a check-in: what to focus on
-- **At the end** a one-line summary for you
+- **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
+  end. If they fail, the agent hears it on its next edit. Detron finds the command (`npm test`,
+  `pnpm test`, pytest, in each app of the repo), or set `"tests": "make check"` (or `"off"`) in
+  `.detron/config.json`; `"testTimeoutSeconds"` limits a run (default 300)
+- **At the end** a change card for you: the files it changed, the problems it added and fixed,
+  and whether the tests passed
 - **Suggest mode** (default) only tells the agent. `init --mode block` also refuses exact copies,
   sends new security or crash problems back as errors, and won't let the task finish while
   they're there

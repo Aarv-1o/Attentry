@@ -5,7 +5,8 @@ import type { Finding } from "../findings/types.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { buildIndex } from "../index/repo.ts";
 import { scanRepo } from "../scan/scan.ts";
-import { loadConfig } from "./config.ts";
+import { loadConfig, type Config } from "./config.ts";
+import { findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { startTask, type Task } from "./ledger.ts";
@@ -16,6 +17,7 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 // hook call, when that can't start).
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
+const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 
 export interface AgentStatus {
   edits: number;
@@ -29,7 +31,24 @@ export class Sessions {
   private readonly cache: FileCache = new Map();
   private readonly tasks = new Map<string, { task: Task; told: Set<string> }>();
 
-  constructor(readonly root: string) {}
+  // `runsTests`: only the background Detron runs tests. A one-off hook process would be held
+  // open by them until the agent's hook timeout kills it.
+  constructor(readonly root: string, private readonly runsTests = false) {}
+
+  // Starts the tests unless they're already running. Results land on the task.
+  private startTests(task: Task, config: Config): Promise<TestRun> {
+    if (task.testing) return task.testing;
+    const atEdit = task.edits;
+    task.testing = findTests(this.root, config.tests)
+      .then((commands) => runTests(commands, config.testTimeoutSeconds * 1000))
+      .then((run) => {
+        task.tests = { ...run, atEdit };
+        task.testsTold = false;
+        return run;
+      })
+      .finally(() => delete task.testing);
+    return task.testing;
+  }
 
   private async findings(): Promise<Finding[]> {
     return collectFindings(await scanRepo(this.root, this.cache));
@@ -96,12 +115,22 @@ export class Sessions {
     }
     if (event === "PostToolUse" && isEdit(input)) {
       const { task, told } = await this.taskOf(input.session_id);
-      return afterEdit(input, this.root, task, told, await this.findings(), await loadConfig(this.root));
+      const config = await loadConfig(this.root);
+      const checkIns = task.lastCheckIn;
+      const reply = afterEdit(input, this.root, task, told, await this.findings(), config);
+      // A check-in: the tests, in the background (the agent doesn't wait).
+      if (this.runsTests && task.lastCheckIn !== checkIns) void this.startTests(task, config);
+      return reply;
     }
     if (event === "Stop") {
       const entry = this.tasks.get(input.session_id);
       if (!entry) return SILENT; // nothing was edited in this session
-      return atStop(input, entry.task, await this.findings(), await loadConfig(this.root));
+      const config = await loadConfig(this.root);
+      // The card's evidence: tests run on the final code, waited for as long as the hook may take.
+      if (this.runsTests && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
+        await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);
+      }
+      return atStop(input, entry.task, await this.findings(), config);
     }
     return SILENT;
   }

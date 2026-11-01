@@ -1,16 +1,20 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-// .detron/config.json, written by the person (or `detron init`): how strict hooks are.
+// .detron/config.json, written by the person (or `detron init`): how strict hooks are, and the
+// tests to run.
 
 export interface Config {
   // suggest: tell the agent, never stop it. block: also stop a task from finishing while it
   // has added security or crash problems.
   mode: "suggest" | "block";
   checkInEvery: number; // edits between check-ins
+  // The test command run at check-ins and at the end, or "off". Unset: Detron finds it.
+  tests: string | undefined;
+  testTimeoutSeconds: number;
 }
 
-const DEFAULTS: Config = { mode: "suggest", checkInEvery: 10 };
+const DEFAULTS: Config = { mode: "suggest", checkInEvery: 10, tests: undefined, testTimeoutSeconds: 300 };
 
 export async function loadConfig(root: string): Promise<Config> {
   let text: string;
@@ -23,6 +27,8 @@ export async function loadConfig(root: string): Promise<Config> {
   return {
     mode: read.mode === "block" ? "block" : "suggest",
     checkInEvery: Number.isInteger(read.checkInEvery) && read.checkInEvery! > 0 ? read.checkInEvery! : DEFAULTS.checkInEvery,
+    tests: typeof read.tests === "string" && read.tests.trim() ? read.tests.trim() : undefined,
+    testTimeoutSeconds: Number.isInteger(read.testTimeoutSeconds) && read.testTimeoutSeconds! > 0 ? read.testTimeoutSeconds! : DEFAULTS.testTimeoutSeconds,
   };
 }
 

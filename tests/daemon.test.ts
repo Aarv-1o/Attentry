@@ -45,7 +45,7 @@ test("hooks share one background Detron that remembers the task between calls", 
     const live = await agentStatus(root);
     assert.deepEqual({ ...live, lastEditAt: undefined }, { edits: 1, added: 1, untilCheckIn: 9, checkInEvery: 10, lastEditAt: undefined }, "the editor sees the task");
     const end = await hook(root, { hook_event_name: "Stop", stop_hook_active: false });
-    assert.equal(end.systemMessage, "Detron: this task added 1 problem (1 will break). See them with `detron scan --changed` or in the Detron sidebar.", "the task survived across hook processes");
+    assert.match(end.systemMessage, /^Detron change card\n- Changed: 1 file \(index\.js\)\n- Problems: 1 added \(1 will break\)\n[^]*- Tests: none found/, "the task survived across hook processes");
     console.log(`# after-edit hook took ${took}ms (process start included)`);
   } finally {
     await stop(root);

@@ -92,7 +92,8 @@ tiny single-use helpers, assign-then-return.
 Status: all of the above are built and report through `detron scan`, plus the cross-stack
 check, security and crash checks, database checks and hotspots. Every finding comes with why, fix steps, safe or ask
 first, and how to check (`--agent`, `--json`). The reuse hint runs before each agent edit. The MCP
-server (`detron mcp`) gives agents find_existing, check and explain. Not built yet: vague names.
+server (`detron mcp`) gives agents find_existing, check and explain. Tests run at check-ins and at
+the end, and the change card shows them. Not built yet: vague names, the safety layer's undo.
 
 ## Safety rules
 
