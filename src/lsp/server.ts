@@ -11,6 +11,7 @@ import { PARTS, partOf, severityOf, type Part } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { formatAgent } from "../report/agent.ts";
 import { formatForPerson } from "../report/brief.ts";
+import { formatMarkdown } from "../report/markdown.ts";
 import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
@@ -197,8 +198,12 @@ export function startServer(connection: Connection): void {
     mode: (await loadConfig(root)).mode,
     live: (await agentStatus(root)) ?? null,
   }));
-  connection.onRequest("detron/report", ({ format }: { format: "agent" | "person" }) =>
-    format === "agent" ? formatAgent(root, shown(), options.hints) : formatForPerson(shown(), older()));
+  connection.onRequest("detron/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
+    if (format === "agent") return formatAgent(root, shown(), options.hints);
+    // Opened in a preview that has no file of its own: links name each file in full.
+    if (format === "markdown") return formatMarkdown(shown(), { root, showHints: options.hints, older: older(), linkBase: `${pathToFileURL(root).href}/` });
+    return formatForPerson(shown(), older());
+  });
   connection.onRequest("detron/explain", ({ id }: { id: string }) => {
     const f = all.find((x) => x.id === id);
     return f ? explainFindings(root, [f]) : "";

@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { collectFindings } from "../findings/collect.ts";
@@ -6,6 +6,7 @@ import { formatAgent } from "../report/agent.ts";
 import { formatForAgent, formatForPerson } from "../report/brief.ts";
 import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
+import { formatMarkdown } from "../report/markdown.ts";
 import { formatScan, scanToJson } from "../report/scan.ts";
 import type { HookInput } from "../agent/hooks.ts";
 import { init } from "../agent/init.ts";
@@ -39,7 +40,11 @@ Options:
   --all                 Also show hints (less certain findings)
   --agent               Findings as steps an AI agent can follow: what, why, how to fix,
                         whether it's safe, how to check
+  --markdown            A report to read in a Markdown preview (VS Code, GitHub): a
+                        summary, then every finding linked to its line, with the fix
   --json                The same findings, machine-readable
+  --out <file>          Write the report to a file instead of printing it
+                        (detron scan --markdown --out detron-report.md)
   -h, --help            Show this help
 `;
 
@@ -53,7 +58,7 @@ async function isFolder(path: string): Promise<boolean> {
   }
 }
 
-type Format = "text" | "agent" | "json" | "brief";
+type Format = "text" | "agent" | "json" | "brief" | "markdown";
 interface ScanOptions { all: boolean; format: Format; changed: boolean; base: string | undefined }
 
 async function scan(path: string, { all, format, changed, base }: ScanOptions, out: Write): Promise<number> {
@@ -80,6 +85,7 @@ async function scan(path: string, { all, format, changed, base }: ScanOptions, o
   if (format === "brief") out(formatForAgent(shown, `detron scan${changed ? " --changed" : ""} --agent`));
   else if (format === "text") out(formatForPerson(shown, older));
   else if (format === "agent") out(formatAgent(root, findings, all));
+  else if (format === "markdown") out(formatMarkdown(findings, { root, showHints: all, older, stats: { files: result.index.files.length, functions: result.index.functions.length } }));
   else out(`${JSON.stringify(scanToJson(result, findings), null, 2)}\n`);
   return 0;
 }
@@ -144,6 +150,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
       options: {
         all: { type: "boolean" }, agent: { type: "boolean" }, json: { type: "boolean" }, brief: { type: "boolean" },
         changed: { type: "boolean" }, base: { type: "string" }, help: { type: "boolean", short: "h" }, mode: { type: "string" },
+        markdown: { type: "boolean" }, out: { type: "string" },
       },
     });
   } catch (error) {
@@ -171,7 +178,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
       return 1;
     }
   }
-  if (command === "scan" && extra.length === 1 && ["all", "agent", "json", "brief", "changed"].includes(extra[0]!)) {
+  if (command === "scan" && extra.length === 1 && ["all", "agent", "json", "brief", "changed", "markdown"].includes(extra[0]!)) {
     out(`Did you mean --${extra[0]}? Options start with two dashes.\n`);
     return 2;
   }
@@ -179,6 +186,17 @@ export async function run(argv: string[], out: Write): Promise<number> {
     out(`Unknown command: ${positionals.join(" ")}\n\n${HELP}`);
     return 2;
   }
-  const format: Format = values.json ? "json" : values.agent ? "agent" : values.brief ? "brief" : "text";
-  return scan(path, { all: values.all ?? false, format, changed: values.changed ?? !!values.base, base: values.base }, out);
+  const format: Format = values.json ? "json" : values.markdown ? "markdown" : values.agent ? "agent" : values.brief ? "brief" : "text";
+  const options = { all: values.all ?? false, format, changed: values.changed ?? !!values.base, base: values.base };
+  if (!values.out) return scan(path, options, out);
+  // Written as UTF-8 by Detron itself: PowerShell's `>` would save UTF-16.
+  let report = "";
+  const code = await scan(path, options, (text) => (report += text));
+  if (code !== 0) {
+    out(report);
+    return code;
+  }
+  await writeFile(values.out, report, "utf8");
+  out(`Report written to ${values.out}\n`);
+  return 0;
 }

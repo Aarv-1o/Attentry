@@ -41,10 +41,18 @@ function callersOf(fn: FunctionInfo, texts: Map<string, string>): Place[] {
 
 const short = (text: string) => (text.trim().length > 90 ? `${text.trim().slice(0, 89)}…` : text.trim());
 
+// A line of code as a Markdown code span. Code with backticks in it (a docstring that quotes
+// `fromisoformat`) needs a longer fence, or the span ends early.
+export function codeSpan(text: string): string {
+  const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map((run) => run.length));
+  const fence = "`".repeat(longest + 1);
+  return longest ? `${fence} ${text} ${fence}` : `${fence}${text}${fence}`;
+}
+
 function changeText(c: LineChange): string {
-  if (c.base && c.copy) return `line ${c.copy.line}: \`${short(c.copy.text)}\` instead of \`${short(c.base.text)}\``;
-  if (c.copy) return `line ${c.copy.line}: \`${short(c.copy.text)}\` (only in this copy)`;
-  return `missing \`${short(c.base!.text)}\``;
+  if (c.base && c.copy) return `line ${c.copy.line}: ${codeSpan(short(c.copy.text))} instead of ${codeSpan(short(c.base.text))}`;
+  if (c.copy) return `line ${c.copy.line}: ${codeSpan(short(c.copy.text))} (only in this copy)`;
+  return `missing ${codeSpan(short(c.base!.text))}`;
 }
 
 function copyFindings(r: ScanResult): Finding[] {
