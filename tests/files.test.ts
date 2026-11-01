@@ -21,6 +21,11 @@ test("outside git: walks the folder and skips junk folders", async () => {
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 
+test("skips test fixtures: sample code, often wrong on purpose", async () => {
+  const root = await makeRepo({ ...FILES, "tests/fixtures/bad/app.js": "", "src/__fixtures__/x.ts": "", "src/fixtures.ts": "" });
+  assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/fixtures.ts", "src/ui/Page.tsx"]);
+});
+
 test("skips coding agents' folders: installed skills aren't the app's code", async () => {
   const root = await makeRepo({ ...FILES, ".agents/skills/maps/prep.mjs": "", "video/.claude/skills/x/run.py": "", ".github/workflows/ci.js": "" });
   assert.deepEqual(await sourceFiles(root), [".github/workflows/ci.js", "server/main.py", "src/app.ts", "src/ui/Page.tsx"]);

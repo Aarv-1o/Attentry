@@ -64,9 +64,12 @@ async function walk(root: string, dir = root): Promise<string[]> {
 // same skill installed several times, never the app's.
 const AGENT_TOOLING = /(^|\/)\.(agents|claude|cursor|codex|gemini|windsurf|cline|roo|kiro|github\/(prompts|agents|skills))\//;
 
+// Test fixtures: sample code for tests, often wrong on purpose.
+const TEST_FIXTURES = /(^|\/)(tests?|__tests__|spec)\/(.+\/)?(fixtures|__fixtures__)\/|(^|\/)__fixtures__\//;
+
 // Every file in the repo (respecting .gitignore), as sorted repo-relative paths with "/" separators.
 export async function listRepoFiles(root: string): Promise<string[]> {
-  return ((await gitFiles(root)) ?? (await walk(root))).filter((f) => !AGENT_TOOLING.test(f)).sort();
+  return ((await gitFiles(root)) ?? (await walk(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f)).sort();
 }
 
 // The app a file belongs to: the deepest folder above it with a package.json or Python project file.
