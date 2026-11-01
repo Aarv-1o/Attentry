@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9
+
+- Fewer false alarms. Functions that do opposite things (follow and unfollow, connect and disconnect) are no longer called copies. Each secret is listed once, and an empty default is a hint. Python `.find()` on XML or strings isn't a database query. JSON.parse in command-line scripts isn't a crash risk. Prettier, ESLint, Prisma and other tools set up by a config file aren't unused packages. Agent skill folders (.agents, .claude, .cursor) aren't scanned. A reason on the `except` line, an example inside a comment, and a multi-line comment explaining why are all respected.
+
 ## 0.0.8
 
 - Connected agents now hear, before writing a function, when the repo already has one that does the same job.

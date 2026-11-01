@@ -2,7 +2,7 @@
   "name": "detron",
   "displayName": "Detron",
   "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "publisher": "detron",
   "license": "MIT",
   "author": {
