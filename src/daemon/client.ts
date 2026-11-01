@@ -3,11 +3,12 @@ import { createConnection } from "node:net";
 import { dirname } from "node:path";
 import type { HookInput, HookReply } from "../agent/hooks.ts";
 import { Sessions, type AgentStatus } from "../agent/session.ts";
+import type { ToolResult } from "../agent/tools.ts";
 import { addressFor, buildId } from "./address.ts";
 import type { Request, Response } from "./server.ts";
 
 // Asks the repo's background Detron, starting it if it isn't running. If it can't start, the
-// hook is answered right here, slower and without memory of the task.
+// question is answered right here, slower and without memory of the task.
 
 const START_WAIT_MS = 20_000; // its first scan reads the whole repo
 const POLL_MS = 150;
@@ -43,9 +44,10 @@ export async function agentStatus(root: string): Promise<AgentStatus | undefined
   }
 }
 
-export async function hookReply(root: string, input: HookInput): Promise<HookReply> {
+// Asks the background Detron, starting it if needed. `here` answers in this process when it
+// can't start: slower, and without the task's history.
+async function viaBackground<T>(root: string, request: Request, pick: (r: Response) => T | undefined, here: () => Promise<T>): Promise<T> {
   const address = addressFor(root);
-  const request: Request = { kind: "hook", build: buildId(), input };
   let started = false;
   const deadline = Date.now() + START_WAIT_MS;
   for (;;) {
@@ -55,7 +57,8 @@ export async function hookReply(root: string, input: HookInput): Promise<HookRep
     } catch (error) {
       if (!notRunning(error)) throw error;
     }
-    if (response && "reply" in response) return response.reply;
+    const answer = response && pick(response);
+    if (answer !== undefined) return answer;
     if (response && "error" in response) throw new Error(`the background Detron failed: ${response.error}`);
     // Not running, or an older Detron that just stopped: start this one and try again.
     if (!started || (response && "restart" in response)) {
@@ -65,5 +68,11 @@ export async function hookReply(root: string, input: HookInput): Promise<HookRep
     if (Date.now() > deadline) break;
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
-  return new Sessions(root).handle(input); // couldn't start it: answer here, without the task's history
+  return here();
 }
+
+export const hookReply = (root: string, input: HookInput): Promise<HookReply> =>
+  viaBackground(root, { kind: "hook", build: buildId(), input }, (r) => ("reply" in r ? r.reply : undefined), () => new Sessions(root).handle(input));
+
+export const toolReply = (root: string, name: string, args: Record<string, unknown>): Promise<ToolResult> =>
+  viaBackground(root, { kind: "tool", build: buildId(), name, args }, (r) => ("result" in r ? r.result : undefined), () => new Sessions(root).tool(name, args));
