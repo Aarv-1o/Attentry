@@ -88,6 +88,8 @@ const TOOL_CONFIGS: [RegExp, RegExp, string?][] = [
 // render with react-dom although no file imports it.
 const KNOWN_PEERS: [RegExp, RegExp][] = [
   [/^react-dom$/, /^(next|remotion|@remotion\/|gatsby|react-router-dom|@testing-library\/react|@react-three\/fiber)/],
+  // React itself, under react-dom and every React framework (and JSX, which uses it unimported).
+  [/^react$/, /^(react-dom|react-native|next|remotion|@remotion\/|gatsby|expo|react-router(-dom)?|@react-three\/fiber)$|^@remotion\//],
   [/^@swc\/core$/, /^(@swc-node\/|@swc\/jest$|unplugin-swc$)/],
   [/^tslib$/, /^typescript$/],
 ];
@@ -127,11 +129,14 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
     const quoted = (name: string) => new RegExp(`["'\`]${escapeRegex(name)}["'\`/]`).test(sourceText);
 
     // TypeScript is used by the editor and type checks (astro check, vite) wherever there's TS.
+    const hasJsx = index.files.some((f) => inScope(f) && /\.(jsx|tsx)$/.test(f));
     const hasTypeScript = index.allFiles.some((f) => inScope(f) && /(^|\/)tsconfig[\w.-]*\.json$|\.(ts|tsx|mts|cts)$/.test(f));
     const configured = (name: string) => TOOL_CONFIGS.some(([pkg, file, key]) =>
       pkg.test(name) && (index.allFiles.some((f) => inScope(f) && file.test(f)) || (!!key && key in manifest)));
     const isUsed = (name: string): boolean => {
       if (name === "typescript" && hasTypeScript) return true;
+      // JSX compiles to React calls with no import written (the automatic runtime).
+      if (name === "react" && hasJsx) return true;
       if (configured(name)) return true;
       if (imported.has(name) || mentions(configText, name) || quoted(name)) return true;
       if (binNames(name, installed.get(name)).some((bin) => mentions(scripts, bin))) return true;
