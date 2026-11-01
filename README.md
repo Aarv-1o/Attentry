@@ -52,6 +52,7 @@ Copilot CLI read them too). Then, in every agent session:
   instead of adding a copy
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
+- **At the start** one line, so the agent knows Detron is on for this project
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Detron finds the command (`npm test`,
