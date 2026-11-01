@@ -125,6 +125,11 @@ const ArrowIcon = () => null;
 // cancelled / expired → ended: revert to the free plan
 const ENDED = ["cancelled", "expired"];
 `, "comment-repeats-code"), ["2 comment-repeats-code likely", "4 comment-repeats-code likely"]);
+  assert.deepEqual(await check("f.ts", `
+// Capture phase: the stage is its own scroll container, and a bubbled
+// listener on window never hears it scroll.
+window.addEventListener("scroll", measure, true);
+`, "comment-repeats-code"), []);
 });
 
 async function shapeIssues(files: Record<string, string>): Promise<string[]> {

@@ -68,6 +68,9 @@ export async function commentRules({ parsed, file, syntax }: FileContext): Promi
   for (const comment of comments) {
     const row = comment.startPosition.row;
     if (codeRowSet.has(row)) continue;
+    // The last line of a longer comment: the lines above it say why, and the whole comment
+    // counts ("Capture phase: the stage is its own scroll container" above addEventListener).
+    if (commentRows.has(row - 1) && !codeRowSet.has(row - 1)) continue;
     const text = syntax.commentText(comment.text);
     const next = lines.slice(row + 1).find((l) => l.trim())?.trim() ?? "";
     if (!next || next.startsWith(comment.text.slice(0, 1)) || DIRECTIVE.test(text) || EXPLAINS_WHY.test(text) || DIVIDER.test(comment.text) || DEFINITION.test(next)) continue;
