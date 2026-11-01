@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.10
+
+- Full report opens as a formatted page: a summary table, every finding linked to its line, and how to fix it folded under each rule.
+- Fewer false alarms: React isn't an unused package (JSX uses it with no import), a generated API client isn't copies, Alembic migrations aren't unused files, test fixtures aren't scanned, and a copy that only gained a docstring is an exact copy, with docstrings no longer listed as differences.
+
 ## 0.0.9
 
 - Fewer false alarms. Functions that do opposite things (follow and unfollow, connect and disconnect) are no longer called copies. Each secret is listed once, and an empty default is a hint. Python `.find()` on XML or strings isn't a database query. JSON.parse in command-line scripts isn't a crash risk. Prettier, ESLint, Prisma and other tools set up by a config file aren't unused packages. Agent skill folders (.agents, .claude, .cursor) aren't scanned. A reason on the `except` line, an example inside a comment, and a multi-line comment explaining why are all respected.
