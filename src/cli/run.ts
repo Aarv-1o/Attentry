@@ -9,10 +9,11 @@ import { changedLines, isInChanges } from "../scan/changes.ts";
 import { formatMarkdown } from "../report/markdown.ts";
 import { formatScan, scanToJson } from "../report/scan.ts";
 import type { HookInput } from "../agent/hooks.ts";
-import { init } from "../agent/init.ts";
-import { hookReply } from "../daemon/client.ts";
+import { init, mcpSetup } from "../agent/init.ts";
+import { hookReply, toolReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
+import { runMcpServer } from "../mcp/server.ts";
 import { scanRepo } from "../scan/scan.ts";
 
 const HELP = `Detron: stops AI coding agents from making a mess of your codebase.
@@ -28,7 +29,10 @@ Usage:
                               that add security or crash problems
   detron hook claude          Run as an agent hook: reads the hook's JSON on stdin, answers
                               in Claude Code's format (Cursor and Copilot CLI read it too)
-  detron serve [path]         The background Detron that hooks talk to (started for you)
+  detron mcp [path]           Run as an MCP server: tools agents call themselves
+                              (find_existing, check, explain). For agents without hooks
+                              too: Windsurf, Cline, and any MCP client
+  detron serve [path]         The background Detron that hooks and MCP talk to (started for you)
   detron explain <file:line>  Everything about the findings on one line: what the code
                               does, why it matters, how to fix it, how to check
 
@@ -138,6 +142,13 @@ export async function run(argv: string[], out: Write): Promise<number> {
     return 0;
   }
   if (argv[0] === "hook") return hook(argv[1], out);
+  // MCP: stdout is the agent's channel, so nothing else is printed. The repo is the folder
+  // given, or the project the agent says it's in, or where the agent started it.
+  if (argv[0] === "mcp") {
+    const root = resolve(argv[1] ?? process.env.CLAUDE_PROJECT_DIR ?? ".");
+    await runMcpServer((name, args) => toolReply(root, name, args));
+    return 0;
+  }
   if (argv[0] === "serve") {
     await serve(resolve(argv[1] ?? "."));
     return 0; // the server keeps the process alive until it goes idle
@@ -171,7 +182,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
     }
     try {
       const done = await init(resolve(path), process.argv[1]!, values.mode as "suggest" | "block" | undefined);
-      out(`${done.map((d) => `✓ ${d}`).join("\n")}\nStart a new Claude Code session in this repo to use them.\n`);
+      out(`${done.map((d) => `✓ ${d}`).join("\n")}\nStart a new Claude Code session in this repo to use them.\n\n${mcpSetup(process.argv[1]!)}\n`);
       return 0;
     } catch (error) {
       out(`${(error as Error).message}\n`);
