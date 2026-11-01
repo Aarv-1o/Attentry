@@ -54,6 +54,13 @@ const key = import.meta.env.VITE_OPENAI_API_KEY;
   assert.deepEqual(await only("web/config.js", src, ["hardcoded-secret", "secret-fallback", "client-exposed-secret"]), [
     "1 hardcoded-secret likely", "2 hardcoded-secret likely", "5 secret-fallback likely", "8 hardcoded-secret likely", "9 client-exposed-secret likely",
   ]);
+  // One finding per read, even inside .strip(); an empty default is "not set", so only a hint.
+  const py = `JWT_SECRET = os.environ.get("JWT_SECRET", "").strip()
+API_KEY = os.getenv("API_KEY", "dev-key").strip().lower()
+URL = os.environ.get("SUPABASE_URL", "")
+`;
+  assert.deepEqual(await only("app/auth.py", py, ["secret-fallback"]), ["1 secret-fallback maybe", "2 secret-fallback likely"]);
+  assert.deepEqual(await only("a.js", `const s = process.env.JWT_SECRET ?? "";\nconst t = (process.env.API_TOKEN || "abc").trim();\n`, ["secret-fallback"]), ["1 secret-fallback maybe", "2 secret-fallback likely"]);
   assert.deepEqual(committedEnvFiles([".env", "backend/.env.production", ".env.example", "src/env.ts"]).map((f) => f.file), [".env", "backend/.env.production"]);
 });
 
