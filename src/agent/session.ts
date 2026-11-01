@@ -6,7 +6,7 @@ import type { FileCache } from "../index/fileScan.ts";
 import { buildIndex } from "../index/repo.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
-import { findTests, runTests, type TestRun } from "./tests.ts";
+import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { startTask, type Task } from "./ledger.ts";
@@ -28,6 +28,8 @@ export interface AgentStatus {
   lastEditAt: number;
   untilCheckIn: number; // edits until the next check-in
   checkInEvery: number;
+  files: number; // files the task changed
+  tests: { state: TestRun["state"] | "running" | "not run"; text: string };
 }
 
 export class Sessions {
@@ -85,7 +87,8 @@ export class Sessions {
     const latest = this.latestTask();
     if (!latest) return undefined;
     const every = (await loadConfig(this.root)).checkInEvery;
-    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every };
+    const tests = latest.testing ? { state: "running" as const, text: "running…" } : latest.tests ? { state: latest.tests.state, text: describeTests(latest.tests) } : { state: "not run" as const, text: "not run yet (they run at the first check-in)" };
+    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every, files: latest.editedFiles.size, tests };
   }
 
   // New functions in what the agent is about to write that the repo already has.

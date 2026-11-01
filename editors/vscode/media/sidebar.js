@@ -122,7 +122,9 @@ function yourAgent() {
   const working = agent.live && Date.now() - agent.live.lastEditAt < LIVE_MS;
   const connected = agent.hooks === "connected";
   const state = connected ? (working ? ["live", "Working now"] : ["ok", "Connected"]) : agent.hooks === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
-  const task = agent.live ? `<p class="task">${working ? "This task" : "Last task"}: ${plural(agent.live.edits, "edit")}, ${agent.live.added ? `<b>${plural(agent.live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(agent.live.lastEditAt)}`}.</p>` : "";
+  const live = agent.live;
+  const tests = live?.tests ? `<p class="tests ${esc(live.tests.state)}"><i class="glyph ${live.tests.state === "passed" ? "ok" : live.tests.state === "failed" || live.tests.state === "timeout" ? "error" : live.tests.state === "running" ? "busy" : "hint"}"></i>Tests: ${esc(live.tests.text)}</p>` : "";
+  const task = live ? `<p class="task">${working ? "This task" : "Last task"}: ${plural(live.edits, "edit")} to ${plural(live.files ?? 0, "file")}, ${live.added ? `<b>${plural(live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(live.lastEditAt)}`}.</p>${tests}` : "";
   const mode = agent.mode;
   const mcpNeeded = agent.mcp && agent.mcp !== "added";
   const connect = connected
