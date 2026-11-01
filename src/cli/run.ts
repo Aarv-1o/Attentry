@@ -14,6 +14,7 @@ import { hookReply, toolReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
 import { runMcpServer } from "../mcp/server.ts";
+import { projectRoot } from "../index/project.ts";
 import { scanRepo } from "../scan/scan.ts";
 
 const HELP = `Detron: stops AI coding agents from making a mess of your codebase.
@@ -109,7 +110,7 @@ async function hook(agent: string | undefined, out: Write): Promise<number> {
   }
   try {
     const input = JSON.parse(await readStdin()) as HookInput;
-    const root = resolve(process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? ".");
+    const root = await projectRoot(resolve(process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? "."));
     const reply = await hookReply(root, input);
     out(reply.stdout);
     return reply.exitCode;
@@ -145,7 +146,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
   // MCP: stdout is the agent's channel, so nothing else is printed. The repo is the folder
   // given, or the project the agent says it's in, or where the agent started it.
   if (argv[0] === "mcp") {
-    const root = resolve(argv[1] ?? process.env.CLAUDE_PROJECT_DIR ?? ".");
+    const root = await projectRoot(resolve(argv[1] ?? process.env.CLAUDE_PROJECT_DIR ?? "."));
     await runMcpServer((name, args) => toolReply(root, name, args));
     return 0;
   }
