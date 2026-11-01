@@ -73,6 +73,8 @@ export function shapeOf(body: Node, scope: Node = body): string[] {
   const tokens: string[] = [];
   const visit = (node: Node): void => {
     if (node.type === "comment") return;
+    // A string on its own does nothing: a docstring, or "use strict".
+    if (node.type === "expression_statement" && node.namedChildCount === 1 && node.namedChild(0)?.type === "string") return;
     // One marker per JSX element, so markup-heavy functions (icons, static pages) can be told apart.
     if (node.type === "jsx_element" || node.type === "jsx_self_closing_element") tokens.push(JSX_MARKER);
     if (LITERAL_TYPES.has(node.type) || STRING_TEXT_TYPES.has(node.type)) {

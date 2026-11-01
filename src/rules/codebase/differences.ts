@@ -44,13 +44,41 @@ export function normalizeLine(text: string): string {
 
 const isNoise = (text: string) => !text.trim() || /^\s*(\/\/|#|\/\*|\*)/.test(text);
 
+// Lines that explain rather than run: a Python docstring at the top of the body, and the
+// inside of a /* ... */ block. A copy that only gained a docstring hasn't drifted.
+function explanationRows(lines: string[]): Set<number> {
+  const rows = new Set<number>();
+  let closing: string | undefined; // what ends the comment or docstring we're in
+  let first = true;
+  lines.forEach((text, i) => {
+    const t = text.trim();
+    if (closing) {
+      rows.add(i);
+      if (t.includes(closing)) closing = undefined;
+      return;
+    }
+    if (!t || isNoise(text)) {
+      if (t.startsWith("/*") && !t.includes("*/")) closing = "*/";
+      return;
+    }
+    const doc = first && /^[rRuUbB]?("""|''')/.exec(t);
+    first = false;
+    if (doc) {
+      rows.add(i);
+      const rest = t.slice(doc[0].length);
+      if (!rest.includes(doc[1]!)) closing = doc[1];
+    }
+  });
+  return rows;
+}
+
 // The body only: the first line is the signature, which differs in name and style anyway.
 function bodyLines(fn: FunctionInfo, source: string): SourceLine[] {
-  return source
-    .split("\n")
-    .slice(fn.startLine, fn.endLine)
+  const lines = source.split("\n").slice(fn.startLine, fn.endLine);
+  const explains = explanationRows(lines);
+  return lines
     .map((text, i) => ({ line: fn.startLine + 1 + i, text }))
-    .filter((l) => !isNoise(l.text));
+    .filter((l, i) => !isNoise(l.text) && !explains.has(i));
 }
 
 const tokens = (text: string) => new Set(normalizeLine(text).match(/"[^"]*"|\w+|[^\s\w]+/g) ?? []);

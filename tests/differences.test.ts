@@ -75,3 +75,34 @@ test("reformatting isn't a difference; functions that differ in most lines are f
     assert.equal(diff, undefined, "only the layout differs");
   }
 });
+
+test("docstrings and comments aren't differences: only the code that runs is compared", async () => {
+  const parse = (doc: string, arg: string) => `from datetime import datetime, timezone
+
+def parsed(stamp):${doc}
+    if not stamp:
+        return None
+    try:
+        d = datetime.fromisoformat(${arg}.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+`;
+  const doc = `
+    """A PostgREST timestamp as an aware datetime.
+
+    \`fromisoformat\` handles \`+00:00\`, not a trailing \`Z\`.
+    """`;
+  const root = await makeRepo({
+    "a.py": parse("", "str(stamp)"),
+    "b.py": parse("", "str(stamp)").replace("def parsed", "def ts"),
+    "c.py": parse(doc, "stamp"),
+  });
+  const groups = findDuplicates((await buildIndex(root)).functions);
+  const drifted = groups.find((g) => g.kind === "similar")!;
+  const diff = await findDifferences(root, drifted);
+  assert.deepEqual(diff?.copies[0]!.changes.map((c) => [c.base?.line, c.copy?.line]), [[7, 11]], "only the line that runs differently");
+  // A copy that only gained a docstring is still an exact copy.
+  const withDoc = await makeRepo({ "a.py": parse("", "stamp"), "b.py": parse(doc, "stamp") });
+  assert.equal(findDuplicates((await buildIndex(withDoc)).functions)[0]?.kind, "exact");
+});
