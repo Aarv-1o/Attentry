@@ -6,7 +6,9 @@ import { collector, walk, type FileContext, type LineFinding } from "../line/typ
 
 const ROUTE_METHOD = /^(app|router|server|\w+Router|api)\.(get|post|put|patch|delete|all|use)$/;
 const FUNCTIONS = new Set(["arrow_function", "function_expression", "function_declaration", "method_definition", "function_definition", "lambda", "function"]);
-const UNTRUSTED_JSON = /localStorage|sessionStorage|\breq\.|\brequest\.|event\.data|message\.data|\.data\b|searchParams|cookie|\bbody\b|text\(\)|readFileSync|process\.argv|ws\b|socket/;
+// Not readFileSync or process.argv: a script or a server's startup that stops loudly on a bad
+// file is doing the right thing, and no request fails with it.
+const UNTRUSTED_JSON = /localStorage|sessionStorage|\breq\.|\brequest\.|event\.data|message\.data|\.data\b|searchParams|cookie|\bbody\b|text\(\)|ws\b|socket/;
 
 // Node objects are fresh wrappers on each lookup: compare by id, never with ===.
 const same = (a: Node | null, b: Node | null) => !!a && !!b && a.id === b.id;

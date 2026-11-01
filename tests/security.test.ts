@@ -87,6 +87,7 @@ router.get("/b", async (req, res) => { try { res.json(await load()); } catch (e)
 router.post("/c", (req, res) => { const data = JSON.parse(req.body.payload); res.json(data); });
 const saved = JSON.parse(localStorage.getItem("cart"));
 router.post("/d", (req, res) => { process.exit(1); });
+const captions = JSON.parse(readFileSync(process.argv[2], "utf8"));
 `;
   assert.deepEqual(await only("routes.js", js, ["async-handler-no-catch", "unguarded-json-parse", "exit-in-handler"]), [
     "1 async-handler-no-catch likely", "3 unguarded-json-parse likely", "4 unguarded-json-parse maybe", "5 exit-in-handler likely",
