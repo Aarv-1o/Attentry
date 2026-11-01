@@ -18,7 +18,8 @@ const ENTRY = new RegExp(
   [
     String.raw`(^|/)(main|index|app|server|run|cli|manage|setup|wsgi|asgi|conftest|__init__|__main__)\.\w+$`,
     String.raw`\.config\.\w+$`, String.raw`(^|/)\.\w+rc\.\w+$`, String.raw`\.d\.ts$`,
-    String.raw`(^|/)(migrations|scripts|bin)/`,
+    // Migrations (Alembic keeps them in versions/) are loaded by the migration tool.
+    String.raw`(^|/)(migrations|scripts|bin)/`, String.raw`(^|/)alembic/versions/`,
   ].join("|"),
 );
 // With file-based routing, pages are loaded by the framework.
