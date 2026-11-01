@@ -132,8 +132,12 @@ export const SECURITY_GUIDES: Record<string, Guide> = {
     name: "HTML built from data (XSS)",
     category: "security", safety: "ask-first",
     why: "Any <script> or onerror= in the data runs in your users' browsers, with their session (86% of AI code failed XSS-prone tasks, Veracode 2025).",
-    fix: ["Render data as text (textContent, normal JSX {value}).", "If it must be HTML (markdown, rich text), sanitize it first with DOMPurify."],
-    verify: "Data containing <img src=x onerror=alert(1)> shows as text or is stripped; nothing runs.",
+    fix: [
+      "Follow where the HTML comes from first. If a renderer that can't output scripts builds it (markdown-it with html: false, a rich-text editor's own generateHTML), it's safe: say so with `// detron-ignore xss: <the renderer, and why>` on the line.",
+      "Otherwise render the data as text (textContent, normal JSX {value}).",
+      "If it must be HTML (markdown, rich text), sanitize it first with DOMPurify.",
+    ],
+    verify: "Data containing <img src=x onerror=alert(1)> shows as text or is stripped; nothing runs. Or the ignore comment names the renderer that makes it safe.",
   },
   "cors-any-origin-with-credentials": {
     name: "CORS: any origin, with credentials",

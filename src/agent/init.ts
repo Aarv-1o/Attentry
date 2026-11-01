@@ -40,10 +40,10 @@ export function hookCommand(entry: string): string {
   return `node "${built.replace(/\\/g, "/")}" hook claude`;
 }
 
-// The MCP server, for agents to call Detron themselves. Added per person, not to the repo's
-// .mcp.json: the path is this machine's.
-export const mcpSetup = (entry: string) =>
-  `For tools the agent can call (find_existing, check, explain), add Detron's MCP server (run this in the repo's folder):\n  claude mcp add detron --scope local -- ${hookCommand(entry).replace(/ hook claude$/, " mcp")}\nOther agents (Cursor, Windsurf, Cline, Codex): see "With your agent" in Detron's README.`;
+// The MCP server, for agents to call Detron themselves (see mcpSetup.ts). Added per person, not
+// to the repo's .mcp.json: the path is this machine's.
+export const mcpSetup = (command: string) =>
+  `For tools the agent can call (find_existing, check, explain), add Detron's MCP server (run this in the repo's folder):\n  ${command}\nOther agents (Cursor, Windsurf, Cline, Codex): see "With your agent" in Detron's README.`;
 
 export async function init(root: string, entry: string, mode: "suggest" | "block" | undefined): Promise<string[]> {
   const command = hookCommand(entry);

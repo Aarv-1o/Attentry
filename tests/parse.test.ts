@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { test } from "node:test";
 import { makeRepo } from "./helpers.ts";
-import { detectLanguage, parseFile, parseSource } from "../src/parse/parse.ts";
+import { detectLanguage, parseFile, parseSource, parseText } from "../src/parse/parse.ts";
 
 test("detects languages by extension", () => {
   assert.equal(detectLanguage("a/b.js"), "javascript");
@@ -40,4 +40,16 @@ test("parseFile reads and parses a supported file", async () => {
 test("parseFile skips unsupported files", async () => {
   const dir = await makeRepo({ "notes.md": "# hi" });
   assert.equal(await parseFile(join(dir, "notes.md")), undefined);
+});
+
+test("a bare & in JSX (href=\"?a=1&b=2\") doesn't stop a file being read, and lines stay put", async () => {
+  const source = `export const Badge = () => (\n  <a href="https://x.com/r?utm_source=a&utm_medium=b">Tom & Jerry</a>\n);\nexport function ok(a, b) {\n  return a && b;\n}\n`;
+  const parsed = (await parseText("Badge.tsx", source))!;
+  try {
+    assert.equal(parsed.tree.rootNode.hasError, false);
+    assert.equal(parsed.source.length, source.length);
+    assert.match(parsed.source, /return a && b;/, "real && untouched");
+  } finally {
+    parsed.tree.delete();
+  }
 });

@@ -4,7 +4,7 @@ import type { LanguageClient } from "vscode-languageclient/node";
 
 // The Detron panel in the activity bar, in three parts: findings (by part, each opens its line),
 // scanning (scan now, automatic checks on or off, the agent's next check-in), and the agent
-// (connect Claude Code, suggest or block, how its task is going).
+// (connect Claude Code and its MCP tools, suggest or block, how its task is going).
 
 export interface Status {
   scanning: boolean;
@@ -16,10 +16,13 @@ export interface Status {
   error?: string;
 }
 
+type McpResult = { ok: true } | { ok: false; reason: string; command: string };
+
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "toggleHints" | "toggleAuto" | "connectAgent" | "copyReport" | "openReport" | "settings" }
+  | { type: "ready" | "rescan" | "toggleShow" | "toggleHints" | "toggleAuto" | "connectMcp" | "copyReport" | "openReport" | "settings" }
+  | { type: "connectAgent"; withMcp?: boolean }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -58,6 +61,14 @@ export class Sidebar implements vscode.WebviewViewProvider {
     await this.agent();
   }
 
+  // Without Claude Code's command the person runs it: offer to copy it.
+  private async mcpFailed(what: string, mcp: Extract<McpResult, { ok: false }>): Promise<void> {
+    const copy = "Copy the command";
+    if ((await vscode.window.showWarningMessage(`Detron: ${what}: ${mcp.reason}. Run this in the project's folder instead.`, copy)) === copy) {
+      await vscode.env.clipboard.writeText(mcp.command);
+    }
+  }
+
   // The panel's title-bar buttons run these too.
   readonly run = (type: FromPanel["type"]) => this.handle({ type } as FromPanel);
 
@@ -76,11 +87,18 @@ export class Sidebar implements vscode.WebviewViewProvider {
     }
     if (m.type === "connectAgent") {
       try {
-        await command("detron.server.connectAgent");
-        void vscode.window.showInformationMessage("Detron: Claude Code is connected. Start a new Claude Code session in this folder to use it.");
+        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "detron.server.connectAgent", arguments: [!!m.withMcp] });
+        if (mcp && !mcp.ok) await this.mcpFailed("Claude Code is connected, but its MCP tools couldn't be added", mcp);
+        else void vscode.window.showInformationMessage(`Detron: Claude Code is connected${mcp ? ", with its MCP tools" : ""}. Start a new Claude Code session in this folder to use ${mcp ? "them" : "it"}.`);
       } catch (error) {
         void vscode.window.showErrorMessage(`Detron: couldn't connect Claude Code. ${(error as Error).message}`);
       }
+      await this.agent();
+    }
+    if (m.type === "connectMcp") {
+      const mcp = await command("detron.server.connectMcp") as McpResult;
+      if (mcp.ok) void vscode.window.showInformationMessage("Detron: MCP tools added. Start a new Claude Code session in this folder to see them.");
+      else await this.mcpFailed("Couldn't add the MCP tools", mcp);
       await this.agent();
     }
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "detron");

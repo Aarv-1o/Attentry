@@ -29,7 +29,7 @@ export async function serve(root: string): Promise<void> {
   const address = addressFor(root);
   if (await answering(address)) return; // another one got there first: it serves this repo
   if (process.platform !== "win32") rmSync(address, { force: true }); // left by a crash
-  const sessions = new Sessions(root);
+  const sessions = new Sessions(root, true); // long-lived: it can run the tests
   const build = buildId();
   let queue = Promise.resolve();
   let idle: NodeJS.Timeout;

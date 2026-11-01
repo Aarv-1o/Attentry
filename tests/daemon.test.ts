@@ -34,7 +34,8 @@ test("hooks share one background Detron that remembers the task between calls", 
   const root = await makeRepo({ "index.js": START });
   try {
     assert.equal(await agentStatus(root), undefined, "no agent yet: nothing is started just to ask");
-    assert.equal(await hook(root, { hook_event_name: "SessionStart", source: "startup" }), undefined);
+    const hello = await hook(root, { hook_event_name: "SessionStart", source: "startup" });
+    assert.match(hello.hookSpecificOutput.additionalContext, /^Detron is on for detron-\w+ \(1 files, suggest mode\): /, "one line, so the agent knows Detron is on");
     const file = join(root, "index.js");
     assert.equal(await hook(root, { hook_event_name: "PreToolUse", tool_name: "Edit", tool_input: { file_path: file } }), undefined);
     await writeFile(file, `${START}export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n`);
@@ -43,9 +44,12 @@ test("hooks share one background Detron that remembers the task between calls", 
     const took = Date.now() - started;
     assert.match(told.hookSpecificOutput.additionalContext, /index\.js:9 warning detron\/empty-catch/);
     const live = await agentStatus(root);
-    assert.deepEqual({ ...live, lastEditAt: undefined }, { edits: 1, added: 1, untilCheckIn: 9, checkInEvery: 10, lastEditAt: undefined }, "the editor sees the task");
+    assert.deepEqual({ ...live, lastEditAt: undefined }, {
+      edits: 1, added: 1, untilCheckIn: 9, checkInEvery: 10, lastEditAt: undefined, files: 1,
+      tests: { state: "not run", text: "not run yet (they run at the first check-in)" },
+    }, "the editor sees the task");
     const end = await hook(root, { hook_event_name: "Stop", stop_hook_active: false });
-    assert.equal(end.systemMessage, "Detron: this task added 1 problem (1 will break). See them with `detron scan --changed` or in the Detron sidebar.", "the task survived across hook processes");
+    assert.match(end.systemMessage, /^Detron change card\n- Changed: 1 file \(index\.js\)\n- Problems: 1 added \(1 will break\)\n[^]*- Tests: none found/, "the task survived across hook processes");
     console.log(`# after-edit hook took ${took}ms (process start included)`);
   } finally {
     await stop(root);

@@ -56,7 +56,20 @@ export async function parseFile(path: string): Promise<ParsedFile | undefined> {
 export async function parseText(path: string, raw: string): Promise<ParsedFile | undefined> {
   const grammar = grammarForFile(path);
   if (!grammar) return undefined;
-  const source = grammar.preprocess ? grammar.preprocess(raw) : raw;
-  const tree = await parseSource(source, grammar.id);
+  let source = grammar.preprocess ? grammar.preprocess(raw) : raw;
+  let tree = await parseSource(source, grammar.id);
+  if (tree.rootNode.hasError && JSX_GRAMMARS.has(grammar.id) && BARE_AMPERSAND.test(source)) {
+    const retry = source.replace(BARE_AMPERSAND, "+");
+    const second = await parseSource(retry, grammar.id);
+    if (second.rootNode.hasError) second.delete();
+    else [tree, source] = (tree.delete(), [second, retry]);
+  }
   return { path, language: grammar.id, source, ...(source !== raw ? { original: raw } : {}), tree };
 }
+
+// tree-sitter's JSX grammars reject a bare & in JSX text and attribute strings
+// (href="?a=1&b=2"), which React accepts. When a file fails only for that, it's parsed again
+// with each bare & as + (the same length, so every line and column stays put). &&, &=, &amp;
+// and &#38; are left alone.
+const JSX_GRAMMARS = new Set<LanguageId>(["javascript", "tsx"]);
+const BARE_AMPERSAND = /(?<!&)&(?![&=]|#?\w+;)/g;

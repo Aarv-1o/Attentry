@@ -11,6 +11,7 @@ import { formatScan, scanToJson } from "../report/scan.ts";
 import type { HookInput } from "../agent/hooks.ts";
 import { init, mcpSetup } from "../agent/init.ts";
 import { doctor } from "../agent/doctor.ts";
+import { mcpAddCommand } from "../agent/mcpSetup.ts";
 import { hookReply, toolReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
@@ -190,7 +191,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
     }
     try {
       const done = await init(resolve(path), process.argv[1]!, values.mode as "suggest" | "block" | undefined);
-      out(`${done.map((d) => `✓ ${d}`).join("\n")}\nStart a new Claude Code session in this repo to use them.\n\n${mcpSetup(process.argv[1]!)}\n`);
+      out(`${done.map((d) => `✓ ${d}`).join("\n")}\nStart a new Claude Code session in this repo to use them.\n\n${mcpSetup(mcpAddCommand(process.argv[1]!))}\n`);
       return 0;
     } catch (error) {
       out(`${(error as Error).message}\n`);

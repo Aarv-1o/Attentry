@@ -30,13 +30,19 @@ export interface ToolResult {
 }
 
 const MAX_MATCHES = 5;
+const RARE_NAME = 2; // functions sharing a one-word name's word
 const MAX_FINDINGS = 20;
 const STOPWORDS = new Set("a an the to of for and or in on with from by into as is it this that function helper code some".split(" "));
 const stem = (word: string) => word.replace(/(ing|ed|es|s)$/, "");
-// "map" and "mapper", "format" and "formatted": one word starting the other, both 3+ letters.
-const sameWord = (a: string, b: string) => a === b || (Math.min(a.length, b.length) >= 3 && (a.startsWith(b) || b.startsWith(a)));
+// "map" and "mapper", "format" and "formatted": one word plus a short ending. Not "time" and
+// "timeline": a longer ending is another word.
+const sameWord = (a: string, b: string) => {
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short === long || (short.length >= 3 && long.startsWith(short) && long.length - short.length <= 3);
+};
 const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
-const relativeFile = (root: string, file: string) => (isAbsolute(file) ? relative(root, file) : file).replace(/\\/g, "/").replace(/^\.\//, "");
+// Repo-relative, with every ./ and ../ worked out: "src/../../x" is outside, and says so ("../x").
+const relativeFile = (root: string, file: string) => relative(root, resolve(root, file)).replace(/\\/g, "/");
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const LANGUAGE_FILE: Record<string, string> = { js: "new.js", javascript: "new.js", ts: "new.ts", typescript: "new.ts", tsx: "new.tsx", jsx: "new.jsx", py: "new.py", python: "new.py" };
 
@@ -51,17 +57,29 @@ function searchByWords(query: string, index: RepoIndex): string {
   const wanted = [...new Set(words(query))];
   if (!wanted.length) return "Say what the function should do, like \"format a date as time ago\".";
   const uses = nameUses(index.usage, index.functions);
-  const scored = index.functions
-    .filter((f) => !isTestFile(f.file) && !isGenerated(f.file) && f.kind === "function")
+  // Components (DeleteDialog) only when a component is asked for: a "send email" helper isn't EmailCard.
+  const wantsComponent = /\b(component|view|page|card|button|dialog|modal|form|screen)\b/i.test(query);
+  const pool = index.functions.filter((f) => !isTestFile(f.file) && !isGenerated(f.file) && f.kind === "function" && (wantsComponent || !/^[A-Z]/.test(f.name)));
+  // How many functions have each word in their name: a one-word name made of a common word
+  // (send, time, tokens) says little on its own.
+  const named = new Map<string, number>();
+  for (const f of pool) for (const w of new Set(words(nameWords(f.name)))) named.set(w, (named.get(w) ?? 0) + 1);
+  const scored = pool
     .map((fn) => {
       const name = words(nameWords(fn.name));
       const text = fn.shape.filter((t) => t.startsWith(LITERAL_PREFIX)).flatMap((t) => words(t.slice(LITERAL_PREFIX.length)));
-      const score = wanted.reduce((sum, w) => sum + (name.some((n) => sameWord(n, w)) ? 2 : text.some((t) => sameWord(t, w)) ? 1 : 0), 0);
-      return { fn, score, uses: Math.max(0, uses.get(fn.name) ?? 0) };
+      const inName = name.filter((n) => wanted.some((w) => sameWord(n, w))).length;
+      // A word in its text too (ago() returns "5m ago") is more evidence, even if its name has it.
+      const inText = wanted.filter((w) => text.some((t) => sameWord(t, w))).length;
+      // How much of its name the question explains: timeAgo all of it, useSceneTime a third.
+      const coverage = name.length ? inName / name.length : 0;
+      const rareName = name.length > 1 || (named.get(name[0] ?? "") ?? 0) <= RARE_NAME;
+      return { fn, coverage, rareName, matched: inName + inText, uses: Math.max(0, uses.get(fn.name) ?? 0) };
     })
-    // At least one word in the name, or most of the words somewhere: one shared word in the text is chance.
-    .filter((m) => m.score >= 2 && m.score >= wanted.length)
-    .sort((a, b) => b.score - a.score || Number(b.fn.exported) - Number(a.fn.exported) || b.uses - a.uses)
+    // Its whole name is in the question (a one-word name only if few share it), or half of it
+    // and two words match somewhere.
+    .filter((m) => (m.coverage === 1 && (m.rareName || m.matched >= 2)) || (m.coverage >= 0.5 && m.matched >= Math.min(2, wanted.length)))
+    .sort((a, b) => b.coverage - a.coverage || b.matched - a.matched || Number(b.fn.exported) - Number(a.fn.exported) || b.uses - a.uses)
     .slice(0, MAX_MATCHES);
   if (!scored.length) return `Nothing in the repo looks like "${query}". Write it, in a shared place if more than one file will need it.`;
   return [`Functions that may already do "${query}" (read them before writing a new one):`, ...scored.map((m) => describe(m.fn, m.uses))].join("\n");
@@ -71,6 +89,8 @@ function searchByWords(query: string, index: RepoIndex): string {
 async function searchByCode(code: string, file: string | undefined, language: string | undefined, root: string, index: RepoIndex): Promise<ToolResult> {
   const target = file ? relativeFile(root, file) : LANGUAGE_FILE[(language ?? "").toLowerCase()];
   if (!target || !extname(target)) return { text: "Give `file` (where the code will go) or `language` (js, ts, py), so the code can be read.", isError: true };
+  // Only files in the project: an agent's path must not make Detron read ~/.ssh or /etc.
+  if (target === ".." || target.startsWith("../") || isAbsolute(target)) return { text: `${file} is outside the project (${root}).`, isError: true };
   const before = file ? await readFile(resolve(root, target), "utf8").catch(() => "") : "";
   const candidates = await newFunctions(target, before, `${before}\n${code}\n`);
   if (!candidates.length) return { text: "No new function in that code (or it doesn't parse): nothing to compare." };

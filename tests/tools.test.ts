@@ -11,11 +11,16 @@ test("find_existing: by what it should do, or by the code about to be written", 
   const byWords = await sessions.tool("find_existing", { query: "format time ago" });
   assert.match(byWords.text, /`timeAgo\(date\)` in src\/utils\/time\.js:1, used in 1 place \(exported: import it\)/);
   assert.match((await sessions.tool("find_existing", { query: "send an invoice email" })).text, /^Nothing in the repo looks like/);
+  // How agents really ask: long, with words the name doesn't have.
+  assert.match((await sessions.tool("find_existing", { query: "format a date as relative time ago text like '5m ago'" })).text, /`timeAgo\(date\)` in src\/utils\/time\.js:1/);
   const byCode = await sessions.tool("find_existing", { code: COPY, file: "src/comments.js" });
   assert.match(byCode.text, /`commentAge`: `timeAgo` in src\/utils\/time\.js:1 \(used in 1 place\) has the same code, only the names differ\. Import it\./);
   assert.equal((await sessions.tool("find_existing", {})).isError, true);
   assert.equal((await sessions.tool("find_existing", { code: COPY })).isError, true, "code needs a file or a language");
   assert.equal((await sessions.tool("find_existing", { query: 42 })).isError, true, "arguments of the wrong type count as missing");
+  for (const outside of ["../../../etc/passwd.js", "/etc/passwd.js", "src/../../secret.js"]) {
+    assert.match((await sessions.tool("find_existing", { code: COPY, file: outside })).text, /is outside the project/, outside);
+  }
 });
 
 test("check and explain: problems in given files, with what this task added marked", async () => {

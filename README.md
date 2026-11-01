@@ -52,8 +52,14 @@ Copilot CLI read them too). Then, in every agent session:
   instead of adding a copy
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
+- **At the start** one line, so the agent knows Detron is on for this project
 - **Every 10 edits** a check-in: what to focus on
-- **At the end** a one-line summary for you
+- **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
+  end. If they fail, the agent hears it on its next edit. Detron finds the command (`npm test`,
+  `pnpm test`, pytest, in each app of the repo), or set `"tests": "make check"` (or `"off"`) in
+  `.detron/config.json`; `"testTimeoutSeconds"` limits a run (default 300)
+- **At the end** a change card for you: the files it changed, the problems it added and fixed,
+  and whether the tests passed
 - **Suggest mode** (default) only tells the agent. `init --mode block` also refuses exact copies,
   sends new security or crash problems back as errors, and won't let the task finish while
   they're there
@@ -104,6 +110,8 @@ language server.
 - Light bulb: delete unused code (the only automatic fix), copy the fix for your agent, ignore
   with a reason, or "not useful" (a rule marked on more than 10% of its findings becomes a hint)
 - A line at the top of hotspot files: make small changes there, and test after each
+- The Detron panel connects Claude Code in one click: its hooks, and (on by default) its MCP
+  tools, through Claude Code's own `claude mcp add`. It shows whether each is set up
 
 It finds:
 
@@ -133,3 +141,4 @@ Supports JavaScript, TypeScript (incl. JSX/TSX), Python and Astro.
 - What V1 will do: [SPEC.md](SPEC.md)
 - Rules for anyone (human or agent) working on this repo: [AGENTS.md](AGENTS.md)
 - Research behind the decisions: [docs/research.md](docs/research.md)
+- How to test Detron by hand (features, security, load): [docs/TESTING.md](docs/TESTING.md)

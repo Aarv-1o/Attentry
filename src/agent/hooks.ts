@@ -1,8 +1,9 @@
 import { relative } from "node:path";
-import { partOf, severityOf } from "../findings/severity.ts";
+import { severityOf } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
+import { changeCard } from "./card.ts";
 import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import type { ExistingMatch } from "./reuse.ts";
 
@@ -58,6 +59,12 @@ export function afterEdit(input: HookInput, root: string, task: Task, told: Set<
     if (fresh.length > PER_EDIT) lines.push(`…and ${fresh.length - PER_EDIT} more.`);
     lines.push("Fix them before moving on, or say why not. Full steps: `detron explain <file:line>`.");
   }
+  // Tests run in the background at check-ins: a failure is told once, on the next edit.
+  const tests = task.tests;
+  if (tests && (tests.state === "failed" || tests.state === "timeout") && !task.testsTold) {
+    task.testsTold = true;
+    lines.push(...(lines.length ? [""] : []), `Detron: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
+  }
   if (task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;
     lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings));
@@ -83,8 +90,8 @@ function checkIn(task: Task, findings: Finding[]): string[] {
   ];
 }
 
-// When the agent wants to finish: a summary for the person; in block mode, not done while
-// the task has added security or crash problems.
+// When the agent wants to finish: the change card for the person; in block mode, not done
+// while the task has added security or crash problems.
 export function atStop(input: HookInput, task: Task, findings: Finding[], config: Config): HookReply {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
@@ -94,12 +101,7 @@ export function atStop(input: HookInput, task: Task, findings: Finding[], config
     return json({ decision: "block", reason: [`Detron: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
   }
   if (!task.edits) return SILENT;
-  const fixed = fixedSince(task, findings);
-  const parts = ["security", "breaks", "database"].map((p) => [p, real.filter((f) => partOf(f) === p).length] as const).filter(([, n]) => n);
-  const summary = real.length
-    ? `Detron: this task added ${plural(real.length, "problem")} (${parts.map(([p, n]) => `${n} ${p === "breaks" ? "will break" : p}`).join(", ")})${fixed ? ` and fixed ${fixed}` : ""}. See them with \`detron scan --changed\` or in the Detron sidebar.`
-    : `Detron: this task added no new problems${fixed ? ` and fixed ${fixed}` : ""}.`;
-  return json({ systemMessage: summary });
+  return json({ systemMessage: changeCard(task, findings) });
 }
 
 // The file as it will be after this edit, or undefined if the edit can't be applied to it as it
