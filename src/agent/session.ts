@@ -9,6 +9,7 @@ import { loadConfig } from "./config.ts";
 import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { startTask, type Task } from "./ledger.ts";
+import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 // One repo's agent sessions: each session's task, and one cache of what every file taught us,
 // so a check after an edit reads only that file. Lives in the background Detron (or for one
@@ -41,9 +42,25 @@ export class Sessions {
     return entry;
   }
 
+  private latestTask(): Task | undefined {
+    return [...this.tasks.values()].map((e) => e.task).sort((a, b) => b.lastEditAt - a.lastEditAt)[0];
+  }
+
+  // A tool an agent called (MCP). Tools don't say which session they're from: "this task" is
+  // the one that edited most recently.
+  async tool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+    if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
+    return TOOLS[name](args, {
+      root: this.root,
+      index: () => buildIndex(this.root, this.cache),
+      findings: () => this.findings(),
+      task: () => this.latestTask(),
+    });
+  }
+
   // The most recently active agent task, for the editor: no scan, just what's known.
   async status(): Promise<AgentStatus | undefined> {
-    const latest = [...this.tasks.values()].map((e) => e.task).sort((a, b) => b.lastEditAt - a.lastEditAt)[0];
+    const latest = this.latestTask();
     if (!latest) return undefined;
     const every = (await loadConfig(this.root)).checkInEvery;
     return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every };

@@ -17,6 +17,8 @@ const DECLARING_FIELDS: [RegExp, string][] = [
 const DECLARING_PARENTS = /parameter|pattern/;
 
 const LITERAL_TYPES = new Set(["number", "regex", "integer", "float"]);
+// TypeScript annotations and generics, Python hints (`x: int`, `-> str`).
+const TYPE_NODES = new Set(["type_annotation", "type_arguments", "type_parameters", "type"]);
 
 // The text parts of strings. Strings themselves are walked into, because
 // template strings and f-strings contain variable names.
@@ -73,6 +75,8 @@ export function shapeOf(body: Node, scope: Node = body): string[] {
   const tokens: string[] = [];
   const visit = (node: Node): void => {
     if (node.type === "comment") return;
+    // Types don't change what code does: `(u: any)` and `(u: Partial<User>)` are the same function.
+    if (TYPE_NODES.has(node.type)) return;
     // A string on its own does nothing: a docstring, or "use strict".
     if (node.type === "expression_statement" && node.namedChildCount === 1 && node.namedChild(0)?.type === "string") return;
     // One marker per JSX element, so markup-heavy functions (icons, static pages) can be told apart.

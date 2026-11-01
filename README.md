@@ -56,8 +56,35 @@ Copilot CLI read them too). Then, in every agent session:
   sends new security or crash problems back as errors, and won't let the task finish while
   they're there
 
+### Tools the agent can call (MCP)
+
+Hooks speak up on their own. With Detron's MCP server, the agent can also ask:
+
+- **find_existing**: "is there already a function that formats a date?", or the code it's about
+  to write. Answers with what exists, where, and how to reuse it
+- **check**: problems in its changes or in given files, marking what this task added
+- **explain**: everything about the findings on one `file:line`
+
+`init` prints the command for Claude Code. Other agents take the same server in their MCP
+settings (Cursor: `.cursor/mcp.json`, Windsurf: `mcp_config.json`, Cline: its MCP settings):
+
+```json
+{ "mcpServers": { "detron": { "command": "node", "args": ["/path/to/detron/dist/detron.mjs", "mcp", "/path/to/your/repo"] } } }
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.detron]
+command = "node"
+args = ["/path/to/detron/dist/detron.mjs", "mcp", "/path/to/your/repo"]
+```
+
+This is how agents without hooks (Windsurf, Cline) get Detron's help too.
+
 A background Detron keeps the repo in memory (never on disk), so a check after an edit takes
-about a tenth of a second. It starts on first use and stops after a quiet half hour.
+about a tenth of a second. It starts on first use and stops after a quiet half hour. Hooks and
+MCP tools ask the same one, so they agree on what this task added.
 
 ## In your editor
 
