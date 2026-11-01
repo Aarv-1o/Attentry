@@ -72,3 +72,18 @@ def again(uid):
   assert.notEqual(py.follow, py.unfollow);
   assert.equal(py.follow, py.again);
 });
+
+test("types don't change what code does: annotations and generics are left out", async () => {
+  const ts = await shapes(`
+const a = (user: any, id?: number) => ({ name: user.name, following: user.followedBy.some((f: any) => f.id === id) });
+const b = (user: Partial<User>, id: number | undefined): Profile => ({ name: user.name, following: user.followedBy.some((f: Partial<User>) => f.id === id) });`, "typescript");
+  assert.equal(ts.a, ts.b);
+  const py = await shapes(`
+def a(items: list[int]) -> int:
+    return sum(items)
+
+def b(values):
+    return sum(values)
+`, "python");
+  assert.equal(py.a, py.b);
+});
