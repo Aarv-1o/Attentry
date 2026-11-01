@@ -20,11 +20,14 @@ const JS_CLIENT = /^(this\.)?(prisma|db|knex|pool|sql|database|conn|connection|\
 // Mongoose / Sequelize models: User.find(), Order.findByPk(). Not constants (TOKEN_RE).
 const JS_MODEL = new RegExp(`^([A-Z][a-z]\\w*)\\.(${DB_METHODS})$`);
 // Django X.objects.filter(), SQLAlchemy session.query()/execute(), pymongo collection.find_one().
-const PY_CALL = /\.objects\.\w+$|^(self\.)?(db\.)?(session|db|cursor|conn|connection)\.(query|execute|get|scalars?|scalar|exec)$|\.(find_one|find|insert_one|update_one|delete_one|count_documents|aggregate)$/;
+const PY_CALL = /\.objects\.\w+$|^(self\.)?(db\.)?(session|db|cursor|conn|connection)\.(query|execute|get|scalars?|scalar|exec)$|\.(find_one|insert_one|update_one|delete_one|count_documents)$/;
+// find() and aggregate() are also str.find() and ElementTree's el.find(): only on something
+// that looks like a Mongo collection (db.users, db["users"], users_collection).
+const PY_MONGO = /(^|\.)(db|database|mongo|\w*coll(ection)?s?)(\[[^\]]+\]|\.\w+)*\.(find|aggregate)$/i;
 
 function isDbCall(call: Node, python: boolean): boolean {
   const callee = call.childForFieldName("function")?.text.replace(/\s+/g, "") ?? "";
-  if (python) return PY_CALL.test(callee);
+  if (python) return PY_CALL.test(callee) || PY_MONGO.test(callee);
   const method = /\.(\w+)$/.exec(callee)?.[1] ?? "";
   const model = JS_MODEL.exec(callee)?.[1];
   return (!!model && !BUILT_INS.has(model)) || (JS_CLIENT.test(callee) && new RegExp(`^(${DB_METHODS})$`).test(method));

@@ -40,6 +40,9 @@ test("queries in loops: per-item queries are flagged; built-ins, tree walks and 
   assert.deepEqual(await check("scripts/seed.js", js, "query-in-loop"), []);
   const py = `def tags(posts):\n    for p in posts:\n        p.tags = Tag.objects.filter(post=p)\n    return [session.get(User, p.user_id) for p in posts]\n`;
   assert.deepEqual(await check("views.py", py), ["3 query-in-loop likely", "4 query-in-loop likely"]);
+  // XML and strings have find() too: only collections are queries.
+  const xml = `def parse(rows, users):\n    for r in rows:\n        r.find("w:t")\n        r.text.find("x")\n        db.users.find({"id": r.id})\n        users_collection.find_one({"id": r.id})\n`;
+  assert.deepEqual(await check("docx_import.py", xml, "query-in-loop"), ["5 query-in-loop likely", "6 query-in-loop likely"]);
 });
 
 test("raw SQL: INSERT without columns, and hints for SELECT *, ORDER BY RAND(), LIKE '%...'", async () => {
