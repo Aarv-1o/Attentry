@@ -18,6 +18,9 @@ test("find_existing: by what it should do, or by the code about to be written", 
   assert.equal((await sessions.tool("find_existing", {})).isError, true);
   assert.equal((await sessions.tool("find_existing", { code: COPY })).isError, true, "code needs a file or a language");
   assert.equal((await sessions.tool("find_existing", { query: 42 })).isError, true, "arguments of the wrong type count as missing");
+  for (const outside of ["../../../etc/passwd.js", "/etc/passwd.js", "src/../../secret.js"]) {
+    assert.match((await sessions.tool("find_existing", { code: COPY, file: outside })).text, /is outside the project/, outside);
+  }
 });
 
 test("check and explain: problems in given files, with what this task added marked", async () => {

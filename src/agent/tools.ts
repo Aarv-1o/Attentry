@@ -41,7 +41,8 @@ const sameWord = (a: string, b: string) => {
   return short === long || (short.length >= 3 && long.startsWith(short) && long.length - short.length <= 3);
 };
 const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
-const relativeFile = (root: string, file: string) => (isAbsolute(file) ? relative(root, file) : file).replace(/\\/g, "/").replace(/^\.\//, "");
+// Repo-relative, with every ./ and ../ worked out: "src/../../x" is outside, and says so ("../x").
+const relativeFile = (root: string, file: string) => relative(root, resolve(root, file)).replace(/\\/g, "/");
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const LANGUAGE_FILE: Record<string, string> = { js: "new.js", javascript: "new.js", ts: "new.ts", typescript: "new.ts", tsx: "new.tsx", jsx: "new.jsx", py: "new.py", python: "new.py" };
 
@@ -88,6 +89,8 @@ function searchByWords(query: string, index: RepoIndex): string {
 async function searchByCode(code: string, file: string | undefined, language: string | undefined, root: string, index: RepoIndex): Promise<ToolResult> {
   const target = file ? relativeFile(root, file) : LANGUAGE_FILE[(language ?? "").toLowerCase()];
   if (!target || !extname(target)) return { text: "Give `file` (where the code will go) or `language` (js, ts, py), so the code can be read.", isError: true };
+  // Only files in the project: an agent's path must not make Detron read ~/.ssh or /etc.
+  if (target === ".." || target.startsWith("../") || isAbsolute(target)) return { text: `${file} is outside the project (${root}).`, isError: true };
   const before = file ? await readFile(resolve(root, target), "utf8").catch(() => "") : "";
   const candidates = await newFunctions(target, before, `${before}\n${code}\n`);
   if (!candidates.length) return { text: "No new function in that code (or it doesn't parse): nothing to compare." };
