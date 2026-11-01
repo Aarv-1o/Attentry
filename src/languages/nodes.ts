@@ -100,6 +100,6 @@ export function commonInfo(
     nesting: nestingDepth(body, syntax),
     unusedParams: params.filter((p) => /^\w+$/.test(p) && !used.has(p)),
     passedAsValue: valueRefs.has(name),
-    shape: shapeOf(body),
+    shape: shapeOf(body, node),
   } satisfies Partial<FunctionInfo>;
 }
