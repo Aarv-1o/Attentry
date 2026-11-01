@@ -93,6 +93,17 @@ y = 2  # noqa: E501
 // return cached;
 const a = 1;
 `, "commented-out-code"), ["2 commented-out-code likely", "5 commented-out-code likely"]);
+
+  // An indented example inside prose explains the text around it.
+  assert.deepEqual(await check("app/mcp.py", `
+# The allowed hosts are explicit and configurable:
+#
+#   ZX_MCP_ALLOWED_HOSTS=rooms.example.com,api.example.com
+#
+# A transform from a shape's space into the slide:
+#   slide_x = ox + child_x * sx
+x = 1
+`, "commented-out-code"), []);
 });
 
 test("comments that repeat the code, but not ones that explain why, or section headers", async () => {
