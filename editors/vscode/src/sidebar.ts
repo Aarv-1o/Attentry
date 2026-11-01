@@ -100,8 +100,10 @@ export class Sidebar implements vscode.WebviewViewProvider {
       void vscode.window.showInformationMessage("Detron: report copied. Paste it into your agent's chat.");
     }
     if (m.type === "openReport") {
-      const content = await client.sendRequest<string>("detron/report", { format: "person" });
-      await vscode.window.showTextDocument(await vscode.workspace.openTextDocument({ content, language: "markdown" }), { preview: false });
+      // Rendered, not as source: a summary table, each finding a link to its line.
+      const content = await client.sendRequest<string>("detron/report", { format: "markdown" });
+      const doc = await vscode.workspace.openTextDocument({ content, language: "markdown" });
+      await vscode.commands.executeCommand("markdown.showPreview", doc.uri);
     }
   }
 }

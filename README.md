@@ -26,6 +26,9 @@ npm run detron -- scan path/to/your/repo
 - `--all` also shows hints (less certain findings)
 - `--agent` prints findings as steps an AI agent can follow: what, why, how to fix, whether
   it's safe to do alone, and how to check
+- `--markdown` writes a report to read in a Markdown preview (VS Code, GitHub, a PR comment):
+  a summary table, then every finding linked to its line, with the fix folded under it.
+  `--out detron-report.md` saves it to a file (as UTF-8, even from PowerShell)
 - `--json` prints the same findings, machine-readable
 - `detron explain src/app.ts:42` gives everything about the findings on one line
 
