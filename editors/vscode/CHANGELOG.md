@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.11
+
+- Connect Claude Code also adds Detron's MCP tools (an option, on by default), and the panel shows hooks and MCP tools separately, with "Add the MCP tools" when only the hooks are set up.
+- Your agent's task shows the files it changed and its tests: passed, failed, running or not run yet.
+- When the folder you opened holds one project (an unzipped repo), Detron checks that project and says so.
+- No more "this is everything" above "No problems in your changes".
+- Files with a bare & in JSX (a link with a query string) are read in full.
+
 ## 0.0.10
 
 - Full report opens as a formatted page: a summary table, every finding linked to its line, and how to fix it folded under each rule.
