@@ -1,0 +1,26 @@
+{
+  "found": {
+    "exact-copy backend/stamps.py:4 sure": "Real: the same timestamp parser twice (one only gained a docstring)",
+    "exact-copy frontend/src/download.ts:1 sure": "Real: downloadBlob copied into export.ts",
+    "similar-hint frontend/src/profile.ts:5 maybe": "A hint only: follow and unfollow share a shape, but do opposite things",
+    "unused-package video/package.json:1 likely": "Real: the font is never loaded",
+    "unused-file frontend/src/RoomList.tsx:1 likely": "Real: nothing imports it",
+    "dead-function frontend/src/rooms.ts:5 likely": "Real: reorderRooms is exported but unused",
+    "secret-fallback backend/config.py:4 maybe": "A hint only: an empty default means not set",
+    "secret-fallback backend/config.py:5 maybe": "A hint only: an empty default means not set",
+    "catch-returns-default backend/stamps.py:9 maybe": "A hint only: None for a bad timestamp is a choice",
+    "catch-returns-default backend/stamps.py:23 maybe": "A hint only: None for a bad timestamp is a choice",
+    "empty-catch frontend/src/storage.ts:7 likely": "Real: /* ignore */ doesn't say why"
+  },
+  "silent": [
+    "followUser / unfollowUser as exact copies (connect vs disconnect)",
+    "each empty secret default reported twice, or as a leaked key",
+    "XML el.find() in a loop as a database query (backend/docx_import.py)",
+    "JSON.parse of a file in a command-line script (video/scripts/captions.mjs)",
+    "anything in .agents/skills (installed skills, not the app)",
+    "prettier (video/.prettierrc), react-dom and react (Remotion's peers) as unused packages",
+    "the except with a reason on its line (backend/runtime.py)",
+    "the indented example inside a prose comment (backend/hosts.py)",
+    "the end of a multi-line comment as repeating the code (frontend/src/scroll.ts)"
+  ]
+}

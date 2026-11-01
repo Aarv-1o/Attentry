@@ -1,0 +1,1 @@
+{ "name": "video", "dependencies": { "remotion": "4.0.0", "react": "19.0.0", "react-dom": "19.0.0", "@fontsource/inter": "5.0.0" }, "devDependencies": { "prettier": "3.0.0" } }
