@@ -31,6 +31,8 @@ npm run detron -- scan path/to/your/repo
   `--out detron-report.md` saves it to a file (as UTF-8, even from PowerShell)
 - `--json` prints the same findings, machine-readable
 - `detron explain src/app.ts:42` gives everything about the findings on one line
+- `detron doctor` says whether Detron is set up and working here: which folder it checks, git,
+  the agent's hooks and MCP tools, and what to do about anything missing
 
 To silence one finding, write why: `// detron-ignore empty-catch: the cache is optional`
 (`#` in Python) on its line or the line above. Without a reason, it doesn't count.

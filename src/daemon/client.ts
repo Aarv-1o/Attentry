@@ -32,6 +32,17 @@ function startBackground(root: string): void {
 
 const notRunning = (error: unknown) => ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET"].includes((error as NodeJS.ErrnoException).code ?? "");
 
+// Is a background Detron answering for this repo? Asks without starting one.
+export async function backgroundRunning(root: string): Promise<boolean> {
+  try {
+    await ask(addressFor(root), { kind: "status" });
+    return true;
+  } catch (error) {
+    if (notRunning(error)) return false;
+    throw error;
+  }
+}
+
 // The agent's task as the background Detron sees it, without starting one: undefined when no
 // agent is working in this repo.
 export async function agentStatus(root: string): Promise<AgentStatus | undefined> {

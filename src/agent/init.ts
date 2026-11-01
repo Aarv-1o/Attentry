@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { projectRoot } from "../index/project.ts";
 import { writeMode } from "./config.ts";
 
 // `detron init`: sets up Detron's hooks for Claude Code in a repo (Cursor and Copilot CLI load
@@ -58,7 +59,8 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(withDetronHooks(settings, command), null, 2)}\n`);
   const done = [`Claude Code hooks: ${path} (session start, before and after each edit, at the end)`];
-  if (mode) done.push(`Mode: ${mode} (${await writeMode(root, mode)})`);
+  // Hooks go where Claude Code starts; the mode goes with the project Detron checks.
+  if (mode) done.push(`Mode: ${mode} (${await writeMode(await projectRoot(root), mode)})`);
   return done;
 }
 

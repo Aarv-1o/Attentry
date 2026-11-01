@@ -10,6 +10,7 @@ import { formatMarkdown } from "../report/markdown.ts";
 import { formatScan, scanToJson } from "../report/scan.ts";
 import type { HookInput } from "../agent/hooks.ts";
 import { init, mcpSetup } from "../agent/init.ts";
+import { doctor } from "../agent/doctor.ts";
 import { hookReply, toolReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
@@ -34,6 +35,8 @@ Usage:
                               (find_existing, check, explain). For agents without hooks
                               too: Windsurf, Cline, and any MCP client
   detron serve [path]         The background Detron that hooks and MCP talk to (started for you)
+  detron doctor [path]        Is Detron set up here, and working: the project it checks, git,
+                              the agent's hooks and MCP tools, the background Detron
   detron explain <file:line>  Everything about the findings on one line: what the code
                               does, why it matters, how to fix it, how to check
 
@@ -176,6 +179,10 @@ export async function run(argv: string[], out: Write): Promise<number> {
     return values.help ? 0 : 2;
   }
   if (command === "explain" && !extra.length) return explain(path, out);
+  if (command === "doctor" && !extra.length) {
+    out(await doctor(resolve(path)));
+    return 0;
+  }
   if (command === "init" && !extra.length) {
     if (values.mode && values.mode !== "suggest" && values.mode !== "block") {
       out(`--mode is suggest or block, not "${values.mode}".\n`);
