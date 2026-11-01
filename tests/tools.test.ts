@@ -25,11 +25,22 @@ test("check and explain: problems in given files, with what this task added mark
   await writeFile(join(root, "src/save.js"), "export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n");
   await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "src/save.js") } });
   const checked = await sessions.tool("check", { files: ["src/api.js", join(root, "src/save.js")] });
-  assert.match(checked.text, /^2 problems in 2 files:/);
+  assert.match(checked.text, /^2 problems and 0 clean-up items in 2 files\.\nProblems:\n/);
   assert.match(checked.text, /src\/save\.js:4 warning detron\/empty-catch: .+ \(new in this task\)/);
   assert.doesNotMatch(checked.text, /src\/api\.js:4 .+new in this task/, "the old one isn't this task's");
   assert.match((await sessions.tool("explain", { location: "src/save.js:4" })).text, /## Errors silently ignored \(1\)/);
   assert.equal((await sessions.tool("explain", { location: "src/save.js:1" })).text, "No findings on src/save.js:1.");
   assert.equal((await sessions.tool("explain", { location: "nowhere" })).isError, true);
   assert.equal((await sessions.tool("rewrite", {})).isError, true);
+});
+
+test("check lists clean-up too, with the other copy to reuse: the agent can't open a report", async () => {
+  const root = await makeRepo(REPO);
+  const sessions = new Sessions(root);
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });
+  await writeFile(join(root, "src/save.js"), `export const save = (x) => x;\n${COPY}`);
+  await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "src/save.js") } });
+  const checked = await sessions.tool("check", { files: ["src/save.js"] });
+  assert.match(checked.text, /^0 problems and 2 clean-up items in 1 file\.\nClean-up \(unused or copied code: do it in its own step, apart from the feature\):\n/);
+  assert.match(checked.text, /src\/save\.js:2 info detron\/exact-copy: 2 copies of commentAge \/ timeAgo \(copy: timeAgo at src\/utils\/time\.js:1\) \(new in this task\)/);
 });

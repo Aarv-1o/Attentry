@@ -115,17 +115,23 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
   }
   const task = ctx.task();
   const added = new Set(task ? newSince(task, all).map(keyOf) : []);
-  const loud = shown.filter((f) => severityOf(f) !== "info");
-  const cleanup = shown.length - loud.length;
   if (!shown.length) return { text: `No problems in ${scope}.` };
-  const line = (f: Finding) => `${briefLine(f)}${added.has(keyOf(f)) ? " (new in this task)" : ""}`;
-  const listed = loud.slice(0, MAX_FINDINGS);
+  const loud = shown.filter((f) => severityOf(f) !== "info");
+  const cleanup = shown.filter((f) => severityOf(f) === "info");
+  // The other copy or the caller is what the agent needs to act on, and it can't open a report.
+  const line = (f: Finding) => {
+    const other = f.related[0];
+    return `${briefLine(f)}${other ? ` (${other.label ?? "see"} at ${other.file}:${other.line})` : ""}${added.has(keyOf(f)) ? " (new in this task)" : ""}`;
+  };
+  const section = (heading: string, items: Finding[]) => {
+    const listed = items.slice(0, MAX_FINDINGS);
+    return items.length ? [heading, ...listed.map(line), ...(items.length > listed.length ? [`…and ${items.length - listed.length} more.`] : [])] : [];
+  };
   return {
     text: [
-      `${plural(loud.length, "problem")} in ${scope}${cleanup ? `, and ${plural(cleanup, "clean-up item")}` : ""}:`,
-      ...listed.map(line),
-      ...(loud.length > listed.length ? [`…and ${loud.length - listed.length} more.`] : []),
-      ...(cleanup ? [`Clean-up (unused or copied code): \`detron scan --changed\` lists it. Do it in its own step.`] : []),
+      `${plural(loud.length, "problem")} and ${plural(cleanup.length, "clean-up item")} in ${scope}.`,
+      ...section("Problems:", loud),
+      ...section("Clean-up (unused or copied code: do it in its own step, apart from the feature):", cleanup),
       "Full steps for one: the explain tool with its file:line.",
     ].join("\n"),
   };
