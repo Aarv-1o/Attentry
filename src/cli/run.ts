@@ -196,7 +196,12 @@ export async function run(argv: string[], out: Write): Promise<number> {
     out(report);
     return code;
   }
-  await writeFile(values.out, report, "utf8");
+  try {
+    await writeFile(values.out, report, "utf8");
+  } catch (error) {
+    out(`Can't write ${values.out}: ${(error as NodeJS.ErrnoException).code === "ENOENT" ? "that folder doesn't exist" : (error as Error).message}.\n`);
+    return 1;
+  }
   out(`Report written to ${values.out}\n`);
   return 0;
 }
