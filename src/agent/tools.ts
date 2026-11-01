@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { extname, isAbsolute, relative, resolve } from "node:path";
+import { basename, extname, isAbsolute, relative, resolve } from "node:path";
 import type { Finding } from "../findings/types.ts";
 import { severityOf } from "../findings/severity.ts";
 import { isGenerated, isTestFile } from "../index/files.ts";
@@ -107,11 +107,11 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
   if (files.length) {
     const wanted = new Set(files.map((f) => relativeFile(ctx.root, f)));
     shown = all.filter((f) => wanted.has(f.file));
-    scope = plural(wanted.size, "file");
+    scope = `${plural(wanted.size, "file")} in ${basename(ctx.root)}`;
   } else {
     const changes = await changedLines(ctx.root);
     shown = changes.ok ? all.filter((f) => isInChanges(f, changes)) : all;
-    scope = changes.ok ? "your changes" : `the whole repo (can't tell what changed: ${changes.reason})`;
+    scope = changes.ok ? `your changes in ${basename(ctx.root)}` : `all of ${ctx.root} (can't tell what changed: ${changes.reason})`;
   }
   const task = ctx.task();
   const added = new Set(task ? newSince(task, all).map(keyOf) : []);

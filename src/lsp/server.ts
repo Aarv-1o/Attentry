@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { loadConfig, writeMode } from "../agent/config.ts";
@@ -16,6 +16,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { scanRepo } from "../scan/scan.ts";
+import { projectRoot } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
 // `detron lsp`: Detron as a language server, so every editor that speaks LSP (VS Code, Cursor,
@@ -50,7 +51,8 @@ async function readOrEmpty(path: string): Promise<string> {
 }
 
 export function startServer(connection: Connection): void {
-  let root = "";
+  let workspace = ""; // the folder the editor opened: where Claude Code starts, so its hooks go here
+  let root = ""; // the project in it, which Detron scans
   let rootUri = "";
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
@@ -120,10 +122,14 @@ export function startServer(connection: Connection): void {
     return running;
   }
 
-  connection.onInitialize((params) => {
+  connection.onInitialize(async (params) => {
     const folder = params.workspaceFolders?.[0]?.uri ?? params.rootUri;
-    root = folder ? fileURLToPath(folder) : process.cwd();
-    rootUri = folder ?? pathToFileURL(root).href;
+    workspace = folder ? fileURLToPath(folder) : process.cwd();
+    // The project may be one folder down (an unzipped repo): keep the editor's spelling of the
+    // part it opened (Windows: file:///d%3A/...), and add the rest.
+    root = await projectRoot(workspace);
+    const below = relative(workspace, root).split(sep).filter(Boolean).map(encodeURIComponent);
+    rootUri = [folder ?? pathToFileURL(workspace).href, ...below].join("/");
     options = { ...options, ...(params.initializationOptions as Partial<Options> | undefined) };
     return {
       capabilities: {
@@ -180,7 +186,7 @@ export function startServer(connection: Connection): void {
     }
     if (command === "detron.server.rescan") return rescan();
     // Not printed to the editor: init's own messages are for the terminal.
-    if (command === "detron.server.connectAgent") return void (await init(root, process.argv[1]!, undefined));
+    if (command === "detron.server.connectAgent") return void (await init(workspace, process.argv[1]!, undefined));
     if (command === "detron.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
@@ -188,13 +194,15 @@ export function startServer(connection: Connection): void {
   // For the editor's sidebar: the list, a whole report, one finding's full explanation.
   connection.onRequest("detron/findings", () => ({
     show: options.show, hints: options.hints, older: older(),
+    // The project, when it's a folder inside the one the editor opened.
+    ...(root !== workspace ? { project: relative(workspace, root).replace(/\\/g, "/") } : {}),
     // Why "your changes" is everything, if it is: "not a git repo", "no commits yet".
     ...(changes.ok ? {} : { noChanges: changes.reason }),
     items: shown().map((f) => ({ id: f.id, rule: f.rule, part: partOf(f), severity: severityOf(f), file: f.file, line: f.line, title: f.title, why: f.why, does: f.plain?.does, replacedBy: f.plain?.replacedBy })),
   }));
   // The agent: are Detron's hooks set up, which mode, and how its task is going right now.
   connection.onRequest("detron/agent", async () => ({
-    hooks: await hookState(root),
+    hooks: await hookState(workspace),
     mode: (await loadConfig(root)).mode,
     live: (await agentStatus(root)) ?? null,
   }));

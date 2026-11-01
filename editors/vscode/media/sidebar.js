@@ -38,10 +38,14 @@ function item(f) {
 
 function note() {
   if (!data) return "";
-  if ((status?.show ?? data.show) === "all") return "Everything in the repo.";
-  if (data.noChanges) return `Can't tell what changed (${esc(data.noChanges)}), so this is everything. Open the repo's own folder to see only your changes.`;
-  return `What this branch or your uncommitted work added.${data.older ? ` ${plural(data.older, "older finding")} hidden.` : ""}`;
+  const where = data.project ? `Checking <b>${esc(data.project)}</b>, the project in the folder you opened. ` : "";
+  if ((status?.show ?? data.show) === "all") return `${where}Everything in the repo.`;
+  if (data.noChanges) return `${where}Can't tell what changed (${esc(data.noChanges)}), so this is everything.`;
+  return `${where}What this branch or your uncommitted work added.${data.older ? ` ${plural(data.older, "older finding")} hidden.` : ""}`;
 }
+
+// "Your changes" means everything when Detron can't tell what changed: say so, not "in your changes".
+const clearText = (show) => (show === "changes" && !data?.noChanges ? "in your changes" : "in this repo");
 
 function findings() {
   const show = status?.show ?? data?.show ?? "changes";
@@ -67,7 +71,7 @@ function findings() {
     <div class="bar ${status?.scanning ? "busy" : ""}" aria-hidden="true">${bar}</div>
     <div class="tallies">${tally}</div>
     <p class="note">${note()}</p>
-    ${done && !total ? `<p class="clear">No problems ${show === "changes" ? "in your changes" : "in this repo"}.${show === "changes" && data.older ? ` <a data-act="toggleShow">Show ${plural(data.older, "older finding")}</a>` : ""}</p>` : groups}
+    ${done && !total ? `<p class="clear">No problems ${clearText(show)}.${show === "changes" && data.older ? ` <a data-act="toggleShow">Show ${plural(data.older, "older finding")}</a>` : ""}</p>` : groups}
     ${hotspots.length ? `<details id="hotspots"><summary>Hotspots<span class="n">${hotspots.length}</span></summary><p class="quiet">Files that change often and are complex: change them in small steps and test after each.</p>${hotspots.map((h) => `<div class="row" tabindex="0" data-open="${esc(h.file)}" data-line="1"><i class="glyph hint"></i><span class="title">${esc(h.file)}</span><span class="does">${esc(h.title)}</span></div>`).join("")}</details>` : ""}
     <label class="check"><input type="checkbox" data-act="toggleHints" ${data?.hints ? "checked" : ""}> Show hints Detron is less sure about</label>
   </section>`;
