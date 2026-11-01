@@ -3,7 +3,7 @@ import { chmod, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { addMcp, mcpState } from "../src/agent/mcpSetup.ts";
-import { makeRepo } from "./helpers.ts";
+import { makeRepo, withClaudeSettings } from "./helpers.ts";
 
 // A stand-in for Claude Code's `claude` command that writes down how it was called.
 async function fakeClaude(): Promise<{ dir: string; calls: () => Promise<string[]> }> {
@@ -41,16 +41,8 @@ test("adds Detron's MCP server with Claude Code's own command, in the project's 
 test("mcpState: added, missing, or pointing at a Detron that moved", async () => {
   const folder = await makeRepo({});
   const detron = join(await makeRepo({ "detron.mjs": "" }), "detron.mjs");
-  const home = (claude: object) => makeRepo({ ".claude.json": JSON.stringify(claude) });
-  const before = process.env.HOME;
-  try {
-    process.env.HOME = await home({});
-    assert.equal(await mcpState(folder), "missing");
-    process.env.HOME = await home({ projects: { [folder]: { mcpServers: { detron: { command: "node", args: [detron, "mcp"] } } } } });
-    assert.equal(await mcpState(folder), "added");
-    process.env.HOME = await home({ projects: { [folder]: { mcpServers: { detron: { command: "node", args: ["/old/detron.detron-0.0.9/dist/server.mjs", "mcp"] } } } } });
-    assert.equal(await mcpState(folder), "stale");
-  } finally {
-    process.env.HOME = before;
-  }
+  await withClaudeSettings({}, async () => assert.equal(await mcpState(folder), "missing"));
+  const at = (path: string) => ({ projects: { [folder]: { mcpServers: { detron: { command: "node", args: [path, "mcp"] } } } } });
+  await withClaudeSettings(at(detron), async () => assert.equal(await mcpState(folder), "added"));
+  await withClaudeSettings(at("/old/detron.detron-0.0.9/dist/server.mjs"), async () => assert.equal(await mcpState(folder), "stale"));
 });

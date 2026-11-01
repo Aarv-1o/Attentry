@@ -37,3 +37,20 @@ export const fakeFunction = (overrides: Partial<FunctionInfo> & Pick<FunctionInf
   passedAsValue: false, shape: ["internal"],
   ...overrides,
 });
+
+// Runs `run` with Claude Code's settings file (~/.claude.json) in a home folder of the test's.
+// Node finds the home folder in HOME, and on Windows in USERPROFILE: both are set.
+export async function withClaudeSettings(settings: object, run: () => Promise<void>): Promise<void> {
+  const home = await makeRepo({ ".claude.json": JSON.stringify(settings) });
+  const before = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  try {
+    await run();
+  } finally {
+    for (const [key, value] of Object.entries(before)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
