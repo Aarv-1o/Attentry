@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import type { Node } from "web-tree-sitter";
+import { git } from "../../index/git.ts";
 
 // Hotspots (Tornhill, "Your Code as a Crime Scene"): files that are complex AND change often.
 // That's where bugs and agent mess pile up, so clean there first and leave stable code alone.
-
-const run = promisify(execFile);
 
 export interface Hotspot {
   file: string;
@@ -22,16 +19,28 @@ export type History =
 const MIN_COMMITS = 10; // fewer, and "changes often" means nothing yet
 const MAX_SHOWN = 10;
 
+// History only changes with a commit: the background Detron reuses it until HEAD moves.
+const histories = new Map<string, { head: string; history: History }>();
+
 // How often each file changed, with paths relative to `root` (which may be a folder inside the repo).
 export async function gitHistory(root: string): Promise<History> {
-  let prefix: string;
+  let found: string[];
   try {
-    prefix = (await run("git", ["-C", root, "rev-parse", "--show-prefix"])).stdout.trim();
-  } catch {
-    return { ok: false, reason: "not a git repo" }; // rev-parse fails outside a repo, or without git: same answer
+    found = (await git(root, ["rev-parse", "--show-prefix", "HEAD"])).split("\n");
+  } catch (error) {
+    // rev-parse fails outside a repo (or without git), and right after `git init`, with no HEAD yet.
+    return { ok: false, reason: /HEAD/.test(String((error as { stderr?: string }).stderr)) ? "no commits yet" : "not a git repo" };
   }
-  const args = ["-C", root, "log", "--no-merges", "--format=@%h", "--name-only", "--", "."];
-  const log = (await run("git", args, { maxBuffer: 256 * 1024 * 1024 })).stdout;
+  const [prefix = "", head = ""] = found.map((line) => line.trim());
+  const kept = histories.get(root);
+  if (kept?.head === head) return kept.history;
+  const history = await readHistory(root, prefix);
+  histories.set(root, { head, history });
+  return history;
+}
+
+async function readHistory(root: string, prefix: string): Promise<History> {
+  const log = await git(root, ["log", "--no-merges", "--format=@%h", "--name-only", "--", "."]);
   const commits = log.split("\n").filter((l) => l.startsWith("@")).length;
   if (commits < MIN_COMMITS) return { ok: false, reason: `only ${commits} commit${commits === 1 ? "" : "s"} of history` };
   const changes = new Map<string, number>();
