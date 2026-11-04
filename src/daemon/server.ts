@@ -31,7 +31,7 @@ export async function serve(root: string): Promise<void> {
   const address = addressFor(root);
   if (await answering(address)) return; // another one got there first: it serves this repo
   if (process.platform !== "win32") rmSync(address, { force: true }); // left by a crash
-  const sessions = new Sessions(root, true); // long-lived: it can run the tests
+  const sessions = new Sessions(root, true); // long-lived: it reads the repo in the background and runs the tests
   const build = buildId();
   let queue = Promise.resolve();
   let idle: NodeJS.Timeout;
@@ -78,4 +78,5 @@ export async function serve(root: string): Promise<void> {
   };
   await new Promise<void>((done) => server.listen(address, done));
   stayAwake();
+  void sessions.readRepo(); // started by an agent's first hook: it will want the repo read
 }

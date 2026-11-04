@@ -168,3 +168,25 @@ test("two agents in one repo: each hears only about the files it edited", async 
   assert.match((await said("y", "Stop")).systemMessage, /- Problems: none added/);
   assert.match((await said("x", "Stop")).systemMessage, /- Problems: 1 added \(1 security\)/);
 });
+
+test("while the first scan reads a big repo, hooks answer at once; edits made meanwhile are checked after", async () => {
+  const root = await makeRepo({ "index.js": START });
+  const sessions = new Sessions(root, true, 0); // no wait: as on a repo too big to read in a moment
+  const hook = async (event: string, extra: object = {}) => {
+    const reply = await sessions.handle({ hook_event_name: event, session_id: "s1", ...extra });
+    return reply.stdout ? JSON.parse(reply.stdout) : undefined;
+  };
+  const edited = { tool_name: "Write", tool_input: { file_path: join(root, "index.js") } };
+  const hello = await hook("SessionStart");
+  assert.match(hello.hookSpecificOutput.additionalContext, /First it reads the repo \(\d+% of \d+ files?[^)]*\): edits until then are checked once it's done\./);
+  assert.equal(await hook("PreToolUse", edited), undefined, "no reuse check without the repo read");
+  assert.match((await hook("PostToolUse", edited)).hookSpecificOutput.additionalContext, /^Detron is still reading the repo/);
+  assert.equal(await hook("PostToolUse", edited), undefined, "told once");
+  assert.equal(await hook("Stop"), undefined, "finishing doesn't wait for the scan");
+  assert.match((await sessions.tool("check", { files: ["index.js"] })).text, /^Detron is still reading this repo/);
+  await sessions.readRepo();
+  await writeFile(join(root, "index.js"), SAVE);
+  const told = await hook("PostToolUse", edited);
+  assert.match(told.hookSpecificOutput.additionalContext, /this edit added 1 problem/, "measured from the repo as it was read");
+  assert.equal((await sessions.status())!.edits, 3, "edits made while reading still count");
+});

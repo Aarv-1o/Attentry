@@ -44,11 +44,16 @@ const worstFirst = (a: Finding, b: Finding) => Number(severityOf(a) !== "error")
 
 export const isEdit = (input: HookInput) => EDIT_TOOLS.test(input.tool_name ?? "");
 
-// After an edit: problems this task added that the agent hasn't been told about yet.
-export function afterEdit(input: HookInput, root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
+// An edit counts toward the task, also while Detron is still reading the repo.
+export function noteEdit(input: HookInput, root: string, task: Task): void {
   if (input.tool_input?.file_path) task.editedFiles.add(relative(root, input.tool_input.file_path).replace(/\\/g, "/"));
   task.edits++;
   task.lastEditAt = Date.now();
+}
+
+// After an edit: problems this task added that the agent hasn't been told about yet.
+export function afterEdit(input: HookInput, root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
+  noteEdit(input, root, task);
   const added = newSince(task, findings).filter(matters).sort(worstFirst);
   task.added = added.length;
   const fresh = added.filter((f) => !told.has(keyOf(f)));

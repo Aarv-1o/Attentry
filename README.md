@@ -103,7 +103,9 @@ This is how agents without hooks (Windsurf, Cline) get Detron's help too.
 
 A background Detron keeps the repo in memory (never on disk), so a check after an edit rereads
 only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
-start the hook). It starts on first use and stops after a quiet half hour. Hooks and MCP tools ask
+start the hook). It starts on first use and stops after a quiet half hour. Its first read of the
+repo takes about 10 s per 1,000 files; the agent doesn't wait for it. Detron says it's still
+reading, and checks the edits made meanwhile once it's done. Hooks and MCP tools ask
 the same one, so they agree on what this task added; with two agents in one repo, each hears only
 about the files it edited. It proves it's Detron on every answer (a key in `~/.detron` only you
 can read), so nothing else holding its address can talk to your agent.

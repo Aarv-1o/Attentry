@@ -27,10 +27,15 @@ export interface Task {
 const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
-export function startTask(findings: Finding[]): Task {
-  const started = new Map<string, number>();
-  for (const f of findings) started.set(keyOf(f), (started.get(keyOf(f)) ?? 0) + 1);
-  return { started, edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
+export function startTask(findings: Finding[] = []): Task {
+  const task: Task = { started: new Map(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
+  recordStart(task, findings);
+  return task;
+}
+
+// What the task started with. Filled in later for a task that began while Detron was still reading the repo.
+export function recordStart(task: Task, findings: Finding[]): void {
+  for (const f of findings) task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
 }
 
 // Findings now that weren't there when the task started (counting duplicates: a second
