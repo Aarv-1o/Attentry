@@ -53,3 +53,13 @@ test("--agent: grouped by rule, the guidance once, hints left out unless asked",
   assert.equal(text.match(/Why: A fix made in one copy/g)!.length, 1);
   assert.equal(formatAgent("/repo", [], false).trimEnd().split("\n").at(-1), "Nothing to fix.");
 });
+
+test("a file nothing imports yet still has its security problems: an agent's new file starts unused", async () => {
+  const found = await findings({
+    "package.json": JSON.stringify({ dependencies: { express: "4.19.2" } }),
+    "src/main.js": "export const main = () => 1;\n",
+    "src/db.js": `export async function findUser(db, id) {\n  try { return db.get(id); } catch (e) {}\n}\nexport const OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz123456";\n`,
+  });
+  const inDb = found.filter((f) => f.file === "src/db.js").map((f) => f.rule).sort();
+  assert.deepEqual(inDb, ["hardcoded-secret", "unused-file"], "the secret counts; clean-up inside the dead file doesn't");
+});

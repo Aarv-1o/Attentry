@@ -34,7 +34,7 @@ export interface ScanResult {
   deadFiles: Set<string>;
   crossStack: CrossStack;
   hygiene: LineFinding[]; // without findings in dead files: the fix there is deleting the file
-  database: LineFinding[]; // same, for the database checks
+  database: LineFinding[]; // these three include dead files: a new file is dead until it's wired in
   security: LineFinding[];
   crashes: LineFinding[];
   hasDatabase: boolean; // a database library or schema file was found
@@ -72,7 +72,8 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
     files: await findUnusedFiles(index),
     functions: await findDeadFunctions(index),
   };
-  // Issues inside a file that's dead as a whole are noise: the fix is deleting the file.
+  // Clean-up inside a file that's dead as a whole is noise: the fix is deleting the file. Security,
+  // crash and database problems still count: a file an agent just wrote is unused until it's wired in.
   const deadFiles = new Set(dead.files.map((f) => f.file));
   for (const file of deadFiles) {
     apis.delete(file);
@@ -83,6 +84,7 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   const schemas = await readTexts(root, index.allFiles.filter((f) => /\.(prisma|sql)$/i.test(f)));
   for (const [file, text] of schemas) lineFindings.push(...moneyInSchemaText(file, text));
   const live = lineFindings.filter((f) => !deadFiles.has(f.file));
+  const serious = (rules: Set<string>) => lineFindings.filter((f) => rules.has(f.rule));
 
   const imports = new Map([...index.usage].map(([file, u]) => [file, u.imports]));
   const crossStack = findCrossStack(apis, imports, await htmlCallsIn(root, index.allFiles));
@@ -108,10 +110,10 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   return {
     root, index, facts, skipped: unsupportedCode(index.allFiles), groups, differences, dead, deadFiles, crossStack,
     hygiene: live.filter((f) => !DATABASE_RULES.has(f.rule) && !SECURITY_RULES.has(f.rule) && !CRASH_RULES.has(f.rule) && keep(f)),
-    database: live.filter((f) => DATABASE_RULES.has(f.rule) && keep(f)),
+    database: serious(DATABASE_RULES).filter(keep),
     hasDatabase: usesDatabase(imports.values(), index.allFiles),
-    security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...live.filter((f) => SECURITY_RULES.has(f.rule))].filter(keep),
-    crashes: live.filter((f) => CRASH_RULES.has(f.rule) && keep(f)),
+    security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...serious(SECURITY_RULES)].filter(keep),
+    crashes: serious(CRASH_RULES).filter(keep),
     history, hotspots: history.ok ? findHotspots(history.changes, sizes) : [],
     seconds: (Date.now() - started) / 1000,
   };
