@@ -161,8 +161,12 @@ export async function explainTool(args: Args, ctx: ToolContext): Promise<ToolRes
   const m = /^(.+):(\d+)$/.exec(text(args.location)?.trim() ?? "");
   if (!m) return { text: "Give `location` as file:line, like src/app.ts:42.", isError: true };
   const file = relativeFile(ctx.root, m[1]!);
-  const here = findingsOn(await ctx.findings(), file, Number(m[2]));
-  return { text: here.length ? explainFindings(ctx.root, here) : `No findings on ${file}:${m[2]}.` };
+  const all = await ctx.findings();
+  const here = findingsOn(all, file, Number(m[2]));
+  if (here.length) return { text: explainFindings(ctx.root, here) };
+  // Lines move while an agent edits: point it at the ones that do have findings.
+  const lines = [...new Set(all.filter((f) => f.file === file && severityOf(f) !== "hint").map((f) => f.line))].sort((a, b) => a - b);
+  return { text: `No findings on ${file}:${m[2]}.${lines.length ? ` Findings in ${file} are on line ${lines.slice(0, 10).join(", ")}.` : ""}` };
 }
 
 export const TOOLS = {

@@ -21,6 +21,8 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
+// MCP sessions are named by Detron's MCP server, one per agent session: never a hook's session id.
+export const MCP_SESSION = "mcp:";
 
 export const greeting = (project: string, files: number, mode: string) =>
   `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
@@ -80,20 +82,31 @@ export class Sessions {
     return [...this.tasks.values()].map((e) => e.task).sort((a, b) => b.lastEditAt - a.lastEditAt)[0];
   }
 
-  // Is another agent editing this repo too? Then each task owns only the files it edited.
-  private markShared(task: Task): void {
-    task.shared = [...this.tasks.values()].some(({ task: other }) => other !== task && Date.now() - other.lastEditAt < ACTIVE_MS);
+  private hookTasks(): Task[] {
+    return [...this.tasks].filter(([session]) => !session.startsWith(MCP_SESSION)).map(([, e]) => e.task);
   }
 
-  // A tool an agent called (MCP). Tools don't say which session they're from: "this task" is
-  // the one that edited most recently.
-  async tool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+  // Is another agent editing this repo too? Then each task owns only the files it edited.
+  private markShared(task: Task): void {
+    task.shared = this.hookTasks().some((other) => other !== task && Date.now() - other.lastEditAt < ACTIVE_MS);
+  }
+
+  // An MCP server starting: what the repo has now is where its task starts.
+  async begin(session: string): Promise<void> {
+    await this.taskOf(session);
+  }
+
+  // A tool an agent called (MCP). MCP doesn't say which hook session it belongs to: with one
+  // agent's hooks running, that's its task; otherwise the MCP server's own, from when it started.
+  async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
+    const hooks = this.hookTasks();
+    const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
       root: this.root,
       index: () => buildIndex(this.root, this.cache),
       findings: () => this.findings(),
-      task: () => this.latestTask(),
+      task: () => task,
     });
   }
 

@@ -11,7 +11,8 @@ import { addressFor, buildId } from "./address.ts";
 
 export type Request =
   | { kind: "hook"; build: string; input: HookInput }
-  | { kind: "tool"; build: string; name: string; args: Record<string, unknown> }
+  | { kind: "tool"; build: string; name: string; args: Record<string, unknown>; session?: string | undefined }
+  | { kind: "begin"; build: string; session: string }
   | { kind: "ping"; build: string }
   | { kind: "status" };
 export type Response =
@@ -54,7 +55,8 @@ export async function serve(root: string): Promise<void> {
     if (request.kind === "status") return { status: (await sessions.status()) ?? null };
     if (request.build !== build) return { restart: true }; // Detron was updated: the caller starts the new one
     if (request.kind === "ping") return { ok: true };
-    if (request.kind === "tool") return { result: await sessions.tool(request.name, request.args) };
+    if (request.kind === "begin") return (await sessions.begin(request.session), { ok: true });
+    if (request.kind === "tool") return { result: await sessions.tool(request.name, request.args, request.session) };
     return { reply: await sessions.handle(request.input) };
   };
   await new Promise<void>((done) => server.listen(address, done));

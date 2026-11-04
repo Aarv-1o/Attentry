@@ -85,5 +85,10 @@ async function viaBackground<T>(root: string, request: Request, pick: (r: Respon
 export const hookReply = (root: string, input: HookInput): Promise<HookReply> =>
   viaBackground(root, { kind: "hook", build: buildId(), input }, (r) => ("reply" in r ? r.reply : undefined), () => new Sessions(root).handle(input));
 
-export const toolReply = (root: string, name: string, args: Record<string, unknown>): Promise<ToolResult> =>
-  viaBackground(root, { kind: "tool", build: buildId(), name, args }, (r) => ("result" in r ? r.result : undefined), () => new Sessions(root).tool(name, args));
+export const toolReply = (root: string, name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> =>
+  viaBackground(root, { kind: "tool", build: buildId(), name, args, session }, (r) => ("result" in r ? r.result : undefined), () => new Sessions(root).tool(name, args));
+
+// An MCP server's task starts now. Without a background Detron there's no task to remember: nothing to do.
+export const beginTask = async (root: string, session: string): Promise<void> => {
+  await viaBackground(root, { kind: "begin", build: buildId(), session }, (r) => ("ok" in r ? true : undefined), async () => false);
+};

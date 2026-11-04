@@ -12,7 +12,7 @@ import type { HookInput } from "../agent/hooks.ts";
 import { init, mcpSetup } from "../agent/init.ts";
 import { doctor } from "../agent/doctor.ts";
 import { mcpAddCommand } from "../agent/mcpSetup.ts";
-import { hookReply, toolReply } from "../daemon/client.ts";
+import { hookReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
 import { runMcpServer } from "../mcp/server.ts";
@@ -150,9 +150,8 @@ export async function run(argv: string[], out: Write): Promise<number> {
   // MCP: stdout is the agent's channel, so nothing else is printed. The repo is the folder
   // given, or the project the agent says it's in, or where the agent started it.
   if (argv[0] === "mcp") {
-    const root = await projectRoot(resolve(argv[1] ?? process.env.CLAUDE_PROJECT_DIR ?? "."));
-    await runMcpServer((name, args) => toolReply(root, name, args));
-    return 0;
+    runMcpServer(await projectRoot(resolve(argv[1] ?? process.env.CLAUDE_PROJECT_DIR ?? ".")));
+    return 0; // the server keeps the process alive until the agent closes stdin
   }
   if (argv[0] === "serve") {
     await serve(resolve(argv[1] ?? "."));
