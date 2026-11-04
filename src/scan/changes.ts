@@ -1,18 +1,13 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { WHOLE_FILE_RULES, type Finding } from "../findings/types.ts";
+import { git } from "../index/git.ts";
 
 // "Your changes": the lines a branch (or uncommitted work) added or changed. Showing only the
 // findings there keeps a big repo's old issues from burying what this change introduced
 // (Snyk's "delta findings"), and keeps what an agent reads short.
 
-const run = promisify(execFile);
-
 export type Changes =
   | { ok: true; base: string; files: Map<string, Set<number> | "all"> }
   | { ok: false; reason: string };
-
-const git = async (root: string, args: string[]) => (await run("git", ["-C", root, ...args], { maxBuffer: 256 * 1024 * 1024 })).stdout;
 
 async function tryGit(root: string, args: string[]): Promise<string | undefined> {
   try {

@@ -57,7 +57,10 @@ Copilot CLI read them too). Then, in every agent session:
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Detron finds the command (`npm test`,
   `pnpm test`, pytest, in each app of the repo), or set `"tests": "make check"` (or `"off"`) in
-  `.detron/config.json`; `"testTimeoutSeconds"` limits a run (default 300)
+  `.detron/config.json`; `"testTimeoutSeconds"` limits a run (default 300, then the whole process
+  tree is stopped). A repo's test command runs whatever the repo says, so Detron runs only the
+  commands you allowed by connecting it (`init`, or Connect in the sidebar), and asks again when
+  they change. `detron doctor` shows which ones are allowed
 - **At the end** a change card for you: the files it changed, the problems it added and fixed,
   and whether the tests passed
 - **Suggest mode** (default) only tells the agent. `init --mode block` also refuses exact copies,
@@ -68,10 +71,18 @@ Copilot CLI read them too). Then, in every agent session:
 
 Hooks speak up on their own. With Detron's MCP server, the agent can also ask:
 
-- **find_existing**: "is there already a function that formats a date?", or the code it's about
-  to write. Answers with what exists, where, and how to reuse it
-- **check**: problems in its changes or in given files, marking what this task added
-- **explain**: everything about the findings on one `file:line`
+- **find_existing**: "is there already a function that formats a date?" (`query`), or the code
+  it's about to write (`code` and `file`). Answers with what exists, where, how often it's used,
+  and whether to import it
+- **check**: problems in its changes, or in the `files` it lists, with what this task added marked
+  "(new in this task)", then clean-up (copies and unused code) apart
+- **explain**: everything about the findings on one `file:line`: what the code does, why it
+  matters, the fix in steps, and how to check. On a line without findings, it says which lines
+  of that file have them
+
+Built on the official MCP SDK: it speaks both the handshake protocol (2025 revisions) and
+2026-07-28, and checks every call's arguments, so a wrong call comes back as an error the agent
+can read and fix. All three tools only read.
 
 `init` prints the command for Claude Code. Other agents take the same server in their MCP
 settings (Cursor: `.cursor/mcp.json`, Windsurf: `mcp_config.json`, Cline: its MCP settings):
@@ -90,9 +101,12 @@ args = ["/path/to/detron/dist/detron.mjs", "mcp", "/path/to/your/repo"]
 
 This is how agents without hooks (Windsurf, Cline) get Detron's help too.
 
-A background Detron keeps the repo in memory (never on disk), so a check after an edit takes
-about a tenth of a second. It starts on first use and stops after a quiet half hour. Hooks and
-MCP tools ask the same one, so they agree on what this task added.
+A background Detron keeps the repo in memory (never on disk), so a check after an edit rereads
+only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
+start the hook). It starts on first use and stops after a quiet half hour. Hooks and MCP tools ask
+the same one, so they agree on what this task added; with two agents in one repo, each hears only
+about the files it edited. It proves it's Detron on every answer (a key in `~/.detron` only you
+can read), so nothing else holding its address can talk to your agent.
 
 ## In your editor
 

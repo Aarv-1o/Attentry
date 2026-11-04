@@ -34,7 +34,7 @@ test("check and explain: problems in given files, with what this task added mark
   assert.match(checked.text, /src\/save\.js:4 warning detron\/empty-catch: .+ \(new in this task\)/);
   assert.doesNotMatch(checked.text, /src\/api\.js:4 .+new in this task/, "the old one isn't this task's");
   assert.match((await sessions.tool("explain", { location: "src/save.js:4" })).text, /## Errors silently ignored \(1\)/);
-  assert.equal((await sessions.tool("explain", { location: "src/save.js:1" })).text, "No findings on src/save.js:1.");
+  assert.equal((await sessions.tool("explain", { location: "src/save.js:1" })).text, "No findings on src/save.js:1. Findings in src/save.js are on line 4.");
   assert.equal((await sessions.tool("explain", { location: "nowhere" })).isError, true);
   assert.equal((await sessions.tool("rewrite", {})).isError, true);
 });

@@ -53,3 +53,23 @@ test("--agent: grouped by rule, the guidance once, hints left out unless asked",
   assert.equal(text.match(/Why: A fix made in one copy/g)!.length, 1);
   assert.equal(formatAgent("/repo", [], false).trimEnd().split("\n").at(-1), "Nothing to fix.");
 });
+
+test("a file nothing imports yet still has its security problems: an agent's new file starts unused", async () => {
+  const found = await findings({
+    "package.json": JSON.stringify({ dependencies: { express: "4.19.2" } }),
+    "src/main.js": "export const main = () => 1;\n",
+    "src/db.js": `export async function findUser(db, id) {\n  try { return db.get(id); } catch (e) {}\n}\nexport const OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz123456";\n`,
+  });
+  const inDb = found.filter((f) => f.file === "src/db.js").map((f) => f.rule).sort();
+  assert.deepEqual(inDb, ["hardcoded-secret", "unused-file"], "the secret counts; clean-up inside the dead file doesn't");
+});
+
+test("code shown in a report never carries a key: it's cut to its first characters", async () => {
+  const found = await findings({
+    "src/a.js": `export function getKey() {\n  return "sk-proj-QQQQrrrrSSSStttUUUUvvvvWWWW1234";\n}\nexport function token() {\n  return "f8Kq2Lm9Zx4Wv7Np3Rt6";\n}\n`,
+    "src/main.js": `import { getKey, token } from "./a.js";\nconsole.log(getKey(), token());\n`,
+  });
+  const shown = JSON.stringify(found);
+  assert.doesNotMatch(shown, /QQQQrrrr|f8Kq2Lm9/);
+  assert.match(found.find((f) => f.file === "src/a.js" && f.line === 2)!.plain!.does ?? "", /"sk-p…"/);
+});

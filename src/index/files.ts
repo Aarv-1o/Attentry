@@ -1,10 +1,7 @@
-import { execFile } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { promisify } from "node:util";
 import { detectLanguage } from "../parse/parse.ts";
-
-const run = promisify(execFile);
+import { git } from "./git.ts";
 
 // Used only outside git repos. Inside a repo, .gitignore decides.
 const SKIP_DIRS = new Set([
@@ -36,12 +33,7 @@ export function isSource(path: string): boolean {
 
 async function gitFiles(root: string): Promise<string[] | undefined> {
   try {
-    const { stdout } = await run(
-      "git",
-      ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-      { cwd: root, maxBuffer: 64 * 1024 * 1024 },
-    );
-    return stdout.split("\0").filter(Boolean);
+    return (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
   } catch {
     return undefined; // not a git repo, or git isn't installed: fall back to walking
   }

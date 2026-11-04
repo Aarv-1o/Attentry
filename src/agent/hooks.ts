@@ -6,6 +6,7 @@ import type { Config } from "./config.ts";
 import { changeCard } from "./card.ts";
 import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import type { ExistingMatch } from "./reuse.ts";
+import { plural } from "../report/common.ts";
 
 // What Detron says at each moment of an agent's task. Short on purpose: the agent pays for
 // every word, so it hears only problems this task added, once each, and nothing when clean.
@@ -40,7 +41,6 @@ const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const json = (value: object): HookReply => ({ stdout: `${JSON.stringify(value)}\n`, exitCode: 0 });
 const matters = (f: Finding) => ["error", "warning"].includes(severityOf(f));
 const worstFirst = (a: Finding, b: Finding) => Number(severityOf(a) !== "error") - Number(severityOf(b) !== "error");
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const isEdit = (input: HookInput) => EDIT_TOOLS.test(input.tool_name ?? "");
 

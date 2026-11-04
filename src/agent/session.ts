@@ -4,12 +4,14 @@ import { collectFindings } from "../findings/collect.ts";
 import type { Finding } from "../findings/types.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { buildIndex } from "../index/repo.ts";
+import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { startTask, type Task } from "./ledger.ts";
+import { testsAllowed } from "./trust.ts";
 import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 // One repo's agent sessions: each session's task, and one cache of what every file taught us,
@@ -18,9 +20,12 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
+const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
+// MCP sessions are named by Detron's MCP server, one per agent session: never a hook's session id.
+export const MCP_SESSION = "mcp:";
 
 export const greeting = (project: string, files: number, mode: string) =>
-  `Detron is on for ${project} (${files} files, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
+  `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
 
 export interface AgentStatus {
   edits: number;
@@ -40,12 +45,19 @@ export class Sessions {
   // open by them until the agent's hook timeout kills it.
   constructor(readonly root: string, private readonly runsTests = false) {}
 
+  // Only commands the person allowed for this repo run: a cloned repo's test script could be anything.
+  private async testRun(config: Config): Promise<TestRun> {
+    if (config.tests === "off") return { state: "off", label: "", seconds: 0, tail: [] };
+    const commands = await findTests(this.root, config.tests);
+    if (commands.length && !(await testsAllowed(this.root, commands))) return { state: "blocked", label: commands.map((c) => c.label).join(", "), seconds: 0, tail: [] };
+    return runTests(commands, config.testTimeoutSeconds * 1000);
+  }
+
   // Starts the tests unless they're already running. Results land on the task.
   private startTests(task: Task, config: Config): Promise<TestRun> {
     if (task.testing) return task.testing;
     const atEdit = task.edits;
-    task.testing = findTests(this.root, config.tests)
-      .then((commands) => runTests(commands, config.testTimeoutSeconds * 1000))
+    task.testing = this.testRun(config)
       .then((run) => {
         task.tests = { ...run, atEdit };
         task.testsTold = false;
@@ -70,15 +82,31 @@ export class Sessions {
     return [...this.tasks.values()].map((e) => e.task).sort((a, b) => b.lastEditAt - a.lastEditAt)[0];
   }
 
-  // A tool an agent called (MCP). Tools don't say which session they're from: "this task" is
-  // the one that edited most recently.
-  async tool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+  private hookTasks(): Task[] {
+    return [...this.tasks].filter(([session]) => !session.startsWith(MCP_SESSION)).map(([, e]) => e.task);
+  }
+
+  // Is another agent editing this repo too? Then each task owns only the files it edited.
+  private markShared(task: Task): void {
+    task.shared = this.hookTasks().some((other) => other !== task && Date.now() - other.lastEditAt < ACTIVE_MS);
+  }
+
+  // An MCP server starting: what the repo has now is where its task starts.
+  async begin(session: string): Promise<void> {
+    await this.taskOf(session);
+  }
+
+  // A tool an agent called (MCP). MCP doesn't say which hook session it belongs to: with one
+  // agent's hooks running, that's its task; otherwise the MCP server's own, from when it started.
+  async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
+    const hooks = this.hookTasks();
+    const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
       root: this.root,
       index: () => buildIndex(this.root, this.cache),
       findings: () => this.findings(),
-      task: () => this.latestTask(),
+      task: () => task,
     });
   }
 
@@ -124,6 +152,7 @@ export class Sessions {
     if (event === "PostToolUse" && isEdit(input)) {
       const { task, told } = await this.taskOf(input.session_id);
       const config = await loadConfig(this.root);
+      this.markShared(task);
       const checkIns = task.lastCheckIn;
       const reply = afterEdit(input, this.root, task, told, await this.findings(), config);
       // A check-in: the tests, in the background (the agent doesn't wait).
@@ -134,6 +163,7 @@ export class Sessions {
       const entry = this.tasks.get(input.session_id);
       if (!entry) return SILENT; // nothing was edited in this session
       const config = await loadConfig(this.root);
+      this.markShared(entry.task);
       // The card's evidence: tests run on the final code, waited for as long as the hook may take.
       if (this.runsTests && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);

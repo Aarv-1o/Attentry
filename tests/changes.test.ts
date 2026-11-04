@@ -79,3 +79,11 @@ test("a route nothing calls is clean-up; a call to a missing route will break", 
   assert.equal(partOf({ ...base, rule: "unused-route" }), "cleanup");
   assert.equal(partOf({ ...base, rule: "missing-route" }), "breaks");
 });
+
+test("a repo right after git init, with no commits yet, scans like any other", async () => {
+  const root = await makeRepo({ "index.js": OLD });
+  git(root, "init", "-q");
+  const result = await scanRepo(root);
+  assert.deepEqual(result.history, { ok: false, reason: "no commits yet" });
+  assert.deepEqual(await changedLines(root), { ok: false, reason: "no commits yet" });
+});

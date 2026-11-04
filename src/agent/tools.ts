@@ -13,6 +13,7 @@ import { nameWords } from "../rules/codebase/duplicates.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
 import { keyOf, newSince, type Task } from "./ledger.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
+import { plural } from "../report/common.ts";
 
 // The tools an agent can call (MCP): ask before writing, check after. Hooks say these things
 // unasked; tools are for when the agent wants to know, and for agents without hooks.
@@ -43,7 +44,6 @@ const sameWord = (a: string, b: string) => {
 const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
 // Repo-relative, with every ./ and ../ worked out: "src/../../x" is outside, and says so ("../x").
 const relativeFile = (root: string, file: string) => relative(root, resolve(root, file)).replace(/\\/g, "/");
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const LANGUAGE_FILE: Record<string, string> = { js: "new.js", javascript: "new.js", ts: "new.ts", typescript: "new.ts", tsx: "new.tsx", jsx: "new.jsx", py: "new.py", python: "new.py" };
 
 function describe(fn: FunctionInfo, uses: number): string {
@@ -161,8 +161,12 @@ export async function explainTool(args: Args, ctx: ToolContext): Promise<ToolRes
   const m = /^(.+):(\d+)$/.exec(text(args.location)?.trim() ?? "");
   if (!m) return { text: "Give `location` as file:line, like src/app.ts:42.", isError: true };
   const file = relativeFile(ctx.root, m[1]!);
-  const here = findingsOn(await ctx.findings(), file, Number(m[2]));
-  return { text: here.length ? explainFindings(ctx.root, here) : `No findings on ${file}:${m[2]}.` };
+  const all = await ctx.findings();
+  const here = findingsOn(all, file, Number(m[2]));
+  if (here.length) return { text: explainFindings(ctx.root, here) };
+  // Lines move while an agent edits: point it at the ones that do have findings.
+  const lines = [...new Set(all.filter((f) => f.file === file && severityOf(f) !== "hint").map((f) => f.line))].sort((a, b) => a - b);
+  return { text: `No findings on ${file}:${m[2]}.${lines.length ? ` Findings in ${file} are on line ${lines.slice(0, 10).join(", ")}.` : ""}` };
 }
 
 export const TOOLS = {

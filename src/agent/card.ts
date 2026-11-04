@@ -2,11 +2,11 @@ import { partOf, severityOf } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { fixedSince, newSince, type Task } from "./ledger.ts";
 import { describeTests } from "./tests.ts";
+import { plural } from "../report/common.ts";
 
 // The change card: what a task did, for the person, at the end. Facts only, all from Detron's
 // own records (no AI): the files it changed, the problems it added and fixed, and the tests.
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const MAX_FILES = 5;
 
 export function changeCard(task: Task, findings: Finding[]): string {

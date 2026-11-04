@@ -33,10 +33,43 @@ const stemOf = (file: string) => posix.basename(file).replace(/\.[^.]+$/, "");
 // An index file is imported by its folder name: "./components/Button" -> components/Button/index.tsx.
 const importNameOf = (file: string) => (stemOf(file) === "index" ? posix.basename(posix.dirname(file)) : stemOf(file));
 
+// Referenced by path in HTML, scripts, Dockerfiles, notebooks, or "api:app" for uvicorn.
+// Only distinctive forms count: a bare "api" or "blog" appears in almost any text.
+function mentionsOf(file: string): (text: string) => boolean {
+  const segments = file.replace(/\.[^.]+$/, "").split("/");
+  const stem = segments.at(-1)!;
+  const lastTwo = segments.slice(-2);
+  const needles = [posix.basename(file)];
+  if (lastTwo.length === 2) needles.push(lastTwo.join("/"), lastTwo.join("."));
+  const appRef = new RegExp(`(^|[\\s"'=.])${escapeRegex(stem)}:[A-Za-z_]`, "m"); // uvicorn/gunicorn "module:app"
+  return (text) => needles.some((n) => text.includes(n)) || appRef.test(text);
+}
+
+// Which candidates each file's text mentions, kept between scans: searching every text is most of
+// a re-scan on a big repo, and after an edit only the edited file's text needs searching again.
+const searched = new Map<string, { text: string; candidates: string; found: string[] }>();
+
+function mentionedElsewhere(root: string, candidates: string[], texts: Map<string, string>): Set<string> {
+  const key = candidates.join("\n");
+  let tests: [string, (text: string) => boolean][] | undefined;
+  const mentioned = new Set<string>();
+  for (const [other, text] of texts) {
+    const path = posix.join(root, other);
+    let kept = searched.get(path);
+    if (kept?.text !== text || kept.candidates !== key) {
+      tests ??= candidates.map((file) => [file, mentionsOf(file)]);
+      kept = { text, candidates: key, found: tests.filter(([, mentions]) => mentions(text)).map(([file]) => file) };
+      searched.set(path, kept);
+    }
+    for (const file of kept.found) if (file !== other) mentioned.add(file);
+  }
+  return mentioned;
+}
+
 export async function findUnusedFiles(index: RepoIndex): Promise<UnusedFile[]> {
   // Every name an import could point at, and which files import it.
   const importers = new Map<string, Set<string>>();
-  const note = (name: string, by: string) => importers.set(name, new Set([...(importers.get(name) ?? []), by]));
+  const note = (name: string, by: string) => (importers.get(name) ?? importers.set(name, new Set()).get(name)!).add(by);
   for (const [file, usage] of index.usage) {
     const language = detectLanguage(file);
     if (!language) continue;
@@ -48,27 +81,17 @@ export async function findUnusedFiles(index: RepoIndex): Promise<UnusedFile[]> {
   const routed = ROUTING_FRAMEWORKS.some((fw) => rootManifest.includes(`"${fw}"`));
   const autoloaded = rootManifest.includes('"@fastify/autoload"');
 
-  // Referenced by path in HTML, scripts, Dockerfiles, notebooks, or "api:app" for uvicorn.
-  // Only distinctive forms count: a bare "api" or "blog" appears in almost any text.
-  const mentionedElsewhere = (file: string): boolean => {
-    const segments = file.replace(/\.[^.]+$/, "").split("/");
-    const stem = segments.at(-1)!;
-    const lastTwo = segments.slice(-2);
-    const needles = [posix.basename(file)];
-    if (lastTwo.length === 2) needles.push(lastTwo.join("/"), lastTwo.join("."));
-    const appRef = new RegExp(`(^|[\\s"'=.])${escapeRegex(stem)}:[A-Za-z_]`, "m"); // uvicorn/gunicorn "module:app"
-    for (const [other, text] of texts) {
-      if (other !== file && (needles.some((n) => text.includes(n)) || appRef.test(text))) return true;
-    }
-    return false;
-  };
+  // Files nothing imports: unused, unless some text mentions them.
+  const candidates = index.files.filter((file) => {
+    if (ENTRY.test(file) || isTestFile(file) || (routed && ROUTED.test(file)) || (autoloaded && AUTOLOADED.test(file))) return false;
+    const by = importers.get(importNameOf(file));
+    return !(by && [...by].some((f) => f !== file));
+  });
+  const mentioned = mentionedElsewhere(index.root, candidates, texts);
 
   const unused: UnusedFile[] = [];
-  for (const file of index.files) {
-    if (ENTRY.test(file) || isTestFile(file) || (routed && ROUTED.test(file)) || (autoloaded && AUTOLOADED.test(file))) continue;
-    const by = importers.get(importNameOf(file));
-    if (by && [...by].some((f) => f !== file)) continue;
-    if (mentionedElsewhere(file)) continue;
+  for (const file of candidates) {
+    if (mentioned.has(file)) continue;
     const text = texts.get(file) ?? "";
     const lines = text.split("\n").length;
     const language = detectLanguage(file);

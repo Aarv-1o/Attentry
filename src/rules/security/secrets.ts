@@ -48,10 +48,22 @@ function assignedName(node: Node): string | undefined {
 
 const looksRandom = (value: string) => value.length >= 16 && /[A-Za-z]/.test(value) && /\d/.test(value) && !/\s/.test(value);
 
+const JWT = /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/;
+const EVERY_FORMAT = [...KEY_FORMATS.map(([format]) => format), JWT].map((format) => new RegExp(format.source, "g"));
+const masked = (secret: string) => `${secret.slice(0, 4)}…`;
+
+// Code shown to people and agents (what a function does, how two copies differ), with anything
+// that looks like a key cut to its first characters: a report must never pass the key on.
+export function hideSecrets(text: string): string {
+  const known = EVERY_FORMAT.reduce((shown, format) => shown.replace(format, masked), text);
+  // A random-looking quoted value (or a bare one, as in "Same wording") may be a key in no known format.
+  return known.replace(/(^|["'`])([^"'`\s]{16,})/g, (all, quote: string, value: string) => (looksRandom(value) && !PLACEHOLDER.test(value) ? `${quote}${masked(value)}` : all));
+}
+
 function secretIn(node: Node): { what: string; confidence: Confidence } | undefined {
   const value = unquote(node.text);
   for (const [format, what] of KEY_FORMATS) if (format.test(value)) return { what, confidence: "likely" };
-  const jwt = /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/.exec(value)?.[0];
+  const jwt = JWT.exec(value)?.[0];
   if (jwt && jwtRole(jwt) === "service_role") return { what: "a Supabase service_role key (full database access)", confidence: "likely" };
   const name = assignedName(node);
   // Firebase web config ({ apiKey: "AIza...", authDomain }) and Stripe pk_ keys are meant to be public.

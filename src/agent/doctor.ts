@@ -5,7 +5,10 @@ import { isSource, listRepoFiles, unsupportedCode } from "../index/files.ts";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig } from "./config.ts";
 import { hookState } from "./init.ts";
+import { findTests } from "./tests.ts";
+import { testsAllowed } from "./trust.ts";
 import { detronMcp, detronPath } from "./mcpSetup.ts";
+import { plural } from "../report/common.ts";
 
 // `detron doctor`: is Detron set up here, and working? One check per line, with what to do when
 // it isn't. Agents can run it too, when asked "is Detron connected?".
@@ -19,8 +22,8 @@ export async function doctor(folder: string): Promise<string> {
   const code = files.filter(isSource).length;
   const skipped = [...unsupportedCode(files)].map(([ext, n]) => `${n} .${ext}`).join(", ");
   checks.push(root === folder
-    ? { ok: code > 0, text: `Project: ${root} (${code} files Detron reads${skipped ? `; not read: ${skipped}` : ""})`, ...(code ? {} : { fix: "No JavaScript, TypeScript or Python here: open the project's own folder." }) }
-    : { ok: true, text: `Project: ${relative(folder, root)}, inside the folder you're in (${code} files Detron reads)` });
+    ? { ok: code > 0, text: `Project: ${root} (${plural(code, "file")} Detron reads${skipped ? `; not read: ${skipped}` : ""})`, ...(code ? {} : { fix: "No JavaScript, TypeScript or Python here: open the project's own folder." }) }
+    : { ok: true, text: `Project: ${relative(folder, root)}, inside the folder you're in (${plural(code, "file")} Detron reads)` });
   const git = existsSync(join(root, ".git"));
   checks.push(git
     ? { ok: true, text: "Git: yes, so \"your changes\" means what this branch or your uncommitted work changed" }
@@ -32,7 +35,16 @@ export async function doctor(folder: string): Promise<string> {
     : hooks === "stale"
       ? { ok: false, text: "Claude Code hooks: set up, but the Detron they run has moved (an extension update)", fix: "Run `detron init` again, or click Reconnect in the Detron sidebar." }
       : { ok: false, text: "Claude Code hooks: not set up in this folder", fix: "Run `detron init` here, or click Connect Claude Code in the Detron sidebar." });
-  checks.push({ ok: true, text: `Mode: ${(await loadConfig(root)).mode}` });
+  const config = await loadConfig(root);
+  checks.push({ ok: true, text: `Mode: ${config.mode}` });
+  const tests = config.tests === "off" ? [] : await findTests(root, config.tests);
+  checks.push(config.tests === "off"
+    ? { ok: true, text: "Tests: off (\"tests\": \"off\" in .detron/config.json)" }
+    : !tests.length
+      ? { ok: "warn", text: "Tests: none found, so the change card can't say whether they pass", fix: "Set \"tests\": \"<command>\" in .detron/config.json, then run `detron init` to allow it." }
+      : (await testsAllowed(root, tests))
+        ? { ok: true, text: `Tests: ${tests.map((t) => t.label).join(", ")}, run at check-ins` }
+        : { ok: "warn", text: `Tests: ${tests.map((t) => t.label).join(", ")} found, but not allowed yet (or changed since)`, fix: "Run `detron init` here to let Detron run them: it runs only what you allowed." });
 
   const mcp = await detronMcp(root === folder ? [folder] : [folder, root]);
   const mcpPath = mcp && detronPath(mcp.server);

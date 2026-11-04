@@ -5,6 +5,7 @@ import type { DuplicateGroup } from "../rules/codebase/duplicates.ts";
 import { worthFlagging } from "../rules/codebase/hotspots.ts";
 import type { LineChange } from "../rules/codebase/differences.ts";
 import type { LineFinding } from "../rules/line/types.ts";
+import { hideSecrets } from "../rules/security/secrets.ts";
 import type { ScanResult } from "../scan/scan.ts";
 import { GUIDES } from "./guide.ts";
 import { applyFeedback } from "./feedback.ts";
@@ -39,7 +40,10 @@ function callersOf(fn: FunctionInfo, texts: Map<string, string>): Place[] {
   return found;
 }
 
-const short = (text: string) => (text.trim().length > 90 ? `${text.trim().slice(0, 89)}…` : text.trim());
+const short = (text: string) => {
+  const shown = hideSecrets(text.trim());
+  return shown.length > 90 ? `${shown.slice(0, 89)}…` : shown;
+};
 
 // A line of code as a Markdown code span. Code with backticks in it (a docstring that quotes
 // `fromisoformat`) needs a longer fence, or the span ends early.
@@ -62,7 +66,7 @@ function copyFindings(r: ScanResult): Finding[] {
     const [first, ...rest] = group.functions;
     const diff = r.differences.get(group);
     const evidence = [
-      ...(group.sharedValues.length ? [`Same wording: ${group.sharedValues.map((v) => `"${v}"`).join(", ")}`] : []),
+      ...(group.sharedValues.length ? [`Same wording: ${group.sharedValues.map((v) => `"${hideSecrets(v)}"`).join(", ")}`] : []),
       ...(group.kind === "exact" ? ["Identical apart from names."] : []),
       ...(diff?.copies.flatMap(({ fn, changes }) => [`${fn.file}:${fn.startLine} ${fn.name} differs from ${diff.base.file}:${diff.base.startLine}:`, ...changes.map((c) => `  ${changeText(c)}`)]) ?? []),
     ];
