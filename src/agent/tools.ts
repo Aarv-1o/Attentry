@@ -13,6 +13,7 @@ import { nameWords } from "../rules/codebase/duplicates.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
 import { keyOf, newSince, type Task } from "./ledger.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
+import { plural } from "../report/common.ts";
 
 // The tools an agent can call (MCP): ask before writing, check after. Hooks say these things
 // unasked; tools are for when the agent wants to know, and for agents without hooks.
@@ -43,7 +44,6 @@ const sameWord = (a: string, b: string) => {
 const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
 // Repo-relative, with every ./ and ../ worked out: "src/../../x" is outside, and says so ("../x").
 const relativeFile = (root: string, file: string) => relative(root, resolve(root, file)).replace(/\\/g, "/");
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const LANGUAGE_FILE: Record<string, string> = { js: "new.js", javascript: "new.js", ts: "new.ts", typescript: "new.ts", tsx: "new.tsx", jsx: "new.jsx", py: "new.py", python: "new.py" };
 
 function describe(fn: FunctionInfo, uses: number): string {

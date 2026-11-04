@@ -1,3 +1,6 @@
+// "1 file", "3 files".
+export const plural = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
+
 export const hiddenNote = (count: number) =>
   `${count} more hint${count === 1 ? "" : "s"} hidden. Run with --all to see them.`;
 

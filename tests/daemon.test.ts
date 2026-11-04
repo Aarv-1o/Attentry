@@ -35,7 +35,7 @@ test("hooks share one background Detron that remembers the task between calls", 
   try {
     assert.equal(await agentStatus(root), undefined, "no agent yet: nothing is started just to ask");
     const hello = await hook(root, { hook_event_name: "SessionStart", source: "startup" });
-    assert.match(hello.hookSpecificOutput.additionalContext, /^Detron is on for detron-\w+ \(1 files, suggest mode\): /, "one line, so the agent knows Detron is on");
+    assert.match(hello.hookSpecificOutput.additionalContext, /^Detron is on for detron-\w+ \(1 file, suggest mode\): /, "one line, so the agent knows Detron is on");
     const file = join(root, "index.js");
     assert.equal(await hook(root, { hook_event_name: "PreToolUse", tool_name: "Edit", tool_input: { file_path: file } }), undefined);
     await writeFile(file, `${START}export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n`);

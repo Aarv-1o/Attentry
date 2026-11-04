@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { GUIDES } from "../findings/guide.ts";
 import { PART_NAMES, PARTS, partOf, severityOf, type Part } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
+import { plural } from "./common.ts";
 
 // `detron scan --markdown`: the report for a person to read in a Markdown preview (VS Code,
 // GitHub, a PR comment). A summary table first, then each part, rule by rule: why it matters,
@@ -22,7 +23,6 @@ const PART_NOTES: Record<Part, string> = {
   cleanup: "Copied, unused and messy code",
 };
 const SAFETY = { safe: "Safe to fix on its own", "ask-first": "Ask first: the fix changes behavior or how code is shared", warning: "Not a task: a way to work here" };
-const plural = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
 // Text from code and messages, safe inside Markdown: code spans stay as they are, and everything
 // else can't turn into HTML (`<script>`), emphasis (`__html`), links or table cells.

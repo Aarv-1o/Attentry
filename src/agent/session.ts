@@ -4,6 +4,7 @@ import { collectFindings } from "../findings/collect.ts";
 import type { Finding } from "../findings/types.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { buildIndex } from "../index/repo.ts";
+import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
@@ -20,7 +21,7 @@ const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 
 export const greeting = (project: string, files: number, mode: string) =>
-  `Detron is on for ${project} (${files} files, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
+  `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
 
 export interface AgentStatus {
   edits: number;

@@ -6,6 +6,7 @@ import { projectRoot } from "../index/project.ts";
 import { loadConfig } from "./config.ts";
 import { hookState } from "./init.ts";
 import { detronMcp, detronPath } from "./mcpSetup.ts";
+import { plural } from "../report/common.ts";
 
 // `detron doctor`: is Detron set up here, and working? One check per line, with what to do when
 // it isn't. Agents can run it too, when asked "is Detron connected?".
@@ -19,8 +20,8 @@ export async function doctor(folder: string): Promise<string> {
   const code = files.filter(isSource).length;
   const skipped = [...unsupportedCode(files)].map(([ext, n]) => `${n} .${ext}`).join(", ");
   checks.push(root === folder
-    ? { ok: code > 0, text: `Project: ${root} (${code} files Detron reads${skipped ? `; not read: ${skipped}` : ""})`, ...(code ? {} : { fix: "No JavaScript, TypeScript or Python here: open the project's own folder." }) }
-    : { ok: true, text: `Project: ${relative(folder, root)}, inside the folder you're in (${code} files Detron reads)` });
+    ? { ok: code > 0, text: `Project: ${root} (${plural(code, "file")} Detron reads${skipped ? `; not read: ${skipped}` : ""})`, ...(code ? {} : { fix: "No JavaScript, TypeScript or Python here: open the project's own folder." }) }
+    : { ok: true, text: `Project: ${relative(folder, root)}, inside the folder you're in (${plural(code, "file")} Detron reads)` });
   const git = existsSync(join(root, ".git"));
   checks.push(git
     ? { ok: true, text: "Git: yes, so \"your changes\" means what this branch or your uncommitted work changed" }
