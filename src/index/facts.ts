@@ -1,5 +1,6 @@
 import type { Node } from "web-tree-sitter";
 import type { ParsedFile } from "../parse/parse.ts";
+import { hideSecrets } from "../rules/security/secrets.ts";
 
 // What a function does, read from its syntax tree: the conditions it checks, what it calls,
 // what it changes and what it returns. Plain-language cards are built from these facts, so
@@ -30,7 +31,7 @@ const NOISE_CALL = /^(console\.\w+|print|logger?\.\w+|.*\.(push|map|filter|forEa
 const COMMON = new Set(["log", "push", "map", "filter", "forEach", "then", "catch", "length", "toString", "json", "status", "send", "end", "get", "set", "has", "keys", "values", "trim", "join", "split", "error", "message", "data", "id", "console", "print", "res", "req", "self", "this"]);
 
 const clip = (text: string, max = 40) => {
-  const one = text.replace(/\s+/g, " ").trim();
+  const one = hideSecrets(text.replace(/\s+/g, " ").trim());
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
 };
 // res.status(204).end -> res.status().end: the arguments don't say what it does.

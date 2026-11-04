@@ -2,6 +2,7 @@ import type { FunctionInfo } from "../index/functions.ts";
 import type { CopyDifferences, LineChange } from "../rules/codebase/differences.ts";
 import type { DuplicateGroup } from "../rules/codebase/duplicates.ts";
 import type { Confidence } from "../rules/confidence.ts";
+import { hideSecrets } from "../rules/security/secrets.ts";
 import { hiddenNote, nothingFound } from "./common.ts";
 
 const ADVICE: Record<DuplicateGroup["kind"], Partial<Record<Confidence, string>>> = {
@@ -33,14 +34,14 @@ function location(fn: FunctionInfo): string {
 }
 
 function quote(value: string): string {
-  const oneLine = value.replace(/\s+/g, " ");
+  const oneLine = hideSecrets(value.replace(/\s+/g, " "));
   const short = oneLine.length > 40 ? `${oneLine.slice(0, 40)}…` : oneLine;
   return short.includes('"') ? `'${short}'` : `"${short}"`;
 }
 
 const MAX_CHANGES_SHOWN = 3;
 const trimmed = (text: string) => {
-  const t = text.trim();
+  const t = hideSecrets(text.trim());
   return t.length > 70 ? `${t.slice(0, 70)}…` : t;
 };
 
