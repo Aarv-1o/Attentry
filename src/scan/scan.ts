@@ -1,5 +1,5 @@
 import type { FunctionFacts } from "../index/facts.ts";
-import { unsupportedCode } from "../index/files.ts";
+import { isGenerated, unsupportedCode } from "../index/files.ts";
 import { buildIndex, type RepoIndex } from "../index/repo.ts";
 import type { DeadCode } from "../report/deadCode.ts";
 import { findDeadFunctions } from "../rules/codebase/deadFunctions.ts";
@@ -109,7 +109,8 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   const history = await gitHistory(root);
   return {
     root, index, facts, skipped: unsupportedCode(index.allFiles), groups, differences, dead, deadFiles, crossStack,
-    hygiene: live.filter((f) => !DATABASE_RULES.has(f.rule) && !SECURITY_RULES.has(f.rule) && !CRASH_RULES.has(f.rule) && keep(f)),
+    // Generated code (an API client) isn't tidied by hand: only its security and crash problems count.
+    hygiene: live.filter((f) => !isGenerated(f.file) && !DATABASE_RULES.has(f.rule) && !SECURITY_RULES.has(f.rule) && !CRASH_RULES.has(f.rule) && keep(f)),
     database: serious(DATABASE_RULES).filter(keep),
     hasDatabase: usesDatabase(imports.values(), index.allFiles),
     security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...serious(SECURITY_RULES)].filter(keep),

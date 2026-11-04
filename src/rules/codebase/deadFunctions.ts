@@ -1,4 +1,4 @@
-import { isSource, isTestFile } from "../../index/files.ts";
+import { isGenerated, isSource, isTestFile } from "../../index/files.ts";
 import type { FunctionInfo } from "../../index/functions.ts";
 import type { RepoIndex } from "../../index/repo.ts";
 import { readTexts } from "../../index/texts.ts";
@@ -47,7 +47,7 @@ export async function findDeadFunctions(index: RepoIndex): Promise<DeadFunction[
 
   const dead: DeadFunction[] = [];
   for (const fn of index.functions) {
-    if (isTestFile(fn.file)) continue;
+    if (isTestFile(fn.file) || isGenerated(fn.file)) continue; // a generator writes what it writes
     // Methods, object properties, decorated and default-exported functions are called by
     // frameworks and dynamic code we can't see.
     if (fn.kind !== "function" || fn.decorated || fn.defaultExport || fn.name.startsWith("__")) continue;
