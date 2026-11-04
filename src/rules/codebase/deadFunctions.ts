@@ -23,6 +23,14 @@ function add(map: Map<string, number>, name: string, n: number) {
   map.set(name, (map.get(name) ?? 0) + n);
 }
 
+// The words in each non-code file (HTML, docs, configs), kept between scans until the file changes.
+const wordsKept = new Map<string, { text: string; words: Set<string> }>();
+function wordsOf(path: string, text: string): Set<string> {
+  let kept = wordsKept.get(path);
+  if (kept?.text !== text) wordsKept.set(path, (kept = { text, words: new Set(text.match(/[A-Za-z_$][\w$]*/g)) }));
+  return kept.words;
+}
+
 export async function findDeadFunctions(index: RepoIndex): Promise<DeadFunction[]> {
   const uses = new Map<string, number>();
   const testUses = new Map<string, number>();
@@ -33,7 +41,9 @@ export async function findDeadFunctions(index: RepoIndex): Promise<DeadFunction[
   for (const fn of index.functions) if (!isTestFile(fn.file)) add(definitions, fn.name, 1);
 
   // Plain HTML calls functions by name: <button onclick="sendMessage()">.
-  const otherText = [...(await readTexts(index.root, index.allFiles.filter((f) => !isSource(f)))).values()].join("\n");
+  const otherTexts = await readTexts(index.root, index.allFiles.filter((f) => !isSource(f)));
+  const otherWords = [...otherTexts].map(([file, text]) => wordsOf(`${index.root}/${file}`, text));
+  const mentionedOutsideCode = (name: string) => otherWords.some((words) => words.has(name));
 
   const dead: DeadFunction[] = [];
   for (const fn of index.functions) {
@@ -44,7 +54,7 @@ export async function findDeadFunctions(index: RepoIndex): Promise<DeadFunction[
     if (fn.exported && FRAMEWORK_EXPORTS.has(fn.name)) continue;
     // Each definition counts its own name once; anything beyond that is a use.
     if ((uses.get(fn.name) ?? 0) > (definitions.get(fn.name) ?? 0)) continue;
-    if (new RegExp(`\\b${fn.name}\\b`).test(otherText)) continue;
+    if (mentionedOutsideCode(fn.name)) continue;
 
     if ((testUses.get(fn.name) ?? 0) > 0) {
       dead.push({ fn, confidence: "likely", reason: "Only tests use it. Delete it and its tests?" });

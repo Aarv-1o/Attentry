@@ -1,6 +1,6 @@
-import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { functionFacts, type FunctionFacts } from "./facts.ts";
+import { inBatches, stampOf } from "./texts.ts";
 import { extractFunctions, type FunctionInfo } from "./functions.ts";
 import { extractUsage, type FileUsage } from "./usage.ts";
 import { supportFor } from "../languages/index.ts";
@@ -25,15 +25,6 @@ export interface FileScan {
 }
 
 export type FileCache = Map<string, FileScan>;
-
-async function stampOf(path: string): Promise<string | undefined> {
-  try {
-    const s = await stat(path);
-    return `${s.size}:${s.mtimeMs}`;
-  } catch {
-    return undefined; // deleted since the file list was made: it's left out of this scan
-  }
-}
 
 async function scanFile(path: string, file: string, stamp: string): Promise<FileScan | undefined> {
   const parsed = await parseFile(path);
@@ -62,9 +53,11 @@ export async function scanFiles(root: string, files: string[], cache: FileCache)
   const wanted = new Set(files);
   for (const file of cache.keys()) if (!wanted.has(file)) cache.delete(file);
   let read = 0;
-  for (const file of files) {
+  // Which files changed: every file's stamp at once. Parsing the changed ones stays one at a time.
+  const stamps = await inBatches(files, (file) => stampOf(join(root, file)));
+  for (const [i, file] of files.entries()) {
     const path = join(root, file);
-    const stamp = await stampOf(path);
+    const stamp = stamps[i];
     if (!stamp) {
       cache.delete(file);
       continue;

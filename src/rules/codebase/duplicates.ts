@@ -94,7 +94,7 @@ export function findDuplicates(all: FunctionInfo[]): DuplicateGroup[] {
 
   // 1. Exact copies: same structure, same values, only names differ.
   const byShape = new Map<string, FunctionInfo[]>();
-  for (const fn of fns) if (fn.shape.length >= MIN_TOKENS_MANY_COPIES) byShape.set(key(fn), [...(byShape.get(key(fn)) ?? []), fn]);
+  for (const fn of fns) if (fn.shape.length >= MIN_TOKENS_MANY_COPIES) (byShape.get(key(fn)) ?? byShape.set(key(fn), []).get(key(fn))!).push(fn);
   for (const copies of byShape.values()) {
     const files = new Set(copies.map((f) => f.file)).size;
     if (copies.length > 1 && (copies[0]!.shape.length >= MIN_TOKENS || files >= 3)) {
