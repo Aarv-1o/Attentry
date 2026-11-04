@@ -20,6 +20,7 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
+const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
 
 export const greeting = (project: string, files: number, mode: string) =>
   `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
@@ -79,6 +80,11 @@ export class Sessions {
     return [...this.tasks.values()].map((e) => e.task).sort((a, b) => b.lastEditAt - a.lastEditAt)[0];
   }
 
+  // Is another agent editing this repo too? Then each task owns only the files it edited.
+  private markShared(task: Task): void {
+    task.shared = [...this.tasks.values()].some(({ task: other }) => other !== task && Date.now() - other.lastEditAt < ACTIVE_MS);
+  }
+
   // A tool an agent called (MCP). Tools don't say which session they're from: "this task" is
   // the one that edited most recently.
   async tool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
@@ -133,6 +139,7 @@ export class Sessions {
     if (event === "PostToolUse" && isEdit(input)) {
       const { task, told } = await this.taskOf(input.session_id);
       const config = await loadConfig(this.root);
+      this.markShared(task);
       const checkIns = task.lastCheckIn;
       const reply = afterEdit(input, this.root, task, told, await this.findings(), config);
       // A check-in: the tests, in the background (the agent doesn't wait).
@@ -143,6 +150,7 @@ export class Sessions {
       const entry = this.tasks.get(input.session_id);
       if (!entry) return SILENT; // nothing was edited in this session
       const config = await loadConfig(this.root);
+      this.markShared(entry.task);
       // The card's evidence: tests run on the final code, waited for as long as the hook may take.
       if (this.runsTests && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);

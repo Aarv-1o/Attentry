@@ -19,12 +19,18 @@ export interface Task {
   tests?: TestRun & { atEdit: number }; // the latest finished run, and the edit count it ran at
   testsTold: boolean; // the agent has heard about the latest failure
   testing?: Promise<TestRun>; // a run going on now
+  // Another agent is editing this repo at the same time: only problems in files this task edited
+  // are its own. (Alone, a problem anywhere is its own: deleting a caller makes a function dead elsewhere.)
+  shared: boolean;
 }
+
+const fileOfKey = (key: string) => key.split("|")[1]!;
+const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
 export function startTask(findings: Finding[]): Task {
   const started = new Map<string, number>();
   for (const f of findings) started.set(keyOf(f), (started.get(keyOf(f)) ?? 0) + 1);
-  return { started, edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false };
+  return { started, edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
 }
 
 // Findings now that weren't there when the task started (counting duplicates: a second
@@ -37,7 +43,7 @@ export function newSince(task: Task, findings: Finding[]): Finding[] {
       left.set(keyOf(f), n - 1);
       return false;
     }
-    return true;
+    return ownFile(task, f.file);
   });
 }
 
@@ -46,6 +52,6 @@ export function fixedSince(task: Task, findings: Finding[]): number {
   const now = new Map<string, number>();
   for (const f of findings) now.set(keyOf(f), (now.get(keyOf(f)) ?? 0) + 1);
   let fixed = 0;
-  for (const [key, n] of task.started) fixed += Math.max(0, n - (now.get(key) ?? 0));
+  for (const [key, n] of task.started) if (ownFile(task, fileOfKey(key))) fixed += Math.max(0, n - (now.get(key) ?? 0));
   return fixed;
 }

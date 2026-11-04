@@ -151,3 +151,20 @@ test("tests: the person's command, off, or found in each app of the repo", async
   assert.deepEqual((await findTests(root, "make check")).map((t) => t.label), ["make check"]);
   assert.deepEqual(await findTests(root, "off"), []);
 });
+
+test("two agents in one repo: each hears only about the files it edited", async () => {
+  const root = await makeRepo({ "a.js": "export const a = 1;\n", "b.js": "export const b = 1;\n", "index.js": "import { a } from './a.js';\nimport { b } from './b.js';\nconsole.log(a, b);\n" });
+  const sessions = new Sessions(root);
+  const said = async (session: string, event: string, file?: string, text?: string) => {
+    if (file) await writeFile(join(root, file), text!);
+    const reply = await sessions.handle({ hook_event_name: event, session_id: session, ...(file ? { tool_name: "Write", tool_input: { file_path: join(root, file) } } : {}) });
+    return reply.stdout ? JSON.parse(reply.stdout) : undefined;
+  };
+  await said("x", "SessionStart");
+  await said("y", "SessionStart");
+  const x = await said("x", "PostToolUse", "a.js", `export const a = 1;\nexport function run(req) {\n  return eval(req.body.code);\n}\n`);
+  assert.match(x.hookSpecificOutput.additionalContext, /a\.js:3 error detron\/code-eval/);
+  assert.equal(await said("y", "PostToolUse", "b.js", "export const b = 2;\n"), undefined, "y's clean edit: x's problem isn't y's");
+  assert.match((await said("y", "Stop")).systemMessage, /- Problems: none added/);
+  assert.match((await said("x", "Stop")).systemMessage, /- Problems: 1 added \(1 security\)/);
+});
