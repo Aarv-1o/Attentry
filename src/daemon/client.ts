@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import type { HookInput, HookReply } from "../agent/hooks.ts";
 import { Sessions, type AgentStatus } from "../agent/session.ts";
 import type { ToolResult } from "../agent/tools.ts";
-import { addressFor, buildId } from "./address.ts";
+import { addressFor, buildId, challenge, signedBy } from "./address.ts";
 import type { Request, Response } from "./server.ts";
 
 // Asks the repo's background Detron, starting it if it isn't running. If it can't start, the
@@ -13,12 +13,29 @@ import type { Request, Response } from "./server.ts";
 const START_WAIT_MS = 20_000; // its first scan reads the whole repo
 const POLL_MS = 150;
 
+// Something else holds the background Detron's address: never trust what it says.
+class Impostor extends Error {
+  code = "EIMPOSTOR";
+}
+
 function ask(address: string, request: Request): Promise<Response> {
+  const nonce = challenge();
   return new Promise((done, fail) => {
-    const socket = createConnection(address, () => socket.write(`${JSON.stringify(request)}\n`));
+    const socket = createConnection(address, () => socket.write(`${JSON.stringify({ ...request, nonce })}\n`));
     let text = "";
     socket.on("data", (chunk) => (text += chunk));
-    socket.on("end", () => (text ? done(JSON.parse(text) as Response) : fail(new Error("the background Detron closed without answering"))));
+    socket.on("end", () => {
+      if (!text) return fail(new Error("the background Detron closed without answering"));
+      let reply: (Response & { seal?: unknown }) | undefined;
+      try {
+        reply = JSON.parse(text) as Response & { seal?: unknown };
+      } catch {
+        // not JSON: not Detron, which the check below says
+      }
+      if (!reply || !signedBy(nonce, reply.seal)) return fail(new Impostor(`something that isn't Detron answers at ${address}`));
+      const { seal: _, ...response } = reply;
+      done(response as Response);
+    });
     socket.on("error", fail);
   });
 }
@@ -30,7 +47,8 @@ function startBackground(root: string): void {
   child.unref();
 }
 
-const notRunning = (error: unknown) => ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET"].includes((error as NodeJS.ErrnoException).code ?? "");
+// No background Detron to ask (an impostor counts: it isn't one).
+const notRunning = (error: unknown) => ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET", "EIMPOSTOR"].includes((error as NodeJS.ErrnoException).code ?? "");
 
 // Is a background Detron answering for this repo? Asks without starting one.
 export async function backgroundRunning(root: string): Promise<boolean> {
@@ -58,7 +76,12 @@ export async function agentStatus(root: string): Promise<AgentStatus | undefined
 // Asks the background Detron, starting it if needed. `here` answers in this process when it
 // can't start: slower, and without the task's history.
 async function viaBackground<T>(root: string, request: Request, pick: (r: Response) => T | undefined, here: () => Promise<T>): Promise<T> {
-  const address = addressFor(root);
+  let address: string;
+  try {
+    address = addressFor(root);
+  } catch {
+    return here(); // no private place to meet a background Detron: answer here
+  }
   let started = false;
   const deadline = Date.now() + START_WAIT_MS;
   for (;;) {
@@ -66,6 +89,7 @@ async function viaBackground<T>(root: string, request: Request, pick: (r: Respon
     try {
       response = await ask(address, request);
     } catch (error) {
+      if (error instanceof Impostor) return here(); // its address is taken: ours can't start there
       if (!notRunning(error)) throw error;
     }
     const answer = response && pick(response);
