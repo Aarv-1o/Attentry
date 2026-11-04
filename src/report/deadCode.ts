@@ -2,7 +2,7 @@ import { posix } from "node:path";
 import type { DeadFunction } from "../rules/codebase/deadFunctions.ts";
 import type { UnusedFile } from "../rules/codebase/unusedFiles.ts";
 import type { UnusedPackage } from "../rules/codebase/unusedPackages.ts";
-import { hiddenNote, nothingFound } from "./common.ts";
+import { hiddenNote, nothingFound, sureness } from "./common.ts";
 
 export interface DeadCode {
   packages: UnusedPackage[];
@@ -12,7 +12,7 @@ export interface DeadCode {
 
 const megabytes = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
 const pad = (items: string[]) => Math.max(...items.map((s) => s.length));
-const safe = (confidence: string) => (confidence === "sure" ? "  (safe to remove)" : "");
+const safe = (confidence: string) => sureness(confidence, "safe to remove");
 
 function packagesSection(packages: UnusedPackage[]): string[] {
   if (!packages.length) return [];
@@ -38,7 +38,7 @@ function filesSection(files: UnusedFile[]): string[] {
   if (!files.length) return [];
   const width = pad(files.map((f) => f.file));
   const lines = [`  Unused files (${files.length})`];
-  for (const f of files) lines.push(`     ${f.file.padEnd(width)}  ${`${f.lines} lines`.padStart(10)}  ${f.reason}`);
+  for (const f of files) lines.push(`     ${f.file.padEnd(width)}  ${`${f.lines} lines`.padStart(10)}  ${f.reason}${safe(f.confidence)}`);
   return [...lines, ""];
 }
 

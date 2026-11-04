@@ -22,3 +22,8 @@ test("hygiene report: grouped by rule, one shared message, safe-to-fix marks, hi
   assert.doesNotMatch(text, /Long parameter lists/);
   assert.match(formatLineFindings("Code hygiene", [], false), /No code hygiene issues found/);
 });
+
+test("hygiene report: with --all, hints say they're hints", () => {
+  const text = formatLineFindings("Code hygiene", [finding("long-params", "f.js", 2, "maybe", "many: 6 parameters.")], true);
+  assert.match(text, /f\.js:2 {2}\(hint\)/);
+});

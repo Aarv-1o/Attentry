@@ -1,16 +1,16 @@
 import type { CrossStack, MissingRoute, UnusedRoute } from "../rules/crossStack/check.ts";
-import { hiddenNote } from "./common.ts";
+import { hiddenNote, sureness } from "./common.ts";
 
 const MAX_SHOWN = 8;
 const where = (file: string, line: number) => `${file}:${line}`;
 const pad = (items: string[]) => Math.max(...items.map((s) => s.length));
 
-function section(title: string, rows: { at: string; what: string; note: string }[], advice?: string): string[] {
+function section(title: string, rows: { at: string; what: string; note: string; confidence: string }[], advice?: string): string[] {
   if (!rows.length) return [];
   const atWidth = pad(rows.slice(0, MAX_SHOWN).map((r) => r.at));
   const whatWidth = pad(rows.slice(0, MAX_SHOWN).map((r) => r.what));
   const lines = [`  ${title} (${rows.length})`];
-  for (const r of rows.slice(0, MAX_SHOWN)) lines.push(`     ${r.at.padEnd(atWidth)}  ${r.note ? `${r.what.padEnd(whatWidth)}  ${r.note}` : r.what}`);
+  for (const r of rows.slice(0, MAX_SHOWN)) lines.push(`     ${r.at.padEnd(atWidth)}  ${r.note ? `${r.what.padEnd(whatWidth)}  ${r.note}` : r.what}${sureness(r.confidence)}`);
   if (rows.length > MAX_SHOWN) lines.push(`     …and ${rows.length - MAX_SHOWN} more (--json lists all)`);
   if (advice) lines.push(`     → ${advice}`);
   return [...lines, ""];
@@ -21,16 +21,16 @@ const call = (m: MissingRoute) => `${m.method ?? "?"} ${m.path.text}`;
 function missingRow(m: MissingRoute) {
   const near = m.closest && `${m.closest.method} ${m.closest.path.text} (${where(m.closest.file, m.closest.line)})`;
   const note = near ? `No such route. Did you mean ${near}?` : "No route in this repo has this path.";
-  return { at: where(m.file, m.line), what: call(m), note };
+  return { at: where(m.file, m.line), what: call(m), note, confidence: m.confidence };
 }
 
 function wrongMethodRow(m: MissingRoute) {
   const route = m.closest!;
-  return { at: where(m.file, m.line), what: call(m), note: `The route only takes ${route.method} (${where(route.file, route.line)}).` };
+  return { at: where(m.file, m.line), what: call(m), note: `The route only takes ${route.method} (${where(route.file, route.line)}).`, confidence: m.confidence };
 }
 
 function unusedRow(u: UnusedRoute) {
-  return { at: where(u.route.file, u.route.line), what: `${u.route.method} ${u.route.path.text}`, note: "" };
+  return { at: where(u.route.file, u.route.line), what: `${u.route.method} ${u.route.path.text}`, note: "", confidence: u.confidence };
 }
 
 export function formatCrossStack(found: CrossStack, showHints: boolean): string {

@@ -1,6 +1,6 @@
 import { GUIDES } from "../findings/guide.ts";
 import type { LineFinding } from "../rules/line/types.ts";
-import { hiddenNote, nothingFound } from "./common.ts";
+import { hiddenNote, nothingFound, sureness } from "./common.ts";
 
 // In the order they're shown: things that fail at runtime or hide failures first.
 const ORDER = [
@@ -24,7 +24,7 @@ function section(rule: string, findings: LineFinding[]): string[] {
   const lines = [`  ${GUIDES[rule]?.name ?? rule} (${findings.length})`];
   sorted.slice(0, MAX_SHOWN).forEach((f, i) => {
     const detail = sameMessage ? "" : `  ${f.message}`;
-    lines.push(`     ${where[i]!.padEnd(sameMessage ? 0 : width)}${detail}${f.confidence === "sure" ? "  (safe to fix)" : ""}`);
+    lines.push(`     ${where[i]!.padEnd(sameMessage ? 0 : width)}${detail}${sureness(f.confidence, "safe to fix")}`);
   });
   if (sorted.length > MAX_SHOWN) lines.push(`     …and ${sorted.length - MAX_SHOWN} more (--json lists all)`);
   if (sameMessage) lines.push(`     → ${sorted[0]!.message}`);
