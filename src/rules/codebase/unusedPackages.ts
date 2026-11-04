@@ -65,10 +65,16 @@ async function folderSize(path: string): Promise<number> {
   return total;
 }
 
+// Commands named unlike their package, for when node_modules isn't installed to say so.
+const KNOWN_BINS: Record<string, string[]> = {
+  "react-email": ["email"], typescript: ["tsc"], "@biomejs/biome": ["biome"], "@angular/cli": ["ng"], "@nestjs/cli": ["nest"],
+  "@playwright/test": ["playwright"], "@sveltejs/kit": ["svelte-kit"], "@tanstack/router-cli": ["tsr"], "@vue/cli-service": ["vue-cli-service"],
+};
+
 // Command names a package installs: what `npm run` scripts actually call.
 function binNames(name: string, installed: Manifest | undefined): string[] {
   const bin = installed?.bin;
-  return bin && typeof bin === "object" ? Object.keys(bin) : [name.split("/").pop()!];
+  return bin && typeof bin === "object" ? Object.keys(bin) : [...(KNOWN_BINS[name] ?? []), name.split("/").pop()!];
 }
 
 // Tools nothing imports: they find their own config file (or package.json key) and run from
@@ -87,12 +93,17 @@ const TOOL_CONFIGS: [RegExp, RegExp, string?][] = [
 // Peers frameworks need, for when node_modules isn't installed to say so: Remotion and Next
 // render with react-dom although no file imports it.
 const KNOWN_PEERS: [RegExp, RegExp][] = [
-  [/^react-dom$/, /^(next|remotion|@remotion\/|gatsby|react-router-dom|@testing-library\/react|@react-three\/fiber)/],
+  [/^react-dom$/, /^(next|remotion|@remotion\/|gatsby|react-router-dom|@testing-library\/react|@react-three\/fiber|react-email$)/],
+  // react-email's preview server (`email dev`).
+  [/^@react-email\/ui$/, /^react-email$/],
   // React itself, under react-dom and every React framework (and JSX, which uses it unimported).
   [/^react$/, /^(react-dom|react-native|next|remotion|@remotion\/|gatsby|expo|react-router(-dom)?|@react-three\/fiber)$|^@remotion\//],
   [/^@swc\/core$/, /^(@swc-node\/|@swc\/jest$|unplugin-swc$)/],
   [/^tslib$/, /^typescript$/],
 ];
+
+// "@types/react" -> "react", "@types/babel__core" -> "@babel/core".
+const typedPackage = (name: string) => (name.startsWith("@types/") ? name.slice("@types/".length).replace(/^(.+)__(.+)$/, "@$1/$2") : undefined);
 
 const mentions = (text: string, word: string) => new RegExp(`(^|[^\\w@/.-])${escapeRegex(word)}($|[^\\w-])`).test(text);
 
@@ -140,11 +151,9 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
       if (configured(name)) return true;
       if (imported.has(name) || mentions(configText, name) || quoted(name)) return true;
       if (binNames(name, installed.get(name)).some((bin) => mentions(scripts, bin))) return true;
-      if (name.startsWith("@types/")) {
-        // @types/react follows react; @types/node and friends describe globals, so they stay.
-        const typed = name.slice("@types/".length).replace(/^(.+)__(.+)$/, "@$1/$2");
-        return !(typed in declared) || isUsed(typed);
-      }
+      // @types/react follows react; @types/node and friends describe globals, so they stay.
+      const typed = typedPackage(name);
+      if (typed) return !(typed in declared) || isUsed(typed);
       return false;
     };
 
@@ -156,7 +165,8 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
     for (const [deps, dev] of [[manifest.dependencies, false], [manifest.devDependencies, true]] as const) {
       for (const name of Object.keys(deps ?? {})) {
         if (used.has(name)) continue;
-        if (peerOfUsed(name)) continue;
+        const typed = typedPackage(name);
+        if (peerOfUsed(name) || (typed && peerOfUsed(typed))) continue;
         const pkg = installed.get(name);
         // Without node_modules we can't check peers, so we're less sure.
         const confidence: Confidence = dev || !pkg ? "likely" : "sure";
