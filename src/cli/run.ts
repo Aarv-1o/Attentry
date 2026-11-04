@@ -1,5 +1,5 @@
 import { stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { collectFindings } from "../findings/collect.ts";
 import { formatAgent } from "../report/agent.ts";
@@ -16,7 +16,7 @@ import { hookReply } from "../daemon/client.ts";
 import { serve } from "../daemon/server.ts";
 import { runLanguageServer } from "../lsp/server.ts";
 import { runMcpServer } from "../mcp/server.ts";
-import { projectRoot } from "../index/project.ts";
+import { projectRoot, repoAround } from "../index/project.ts";
 import { scanRepo } from "../scan/scan.ts";
 
 const HELP = `Detron: stops AI coding agents from making a mess of your codebase.
@@ -68,9 +68,10 @@ async function isFolder(path: string): Promise<boolean> {
 }
 
 type Format = "text" | "agent" | "json" | "brief" | "markdown";
-interface ScanOptions { all: boolean; format: Format; changed: boolean; base: string | undefined }
+// reportAt: where a --markdown report will be saved, so its links can find the repo's files from there.
+interface ScanOptions { all: boolean; format: Format; changed: boolean; base: string | undefined; reportAt?: string | undefined }
 
-async function scan(path: string, { all, format, changed, base }: ScanOptions, out: Write): Promise<number> {
+async function scan(path: string, { all, format, changed, base, reportAt }: ScanOptions, out: Write): Promise<number> {
   const root = resolve(path);
   if (!(await isFolder(root))) {
     out(`Can't scan "${path}": that folder doesn't exist.\n`);
@@ -94,7 +95,10 @@ async function scan(path: string, { all, format, changed, base }: ScanOptions, o
   if (format === "brief") out(formatForAgent(shown, `detron scan${changed ? " --changed" : ""} --agent`));
   else if (format === "text") out(formatForPerson(shown, older));
   else if (format === "agent") out(formatAgent(root, findings, all));
-  else if (format === "markdown") out(formatMarkdown(findings, { root, showHints: all, older, stats: { files: result.index.files.length, functions: result.index.functions.length } }));
+  else if (format === "markdown") {
+    const fromReport = reportAt ? relative(dirname(resolve(reportAt)), root).replace(/\\/g, "/") : "";
+    out(formatMarkdown(findings, { root, showHints: all, older, linkBase: fromReport ? `${fromReport}/` : "", stats: { files: result.index.files.length, functions: result.index.functions.length } }));
+  }
   else out(`${JSON.stringify(scanToJson(result, findings), null, 2)}\n`);
   return 0;
 }
@@ -131,8 +135,9 @@ async function explain(target: string, out: Write): Promise<number> {
     out(`Give a file and line, like src/app.ts:42.\n`);
     return 2;
   }
-  const [file, line] = [m[1]!.replace(/\\/g, "/").replace(/^\.\//, ""), Number(m[2])];
-  const root = resolve(".");
+  // The repo around the folder it's run from, so a path from a subfolder, or an absolute one, works.
+  const root = await repoAround(resolve("."));
+  const [file, line] = [relative(root, resolve(m[1]!)).replace(/\\/g, "/"), Number(m[2])];
   const here = findingsOn(await collectFindings(await scanRepo(root)), file, line);
   out(here.length ? explainFindings(root, here) : `No findings on ${file}:${line}.\n`);
   return 0;
@@ -206,7 +211,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
     return 2;
   }
   const format: Format = values.json ? "json" : values.markdown ? "markdown" : values.agent ? "agent" : values.brief ? "brief" : "text";
-  const options = { all: values.all ?? false, format, changed: values.changed ?? !!values.base, base: values.base };
+  const options = { all: values.all ?? false, format, changed: values.changed ?? !!values.base, base: values.base, reportAt: values.out };
   if (!values.out) return scan(path, options, out);
   // Written as UTF-8 by Detron itself: PowerShell's `>` would save UTF-16.
   let report = "";

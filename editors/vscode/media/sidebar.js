@@ -181,10 +181,11 @@ document.addEventListener("click", (e) => {
   if (act?.dataset.act === "connectAgent") return vscode.postMessage({ type: "connectAgent", withMcp });
   if (act && act.tagName !== "INPUT") return vscode.postMessage({ type: act.dataset.act });
   const open = e.target.closest("[data-open]");
-  if (open) vscode.postMessage({ type: "open", file: open.dataset.open, line: Number(open.dataset.line) });
+  // Findings' paths are the project's: inside the opened folder when the project is a folder in it.
+  if (open) vscode.postMessage({ type: "open", file: data?.project ? `${data.project}/${open.dataset.open}` : open.dataset.open, line: Number(open.dataset.line) });
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && e.target.matches(".item")) e.target.click();
+  if (e.key === "Enter" && e.target.matches(".row")) e.target.click();
 });
 document.addEventListener("change", (e) => {
   if (e.target.dataset.act === "toggleHints" || e.target.dataset.act === "toggleAuto") vscode.postMessage({ type: e.target.dataset.act });

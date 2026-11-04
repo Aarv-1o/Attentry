@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { isSource } from "./files.ts";
 
 // The project in a folder. Agents and editors are often opened one folder too high (the
@@ -27,6 +27,14 @@ export async function projectRoot(folder: string): Promise<string> {
   const ownCode = entries.some((e) => e.isFile() && (MANIFEST.test(e.name) || isSource(e.name)));
   if (!ownCode && dirs.length === 1 && (await looksLikeProject(dirs[0]!))) return dirs[0]!;
   return folder;
+}
+
+// The git repo a folder is in (a subfolder of it, or the repo itself), else the project in the folder.
+export async function repoAround(folder: string): Promise<string> {
+  for (let dir = folder; ; dir = dirname(dir)) {
+    if (isGit(dir)) return dir;
+    if (dirname(dir) === dir) return projectRoot(folder);
+  }
 }
 
 async function looksLikeProject(dir: string): Promise<boolean> {
