@@ -11,6 +11,7 @@ import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { startTask, type Task } from "./ledger.ts";
+import { testsAllowed } from "./trust.ts";
 import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 // One repo's agent sessions: each session's task, and one cache of what every file taught us,
@@ -41,12 +42,19 @@ export class Sessions {
   // open by them until the agent's hook timeout kills it.
   constructor(readonly root: string, private readonly runsTests = false) {}
 
+  // Only commands the person allowed for this repo run: a cloned repo's test script could be anything.
+  private async testRun(config: Config): Promise<TestRun> {
+    if (config.tests === "off") return { state: "off", label: "", seconds: 0, tail: [] };
+    const commands = await findTests(this.root, config.tests);
+    if (commands.length && !(await testsAllowed(this.root, commands))) return { state: "blocked", label: commands.map((c) => c.label).join(", "), seconds: 0, tail: [] };
+    return runTests(commands, config.testTimeoutSeconds * 1000);
+  }
+
   // Starts the tests unless they're already running. Results land on the task.
   private startTests(task: Task, config: Config): Promise<TestRun> {
     if (task.testing) return task.testing;
     const atEdit = task.edits;
-    task.testing = findTests(this.root, config.tests)
-      .then((commands) => runTests(commands, config.testTimeoutSeconds * 1000))
+    task.testing = this.testRun(config)
       .then((run) => {
         task.tests = { ...run, atEdit };
         task.testsTold = false;

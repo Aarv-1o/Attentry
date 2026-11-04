@@ -5,6 +5,8 @@ import { isSource, listRepoFiles, unsupportedCode } from "../index/files.ts";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig } from "./config.ts";
 import { hookState } from "./init.ts";
+import { findTests } from "./tests.ts";
+import { testsAllowed } from "./trust.ts";
 import { detronMcp, detronPath } from "./mcpSetup.ts";
 import { plural } from "../report/common.ts";
 
@@ -33,7 +35,16 @@ export async function doctor(folder: string): Promise<string> {
     : hooks === "stale"
       ? { ok: false, text: "Claude Code hooks: set up, but the Detron they run has moved (an extension update)", fix: "Run `detron init` again, or click Reconnect in the Detron sidebar." }
       : { ok: false, text: "Claude Code hooks: not set up in this folder", fix: "Run `detron init` here, or click Connect Claude Code in the Detron sidebar." });
-  checks.push({ ok: true, text: `Mode: ${(await loadConfig(root)).mode}` });
+  const config = await loadConfig(root);
+  checks.push({ ok: true, text: `Mode: ${config.mode}` });
+  const tests = config.tests === "off" ? [] : await findTests(root, config.tests);
+  checks.push(config.tests === "off"
+    ? { ok: true, text: "Tests: off (\"tests\": \"off\" in .detron/config.json)" }
+    : !tests.length
+      ? { ok: "warn", text: "Tests: none found, so the change card can't say whether they pass", fix: "Set \"tests\": \"<command>\" in .detron/config.json, then run `detron init` to allow it." }
+      : (await testsAllowed(root, tests))
+        ? { ok: true, text: `Tests: ${tests.map((t) => t.label).join(", ")}, run at check-ins` }
+        : { ok: "warn", text: `Tests: ${tests.map((t) => t.label).join(", ")} found, but not allowed yet (or changed since)`, fix: "Run `detron init` here to let Detron run them: it runs only what you allowed." });
 
   const mcp = await detronMcp(root === folder ? [folder] : [folder, root]);
   const mcpPath = mcp && detronPath(mcp.server);

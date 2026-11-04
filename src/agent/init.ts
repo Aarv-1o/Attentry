@@ -2,7 +2,9 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { projectRoot } from "../index/project.ts";
-import { writeMode } from "./config.ts";
+import { loadConfig, writeMode } from "./config.ts";
+import { findTests } from "./tests.ts";
+import { allowTests } from "./trust.ts";
 
 // `detron init`: sets up Detron's hooks for Claude Code in a repo (Cursor and Copilot CLI load
 // Claude Code's hooks too). In .claude/settings.local.json: it names where Detron is on this
@@ -59,8 +61,15 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(withDetronHooks(settings, command), null, 2)}\n`);
   const done = [`Claude Code hooks: ${path} (session start, before and after each edit, at the end)`];
-  // Hooks go where Claude Code starts; the mode goes with the project Detron checks.
-  if (mode) done.push(`Mode: ${mode} (${await writeMode(await projectRoot(root), mode)})`);
+  // Hooks go where Claude Code starts; the mode and the tests go with the project Detron checks.
+  const project = await projectRoot(root);
+  if (mode) done.push(`Mode: ${mode} (${await writeMode(project, mode)})`);
+  // Connecting Detron is the person saying yes to its test runs: only these commands, as they are now.
+  const tests = await findTests(project, (await loadConfig(project)).tests);
+  if (tests.length) {
+    await allowTests(project, tests);
+    done.push(`Tests Detron may run at check-ins: ${tests.map((t) => (t.runs === t.command ? t.command : `${t.label} (${t.runs})`)).join(", ")}. If they change, run init again to allow the new ones`);
+  }
   return done;
 }
 

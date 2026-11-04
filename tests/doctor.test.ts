@@ -11,6 +11,7 @@ test("doctor: the project, git, hooks, mode and MCP, with what to do", async () 
   await withClaudeSettings({}, async () => {
     const report = await doctor(folder);
     assert.match(report, /^✓ Project: shop, inside the folder you're in \(1 file Detron reads\)\n! Git: no/);
+    assert.match(report, /! Tests: none found/);
     assert.match(report, /✗ Claude Code hooks: not set up in this folder\n {2}→ Run `detron init` here/);
     assert.match(report, /! MCP tools \(find_existing, check, explain\): not added/);
   });

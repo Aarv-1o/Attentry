@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Sessions } from "../src/agent/session.ts";
-import { findTests } from "../src/agent/tests.ts";
-import { makeRepo } from "./helpers.ts";
+import { findTests, runTests } from "../src/agent/tests.ts";
+import { allowTests } from "../src/agent/trust.ts";
+import { makeRepo, withClaudeSettings } from "./helpers.ts";
 
 const START = `export function load(url) {\n  try {\n    return fetch(url);\n  } catch (e) {}\n}\n`;
 const SAVE = `${START}export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n`;
@@ -78,13 +80,14 @@ test("suggest mode never blocks", async () => {
   assert.equal((await hook("Stop", { stop_hook_active: false })).decision, undefined);
 });
 
-test("tests run at check-ins in the background, a failure is told once, and the card has the result", async () => {
+test("tests run at check-ins in the background, a failure is told once, and the card has the result", () => withClaudeSettings({}, async () => {
   const root = await makeRepo({
     "index.js": START,
     "package.json": JSON.stringify({ scripts: { test: "node check.js" } }),
     "check.js": "process.exit(require('fs').existsSync('broken') ? 1 : 0);\n",
     ".detron/config.json": JSON.stringify({ checkInEvery: 2 }),
   });
+  await allowTests(root, await findTests(root, undefined)); // what `detron init` does
   const sessions = new Sessions(root, true);
   const hook = async (event: string, extra: object = {}) => {
     const reply = await sessions.handle({ hook_event_name: event, session_id: "s1", ...extra });
@@ -105,6 +108,35 @@ test("tests run at check-ins in the background, a failure is told once, and the 
   await rm(join(root, "broken"));
   const stop = await hook("Stop", { stop_hook_active: false });
   assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)/, "run again on the final code");
+}));
+
+test("a repo's tests run only once the person allowed them, and again only if they haven't changed", () => withClaudeSettings({}, async () => {
+  const root = await makeRepo({
+    "index.js": START,
+    "package.json": JSON.stringify({ scripts: { test: "node -e \"require('fs').writeFileSync('ran', '')\"" } }),
+  });
+  const card = async () => {
+    const sessions = new Sessions(root, true);
+    await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });
+    await writeFile(join(root, "notes.md"), String(Math.random()));
+    await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
+    return JSON.parse((await sessions.handle({ hook_event_name: "Stop", session_id: "s1" })).stdout).systemMessage as string;
+  };
+  assert.match(await card(), /- Tests: not run: allow npm test first \(run `detron init` here/, "a cloned repo's script doesn't run on its own");
+  assert.equal(existsSync(join(root, "ran")), false);
+  await allowTests(root, await findTests(root, undefined));
+  assert.match(await card(), /- Tests: passed \(npm test/);
+  assert.equal(existsSync(join(root, "ran")), true);
+  await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }));
+  assert.match(await card(), /not run: allow npm test first/, "a changed script needs allowing again");
+}));
+
+test("a test run that hangs is stopped at its time limit, with the runner's whole process tree", async () => {
+  const root = await makeRepo({ "index.js": START });
+  const commands = await findTests(root, "node -e \"setTimeout(() => {}, 60000)\"");
+  const started = Date.now();
+  assert.equal((await runTests(commands, 1000)).state, "timeout");
+  assert.ok(Date.now() - started < 15_000, "the shell's child doesn't keep the run open");
 });
 
 test("tests: the person's command, off, or found in each app of the repo", async () => {
