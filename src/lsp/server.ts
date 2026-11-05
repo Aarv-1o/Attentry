@@ -5,6 +5,7 @@ import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connecti
 import { loadConfig, writeMode } from "../agent/config.ts";
 import { hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
+import { installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
 import { agentStatus, repoFindings } from "../daemon/client.ts";
 import { collectFindings } from "../findings/collect.ts";
 import { markNotUseful } from "../findings/feedback.ts";
@@ -68,6 +69,11 @@ export function startServer(connection: Connection): void {
   let timer: NodeJS.Timeout | undefined;
   let running: Promise<void> | undefined;
   let again = false;
+  // The Claude Code plugin this extension carries, and whether it's installed (asked of Claude Code
+  // when the editor starts and after Connect: each answer runs `claude`, too slow for every look).
+  const home = pluginHome(process.argv[1]!);
+  let plugin: Promise<PluginState | undefined> = Promise.resolve(undefined);
+  const askPlugin = (ask: () => Promise<PluginState>) => (plugin = ask().catch(() => undefined)); // no `claude`: as if not installed
 
   const shown = () => all.filter((f) => (options.hints || f.confidence !== "maybe") && (options.show === "all" || isInChanges(f, changes)));
   // Findings left out because they're from before your changes.
@@ -155,7 +161,10 @@ export function startServer(connection: Connection): void {
       serverInfo: { name: "attentry" },
     };
   });
-  connection.onInitialized(() => void rescan());
+  connection.onInitialized(() => {
+    void rescan();
+    if (home) askPlugin(() => refreshPlugin(home, workspace)); // after an extension update: the agent's copy too
+  });
   // A save in the editor, or a file changed on disk (an agent's edit, a git checkout).
   const changed = () => {
     if (!options.autoScan) return;
@@ -196,9 +205,15 @@ export function startServer(connection: Connection): void {
       return status(false);
     }
     if (command === "attentry.server.rescan") return rescan();
-    // Not printed to the editor: init's own messages are for the terminal. With `true`, also
-    // the MCP tools; what happened with those goes back to the sidebar.
+    // From the extension: install its plugin (hooks and MCP tools in one), and say how it went.
+    // Run from anywhere else (Attentry's own source), there's no plugin: hooks in the folder, and
+    // with `true` the MCP tools. init's own messages are for the terminal, not the editor.
     if (command === "attentry.server.connectAgent") {
+      if (home) {
+        const result = await installPlugin(home, workspace);
+        await askPlugin(() => refreshPlugin(home, workspace));
+        return result;
+      }
       await init(workspace, process.argv[1]!, undefined);
       return args?.[0] === true ? addMcp(workspace, process.argv[1]!) : undefined;
     }
@@ -216,13 +231,17 @@ export function startServer(connection: Connection): void {
     ...(changes.ok ? {} : { noChanges: changes.reason }),
     items: shown().map((f) => ({ id: f.id, rule: f.rule, part: partOf(f), severity: severityOf(f), file: f.file, line: f.line, title: f.title, why: f.why, does: f.plain?.does, replacedBy: f.plain?.replacedBy })),
   }));
-  // The agent: are Attentry's hooks set up, which mode, and how its task is going right now.
-  connection.onRequest("attentry/agent", async () => ({
-    hooks: await hookState(workspace),
-    mcp: await mcpState(workspace),
-    mode: (await loadConfig(root)).mode,
-    live: (await agentStatus(root)) ?? null,
-  }));
+  // The agent: are Attentry's hooks set up, which mode, and how its task is going right now. The
+  // plugin, when it's on, brings both the hooks and the MCP tools.
+  connection.onRequest("attentry/agent", async () => {
+    const on = await plugin.then((p) => p?.installed && p.enabled);
+    return {
+      hooks: on ? "connected" : await hookState(workspace),
+      mcp: on ? "added" : await mcpState(workspace),
+      mode: (await loadConfig(root)).mode,
+      live: (await agentStatus(root)) ?? null,
+    };
+  });
   connection.onRequest("attentry/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
     if (format === "agent") return formatAgent(root, shown(), options.hints);
     // Opened in a preview that has no file of its own: links name each file in full.

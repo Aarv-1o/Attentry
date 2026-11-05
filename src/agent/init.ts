@@ -21,13 +21,19 @@ type Settings = { hooks?: Record<string, Group[]> } & Record<string, unknown>;
 // of it (server.mjs), wherever either is installed.
 const isAttentry = (h: Handler) => /[\\/](attentry|server)\.mjs" hook claude$/.test(h.command);
 
-// The settings with Attentry's hooks added, replacing any it added before and keeping the rest.
-export function withAttentryHooks(settings: Settings, command: string): Settings {
+// The settings without Attentry's hooks, keeping the rest.
+function withoutAttentryHooks(settings: Settings): Settings {
   const hooks: Record<string, Group[]> = {};
   for (const [event, groups] of Object.entries(settings.hooks ?? {})) {
     const kept = groups.map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isAttentry(h)) })).filter((g) => g.hooks.length);
     if (kept.length) hooks[event] = kept;
   }
+  return { ...settings, hooks };
+}
+
+// The settings with Attentry's hooks added, replacing any it added before and keeping the rest.
+export function withAttentryHooks(settings: Settings, command: string): Settings {
+  const hooks = withoutAttentryHooks(settings).hooks!;
   const handler = { type: "command", command, timeout: TIMEOUT_S };
   const add = (event: string, group: Group) => (hooks[event] = [...(hooks[event] ?? []), group]);
   add("SessionStart", { hooks: [handler] });
@@ -73,6 +79,19 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
     done.push(`Tests Attentry may run at check-ins: ${tests.map((t) => (t.runs === t.command ? t.command : `${t.label} (${t.runs})`)).join(", ")}. If they change, run init again to allow the new ones`);
   }
   return done;
+}
+
+// Takes out hooks `init` added: the plugin runs the same ones, and both would check every edit twice.
+export async function removeHooks(root: string): Promise<void> {
+  const path = join(root, ".claude/settings.local.json");
+  let settings: Settings;
+  try {
+    settings = JSON.parse(await readFile(path, "utf8")) as Settings;
+  } catch {
+    return; // no settings, or unreadable: no hooks of Attentry's to take out
+  }
+  const without = withoutAttentryHooks(settings);
+  if (JSON.stringify(without.hooks) !== JSON.stringify(settings.hooks ?? {})) await writeFile(path, `${JSON.stringify(without, null, 2)}\n`);
 }
 
 // Are Attentry's hooks set up here, and does the Attentry they run still exist (an extension

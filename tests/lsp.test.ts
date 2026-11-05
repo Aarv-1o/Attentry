@@ -9,14 +9,16 @@ import { backgroundRunning } from "../src/daemon/client.ts";
 import { makeRepo, stopBackground } from "./helpers.ts";
 
 // Talks to `attentry lsp` the way an editor does: JSON-RPC messages with Content-Length headers.
-function startServer() {
+// `claudeHome`: a Claude Code profile of the test's own. Run from the extension's plugin, the
+// server installs it with the real `claude` command, which must never touch the person's own.
+function startServer(claudeHome: string) {
   // ATTENTRY_LSP_BUNDLE=editors/vscode/claude/attentry/dist tests the server as the extension ships it.
   // Absolute: the background Attentry it starts runs from another folder.
   const bundle = process.env.ATTENTRY_LSP_BUNDLE && resolve(process.env.ATTENTRY_LSP_BUNDLE);
   // The flags VS Code adds when it starts a language server.
   const flags = ["lsp", "--stdio", `--clientProcessId=${process.pid}`];
   const args = bundle ? [join(bundle, "attentry.mjs"), ...flags] : ["--import", "tsx", "src/cli/bin.ts", ...flags];
-  const env = bundle ? { ...process.env, ATTENTRY_WASM_DIR: join(bundle, "wasm") } : process.env;
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, ...(bundle ? { ATTENTRY_WASM_DIR: join(bundle, "wasm") } : {}) };
   const child = spawn(process.execPath, args, { cwd: join(import.meta.dirname, ".."), env });
   let buffer = Buffer.alloc(0);
   let nextId = 1;
@@ -53,6 +55,7 @@ function startServer() {
       waiters.push({ test: (n) => n.method === method && match(n.params), done });
     }),
     count: () => notes.length,
+    bundled: !!bundle,
     stop: () => child.kill(),
   };
 }
@@ -72,7 +75,7 @@ test("the language server shows your changes, explains them, and offers safe fix
   git(root, "commit", "-qm", "first");
   await writeFile(join(root, "index.js"), NEW);
   const uri = pathToFileURL(join(root, "index.js")).href;
-  const server = startServer();
+  const server = startServer(await makeRepo({}));
   try {
     const init = await server.request("initialize", { processId: null, rootUri: pathToFileURL(root).href, capabilities: {}, initializationOptions: { clientCommands: true } });
     // VS Code's language client registers every server command as an editor command: one with
@@ -117,9 +120,12 @@ test("the language server shows your changes, explains them, and offers safe fix
 
     // The agent section: not connected, connect it, change the mode.
     assert.deepEqual(await server.request("attentry/agent", {}), { hooks: "missing", mcp: "missing", mode: "suggest", live: null });
-    await server.request("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [] });
+    // From the extension's plugin, Connect installs it (hooks and MCP tools in one), with the real
+    // `claude` command; from Attentry's source, it adds hooks to the folder.
+    const connected = await server.request("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [] });
     await server.request("workspace/executeCommand", { command: "attentry.server.setMode", arguments: ["block"] });
-    assert.deepEqual(await server.request("attentry/agent", {}), { hooks: "connected", mcp: "missing", mode: "block", live: null });
+    if (server.bundled) assert.deepEqual(connected, { ok: true });
+    assert.deepEqual(await server.request("attentry/agent", {}), { hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
 
     // Auto-check off: the status says so.
     const mark = server.count();
