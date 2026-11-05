@@ -1,13 +1,14 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
+import { folderId } from "../index/project.ts";
 
 // Where one repo's background Detron listens: a named pipe on Windows, a socket in a folder
 // only this user can open elsewhere. Named after the repo, so each repo gets its own.
 
 export function addressFor(root: string): string {
-  const id = createHash("sha256").update(realpathSync(root)).digest("hex").slice(0, 16);
+  const id = createHash("sha256").update(folderId(root)).digest("hex").slice(0, 16);
   const user = userInfo().username.replace(/[^\w.-]/g, "_");
   if (process.platform === "win32") return `\\\\.\\pipe\\detron-${user}-${id}`;
   // Socket paths have a short length limit (about 100 characters on macOS): stay short.

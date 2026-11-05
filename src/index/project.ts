@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { isSource } from "./files.ts";
@@ -10,6 +10,10 @@ import { isSource } from "./files.ts";
 
 const MANIFEST = /^(package\.json|pyproject\.toml|requirements\.txt|setup\.py|manage\.py)$/;
 const isGit = (dir: string) => existsSync(join(dir, ".git"));
+
+// A folder as the file system spells it, for naming things after a repo: on Windows d:\repo and
+// D:\REPO are one folder (VS Code says d:, a terminal D:), and links lead to their target.
+export const folderId = (folder: string) => realpathSync.native(folder);
 
 export async function projectRoot(folder: string): Promise<string> {
   if (isGit(folder)) return folder;

@@ -7,7 +7,9 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 import { addressFor } from "../src/daemon/address.ts";
 import { agentStatus } from "../src/daemon/client.ts";
-import { makeRepo, stopBackground } from "./helpers.ts";
+import { findTests } from "../src/agent/tests.ts";
+import { allowTests, testsAllowed } from "../src/agent/trust.ts";
+import { makeRepo, stopBackground, withClaudeSettings } from "./helpers.ts";
 
 const run = promisify(execFile);
 const DETRON = join(import.meta.dirname, "../src/cli/bin.ts");
@@ -59,4 +61,15 @@ test("something else holding the background Detron's address is never believed",
   } finally {
     await new Promise((done) => impostor.close(done));
   }
+});
+
+test("one folder spelled two ways (VS Code's d: and a terminal's D:) shares one background Detron", { skip: process.platform !== "win32" && "drive letters are Windows only" }, async () => {
+  const root = await makeRepo({ "index.js": START, "package.json": JSON.stringify({ scripts: { test: "node -e 0" } }) });
+  const other = root.replace(/^[a-z]:/i, (drive) => (drive === drive.toUpperCase() ? drive.toLowerCase() : drive.toUpperCase()));
+  assert.notEqual(other, root);
+  assert.equal(addressFor(other), addressFor(root));
+  await withClaudeSettings({}, async () => {
+    await allowTests(root, await findTests(root, undefined));
+    assert.equal(await testsAllowed(other, await findTests(other, undefined)), true, "tests allowed for one spelling are allowed for both");
+  });
 });
