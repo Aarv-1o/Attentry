@@ -10,7 +10,7 @@ import { runLineRules } from "../src/rules/line/index.ts";
 
 // A throwaway repo on disk: { "src/a.ts": "content", ... }.
 export async function makeRepo(files: Record<string, string>): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "detron-"));
+  const root = await mkdtemp(join(tmpdir(), "attentry-"));
   for (const [path, content] of Object.entries(files)) {
     await mkdir(join(root, path, ".."), { recursive: true });
     await writeFile(join(root, path), content);
@@ -57,7 +57,7 @@ export async function withClaudeSettings(settings: object, run: () => Promise<vo
   }
 }
 
-// Asks the background Detron to stop (a build it doesn't know makes it step aside).
+// Asks the background Attentry to stop (a build it doesn't know makes it step aside).
 export const stopBackground = (root: string) => new Promise<void>((done) => {
   const socket = createConnection(addressFor(root), () => socket.write(`${JSON.stringify({ kind: "ping", build: "test-cleanup" })}\n`));
   socket.on("data", () => socket.end());

@@ -19,7 +19,7 @@ export type History =
 const MIN_COMMITS = 10; // fewer, and "changes often" means nothing yet
 const MAX_SHOWN = 10;
 
-// History only changes with a commit: the background Detron reuses it until HEAD moves.
+// History only changes with a commit: the background Attentry reuses it until HEAD moves.
 const histories = new Map<string, { head: string; history: History }>();
 
 // How often each file changed, with paths relative to `root` (which may be a folder inside the repo).

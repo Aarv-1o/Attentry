@@ -8,7 +8,7 @@ import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import type { ExistingMatch } from "./reuse.ts";
 import { plural } from "../report/common.ts";
 
-// What Detron says at each moment of an agent's task. Short on purpose: the agent pays for
+// What Attentry says at each moment of an agent's task. Short on purpose: the agent pays for
 // every word, so it hears only problems this task added, once each, and nothing when clean.
 
 export interface HookInput {
@@ -44,7 +44,7 @@ const worstFirst = (a: Finding, b: Finding) => Number(severityOf(a) !== "error")
 
 export const isEdit = (input: HookInput) => EDIT_TOOLS.test(input.tool_name ?? "");
 
-// An edit counts toward the task, also while Detron is still reading the repo.
+// An edit counts toward the task, also while Attentry is still reading the repo.
 export function noteEdit(input: HookInput, root: string, task: Task): void {
   if (input.tool_input?.file_path) task.editedFiles.add(relative(root, input.tool_input.file_path).replace(/\\/g, "/"));
   task.edits++;
@@ -60,15 +60,15 @@ export function afterEdit(input: HookInput, root: string, task: Task, told: Set<
   for (const f of fresh) told.add(keyOf(f));
   const lines: string[] = [];
   if (fresh.length) {
-    lines.push(`Detron: this edit added ${plural(fresh.length, "problem")}:`, ...fresh.slice(0, PER_EDIT).map(briefLine));
+    lines.push(`Attentry: this edit added ${plural(fresh.length, "problem")}:`, ...fresh.slice(0, PER_EDIT).map(briefLine));
     if (fresh.length > PER_EDIT) lines.push(`…and ${fresh.length - PER_EDIT} more.`);
-    lines.push("Fix them before moving on, or say why not. Full steps: `detron explain <file:line>`.");
+    lines.push("Fix them before moving on, or say why not. Full steps: `attentry explain <file:line>`.");
   }
   // Tests run in the background at check-ins: a failure is told once, on the next edit.
   const tests = task.tests;
   if (tests && (tests.state === "failed" || tests.state === "timeout") && !task.testsTold) {
     task.testsTold = true;
-    lines.push(...(lines.length ? [""] : []), `Detron: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
+    lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
   }
   if (task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;
@@ -86,12 +86,12 @@ function checkIn(task: Task, findings: Finding[]): string[] {
   const real = added.filter(matters).sort(worstFirst);
   const cleanup = added.length - real.length;
   const fixed = fixedSince(task, findings);
-  const head = `Detron check-in after ${plural(task.edits, "edit")}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
+  const head = `Attentry check-in after ${plural(task.edits, "edit")}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
   if (!real.length && !cleanup) return [`${head} Nothing to fix: carry on.`];
   return [
     head,
     ...(real.length ? ["Focus here:", ...real.slice(0, FOCUS).map((f) => `- ${briefLine(f)}`)] : []),
-    ...(cleanup ? [`Also ${plural(cleanup, "clean-up item")} (unused or copied code): \`detron scan --changed\` lists them. Clean up in its own step, not mixed with the feature.`] : []),
+    ...(cleanup ? [`Also ${plural(cleanup, "clean-up item")} (unused or copied code): \`attentry scan --changed\` lists them. Clean up in its own step, not mixed with the feature.`] : []),
   ];
 }
 
@@ -103,7 +103,7 @@ export function atStop(input: HookInput, task: Task, findings: Finding[], config
   const errors = real.filter((f) => severityOf(f) === "error");
   if (config.mode === "block" && errors.length && !input.stop_hook_active && task.stopsBlocked < MAX_BLOCKED_STOPS) {
     task.stopsBlocked++;
-    return json({ decision: "block", reason: [`Detron: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
+    return json({ decision: "block", reason: [`Attentry: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
   }
   if (!task.edits) return SILENT;
   return json({ systemMessage: changeCard(task, findings) });
@@ -134,7 +134,7 @@ export function beforeEdit(matches: ExistingMatch[], told: Set<string>, config: 
   const advice = (m: ExistingMatch) => (m.existing.exported ? "import it" : "move it to a shared file and use it from both places");
   const line = (m: ExistingMatch) => `- \`${m.candidate}\`: \`${m.existing.name}\` in ${m.existing.file}:${m.existing.startLine}${m.uses ? ` (used in ${plural(m.uses, "place")})` : ""} has ${m.why}. Instead of a copy, ${advice(m)}.`;
   const message = [
-    `Detron: before you add ${fresh.length === 1 ? "this function" : "these functions"}, the repo already has ${fresh.length === 1 ? "one that does this" : "ones that do this"}:`,
+    `Attentry: before you add ${fresh.length === 1 ? "this function" : "these functions"}, the repo already has ${fresh.length === 1 ? "one that does this" : "ones that do this"}:`,
     ...fresh.map(line),
     "Reuse it, or say why a new one is needed.",
   ].join("\n");

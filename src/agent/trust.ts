@@ -6,11 +6,11 @@ import { folderId } from "../index/project.ts";
 import type { TestCommand } from "./tests.ts";
 
 // Running a repo's tests runs whatever the repo says: its test script, or "tests" in
-// .detron/config.json. A cloned repo could say anything. So Detron runs them only once the person
-// has connected Detron to the repo (`detron init`, or Connect in the sidebar), and asks again when
+// .attentry/config.json. A cloned repo could say anything. So Attentry runs them only once the person
+// has connected Attentry to the repo (`attentry init`, or Connect in the sidebar), and asks again when
 // the commands change. What was allowed lives in the person's home folder, where no repo can write it.
 
-const allowedFile = () => join(homedir(), ".detron", "allowed-tests.json");
+const allowedFile = () => join(homedir(), ".attentry", "allowed-tests.json");
 
 const fingerprint = (root: string, commands: TestCommand[]) =>
   createHash("sha256").update(JSON.stringify(commands.map((c) => [relative(root, c.cwd), c.command, c.runs]))).digest("hex");

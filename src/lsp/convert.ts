@@ -33,7 +33,7 @@ export function toDiagnostic(rootUri: string, f: Finding, lines: string[]): Diag
   return {
     range: lineRange(lines, f.line, unused && f.rule !== "unused-file" ? f.endLine : f.line),
     severity: SEVERITY[severityOf(f)],
-    source: "Detron",
+    source: "Attentry",
     code: f.rule,
     // Agents read this line: the one-line fact, nothing else, to keep it cheap.
     message: f.title,
@@ -60,7 +60,7 @@ export function hoverCard(findings: Finding[]): MarkupContent {
   const cards = findings.map((f) => {
     const severity = severityOf(f);
     return [
-      `**Detron** · \`${f.rule}\` · ${f.confidence} · ${SEES[severity]}`,
+      `**Attentry** · \`${f.rule}\` · ${f.confidence} · ${SEES[severity]}`,
       ...(f.plain?.does ? [f.plain.does] : []),
       ...(f.plain?.replacedBy ? [f.plain.replacedBy] : []),
       `**${f.title}.** ${f.why}`,
@@ -75,7 +75,7 @@ export function hoverCard(findings: Finding[]): MarkupContent {
 const commentFor = (file: string) => (/\.py$/.test(file) ? "#" : "//");
 
 export interface ActionOptions {
-  clientCommands: boolean; // the Detron extension is there to copy text (other editors: no clipboard command)
+  clientCommands: boolean; // the Attentry extension is there to copy text (other editors: no clipboard command)
   explain: (f: Finding) => string; // the full text for the agent
 }
 
@@ -92,14 +92,14 @@ export function codeActions(uri: string, findings: Finding[], lines: string[], {
       });
     }
     if (clientCommands) {
-      actions.push({ title: `Detron: copy the fix for your agent (${f.rule})`, kind: CodeActionKind.QuickFix, command: { title: "Copy fix for agent", command: "detron.copyFix", arguments: [explain(f)] } });
+      actions.push({ title: `Attentry: copy the fix for your agent (${f.rule})`, kind: CodeActionKind.QuickFix, command: { title: "Copy fix for agent", command: "attentry.copyFix", arguments: [explain(f)] } });
     }
     const indent = /^\s*/.exec(lines[f.line - 1] ?? "")![0];
     actions.push({
-      title: `Detron: ignore ${f.rule} here (write the reason after the colon)`, kind: CodeActionKind.QuickFix,
-      edit: { changes: { [uri]: [{ range: { start: { line: f.line - 1, character: 0 }, end: { line: f.line - 1, character: 0 } }, newText: `${indent}${commentFor(f.file)} detron-ignore ${f.rule}: \n` }] } },
+      title: `Attentry: ignore ${f.rule} here (write the reason after the colon)`, kind: CodeActionKind.QuickFix,
+      edit: { changes: { [uri]: [{ range: { start: { line: f.line - 1, character: 0 }, end: { line: f.line - 1, character: 0 } }, newText: `${indent}${commentFor(f.file)} attentry-ignore ${f.rule}: \n` }] } },
     });
-    actions.push({ title: `Detron: not useful (${GUIDES[f.rule]?.name ?? f.rule})`, kind: CodeActionKind.Empty, command: { title: "Not useful", command: "detron.server.notUseful", arguments: [f.id, f.rule] } });
+    actions.push({ title: `Attentry: not useful (${GUIDES[f.rule]?.name ?? f.rule})`, kind: CodeActionKind.Empty, command: { title: "Not useful", command: "attentry.server.notUseful", arguments: [f.id, f.rule] } });
   }
   return actions;
 }
@@ -108,6 +108,6 @@ export function hotspotLens(f: Finding): CodeLens {
   return {
     range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
     // An empty command shows the text without making it a button.
-    command: { title: `⚠ Detron hotspot: ${f.title}. Make small changes and run the tests after each one.`, command: "" },
+    command: { title: `⚠ Attentry hotspot: ${f.title}. Make small changes and run the tests after each one.`, command: "" },
   };
 }

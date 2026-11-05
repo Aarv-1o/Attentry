@@ -6,7 +6,7 @@ import type { ToolResult } from "../agent/tools.ts";
 import type { Finding } from "../findings/types.ts";
 import { addressFor, buildId, sign } from "./address.ts";
 
-// `detron serve`: the background Detron for one repo. Hooks, MCP tools and the editor ask it
+// `attentry serve`: the background Attentry for one repo. Hooks, MCP tools and the editor ask it
 // instead of scanning from scratch, so the repo is read once and they all agree: it keeps what each file taught us in memory, and each agent session's
 // task. Nothing is written to disk. It stops after a quiet half hour.
 
@@ -22,7 +22,7 @@ export type Response =
   | { findings: Finding[] } | { reading: string };
 
 const IDLE_MS = 30 * 60 * 1000;
-const MAX_REQUEST = 8 * 1024 * 1024; // a hook's whole Write content fits; anything bigger isn't Detron's
+const MAX_REQUEST = 8 * 1024 * 1024; // a hook's whole Write content fits; anything bigger isn't Attentry's
 
 // Is something already answering there? A socket file left by a crash is not.
 const answering = (address: string) => new Promise<boolean>((done) => {
@@ -58,7 +58,7 @@ export async function serve(root: string): Promise<void> {
         socket.end(`${JSON.stringify({ error: `bad request: ${(error as Error).message}` })}\n`);
         return;
       }
-      // Proof for the caller that this is Detron, not something else holding its address.
+      // Proof for the caller that this is Attentry, not something else holding its address.
       const seal = typeof request.nonce === "string" ? sign(request.nonce) : undefined;
       // One at a time: requests share the cache and the tasks.
       queue = queue.then(() => answer(request)).catch((error: Error) => ({ error: error.stack ?? String(error) })).then((response: Response) => {
@@ -71,11 +71,11 @@ export async function serve(root: string): Promise<void> {
   });
   const answer = async (request: Request): Promise<Response> => {
     stayAwake();
-    // The editor asks any Detron that's running, whichever build: it only reads, so it never
+    // The editor asks any Attentry that's running, whichever build: it only reads, so it never
     // restarts the one the agent uses.
     if (request.kind === "status") return { status: (await sessions.status()) ?? null };
     if (request.kind === "findings") return sessions.repoFindings();
-    if (request.build !== build) return { restart: true }; // Detron was updated: the caller starts the new one
+    if (request.build !== build) return { restart: true }; // Attentry was updated: the caller starts the new one
     if (request.kind === "ping") return { ok: true };
     if (request.kind === "begin") return (await sessions.begin(request.session), { ok: true });
     if (request.kind === "tool") return { result: await sessions.tool(request.name, request.args, request.session) };

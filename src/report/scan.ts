@@ -22,7 +22,7 @@ function findingsPerFile(r: ScanResult, all: boolean): Map<string, number> {
 }
 
 export function formatScan(r: ScanResult, all: boolean): string {
-  const parts = [`Detron scan: ${r.root}\n${r.index.files.length} files, ${r.index.functions.length} functions, ${r.seconds.toFixed(1)}s\n`];
+  const parts = [`Attentry scan: ${r.root}\n${r.index.files.length} files, ${r.index.functions.length} functions, ${r.seconds.toFixed(1)}s\n`];
   if (r.skipped.size) {
     const list = [...r.skipped].map(([ext, n]) => `${n} .${ext}`).join(", ");
     const total = [...r.skipped.values()].reduce((a, b) => a + b, 0);
@@ -41,7 +41,7 @@ export function formatScan(r: ScanResult, all: boolean): string {
   );
   const broken = r.index.filesWithSyntaxErrors;
   if (broken.length) {
-    parts.push(`\nNote: ${broken.length} file(s) have syntax Detron couldn't fully read, so results there may be incomplete:\n`);
+    parts.push(`\nNote: ${broken.length} file(s) have syntax Attentry couldn't fully read, so results there may be incomplete:\n`);
     parts.push(...broken.map((f) => `  ${f}\n`));
   }
   return parts.join("");

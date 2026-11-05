@@ -89,7 +89,7 @@ function searchByWords(query: string, index: RepoIndex): string {
 async function searchByCode(code: string, file: string | undefined, language: string | undefined, root: string, index: RepoIndex): Promise<ToolResult> {
   const target = file ? relativeFile(root, file) : LANGUAGE_FILE[(language ?? "").toLowerCase()];
   if (!target || !extname(target)) return { text: "Give `file` (where the code will go) or `language` (js, ts, py), so the code can be read.", isError: true };
-  // Only files in the project: an agent's path must not make Detron read ~/.ssh or /etc.
+  // Only files in the project: an agent's path must not make Attentry read ~/.ssh or /etc.
   if (target === ".." || target.startsWith("../") || isAbsolute(target)) return { text: `${file} is outside the project (${root}).`, isError: true };
   const before = file ? await readFile(resolve(root, target), "utf8").catch(() => "") : "";
   const candidates = await newFunctions(target, before, `${before}\n${code}\n`);

@@ -8,13 +8,13 @@ import type { Finding } from "../findings/types.ts";
 import { addressFor, buildId, challenge, signedBy } from "./address.ts";
 import type { Request, Response } from "./server.ts";
 
-// Asks the repo's background Detron, starting it if it isn't running. If it can't start, the
+// Asks the repo's background Attentry, starting it if it isn't running. If it can't start, the
 // question is answered right here, slower and without memory of the task.
 
 const START_WAIT_MS = 20_000; // its first scan reads the whole repo
 const POLL_MS = 150;
 
-// Something else holds the background Detron's address: never trust what it says.
+// Something else holds the background Attentry's address: never trust what it says.
 class Impostor extends Error {
   code = "EIMPOSTOR";
 }
@@ -26,14 +26,14 @@ function ask(address: string, request: Request): Promise<Response> {
     let text = "";
     socket.on("data", (chunk) => (text += chunk));
     socket.on("end", () => {
-      if (!text) return fail(new Error("the background Detron closed without answering"));
+      if (!text) return fail(new Error("the background Attentry closed without answering"));
       let reply: (Response & { seal?: unknown }) | undefined;
       try {
         reply = JSON.parse(text) as Response & { seal?: unknown };
       } catch {
-        // not JSON: not Detron, which the check below says
+        // not JSON: not Attentry, which the check below says
       }
-      if (!reply || !signedBy(nonce, reply.seal)) return fail(new Impostor(`something that isn't Detron answers at ${address}`));
+      if (!reply || !signedBy(nonce, reply.seal)) return fail(new Impostor(`something that isn't Attentry answers at ${address}`));
       const { seal: _, ...response } = reply;
       done(response as Response);
     });
@@ -41,18 +41,18 @@ function ask(address: string, request: Request): Promise<Response> {
   });
 }
 
-// The same Detron that's running now (same Node flags and entry file), in the background.
+// The same Attentry that's running now (same Node flags and entry file), in the background.
 function startBackground(root: string): void {
-  // From Detron's own folder: Node flags like `--import tsx` resolve there, not in the repo.
+  // From Attentry's own folder: Node flags like `--import tsx` resolve there, not in the repo.
   const entry = resolve(process.argv[1]!);
   const child = spawn(process.execPath, [...process.execArgv, entry, "serve", root], { cwd: dirname(entry), detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
 
-// No background Detron to ask (an impostor counts: it isn't one).
+// No background Attentry to ask (an impostor counts: it isn't one).
 const notRunning = (error: unknown) => ["ENOENT", "ECONNREFUSED", "EPIPE", "ECONNRESET", "EIMPOSTOR"].includes((error as NodeJS.ErrnoException).code ?? "");
 
-// Is a background Detron answering for this repo? Asks without starting one.
+// Is a background Attentry answering for this repo? Asks without starting one.
 export async function backgroundRunning(root: string): Promise<boolean> {
   try {
     await ask(addressFor(root), { kind: "status" });
@@ -63,7 +63,7 @@ export async function backgroundRunning(root: string): Promise<boolean> {
   }
 }
 
-// The agent's task as the background Detron sees it, without starting one: undefined when no
+// The agent's task as the background Attentry sees it, without starting one: undefined when no
 // agent is working in this repo.
 export async function agentStatus(root: string): Promise<AgentStatus | undefined> {
   try {
@@ -75,14 +75,14 @@ export async function agentStatus(root: string): Promise<AgentStatus | undefined
   }
 }
 
-// Asks the background Detron, starting it if needed. `here` answers in this process when it
+// Asks the background Attentry, starting it if needed. `here` answers in this process when it
 // can't start: slower, and without the task's history.
 async function viaBackground<T>(root: string, request: Request, pick: (r: Response) => T | undefined, here: () => Promise<T>): Promise<T> {
   let address: string;
   try {
     address = addressFor(root);
   } catch {
-    return here(); // no private place to meet a background Detron: answer here
+    return here(); // no private place to meet a background Attentry: answer here
   }
   let started = false;
   const deadline = Date.now() + START_WAIT_MS;
@@ -96,8 +96,8 @@ async function viaBackground<T>(root: string, request: Request, pick: (r: Respon
     }
     const answer = response && pick(response);
     if (answer !== undefined) return answer;
-    if (response && "error" in response) throw new Error(`the background Detron failed: ${response.error}`);
-    // Not running, or an older Detron that just stopped: start this one and try again.
+    if (response && "error" in response) throw new Error(`the background Attentry failed: ${response.error}`);
+    // Not running, or an older Attentry that just stopped: start this one and try again.
     if (!started || (response && "restart" in response)) {
       startBackground(root);
       started = true;
@@ -114,12 +114,12 @@ export const hookReply = (root: string, input: HookInput): Promise<HookReply> =>
 export const toolReply = (root: string, name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> =>
   viaBackground(root, { kind: "tool", build: buildId(), name, args, session }, (r) => ("result" in r ? r.result : undefined), () => new Sessions(root).tool(name, args));
 
-// Every finding, for the editor: from the background Detron the agent uses, so both see the same
+// Every finding, for the editor: from the background Attentry the agent uses, so both see the same
 // ones and the repo is read once. `here` scans in this process when it can't start.
 export const repoFindings = (root: string, here: () => Promise<Finding[]>): Promise<Finding[] | { reading: string }> =>
   viaBackground<Finding[] | { reading: string }>(root, { kind: "findings" }, (r) => ("findings" in r ? r.findings : "reading" in r ? { reading: r.reading } : undefined), here);
 
-// An MCP server's task starts now. Without a background Detron there's no task to remember: nothing to do.
+// An MCP server's task starts now. Without a background Attentry there's no task to remember: nothing to do.
 export const beginTask = async (root: string, session: string): Promise<void> => {
   await viaBackground(root, { kind: "begin", build: buildId(), session }, (r) => ("ok" in r ? true : undefined), async () => false);
 };

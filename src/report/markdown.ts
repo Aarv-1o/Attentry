@@ -4,7 +4,7 @@ import { PART_NAMES, PARTS, partOf, severityOf, type Part } from "../findings/se
 import type { Finding } from "../findings/types.ts";
 import { plural } from "./common.ts";
 
-// `detron scan --markdown`: the report for a person to read in a Markdown preview (VS Code,
+// `attentry scan --markdown`: the report for a person to read in a Markdown preview (VS Code,
 // GitHub, a PR comment). A summary table first, then each part, rule by rule: why it matters,
 // every place as a link to its line, and the fix folded away until it's wanted.
 
@@ -97,14 +97,14 @@ export function formatMarkdown(findings: Finding[], { root, showHints, stats, ol
   const tasks = shown.filter((f) => f.category !== "hotspot");
   const inPart = (part: Part) => tasks.filter((f) => partOf(f) === part);
 
-  const out = [`# Detron report: ${escapeMarkdown(basename(root) || root)}`, ""];
+  const out = [`# Attentry report: ${escapeMarkdown(basename(root) || root)}`, ""];
   const facts = [
     stats && `${plural(stats.files, "file")}, ${plural(stats.functions, "function")}`,
     plural(tasks.length, "finding"),
     hidden && `${plural(hidden, "hint")} hidden (\`--all\` shows them)`,
   ].filter(Boolean);
   out.push(`${facts.join(" · ")}`, "");
-  if (older) out.push(`> Only your changes. ${plural(older, "older finding")} from before them are left out: \`detron scan --markdown\` shows everything.`, "");
+  if (older) out.push(`> Only your changes. ${plural(older, "older finding")} from before them are left out: \`attentry scan --markdown\` shows everything.`, "");
 
   if (!tasks.length) {
     out.push("**Nothing to fix.**", "");

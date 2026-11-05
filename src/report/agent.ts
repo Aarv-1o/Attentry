@@ -2,7 +2,7 @@ import { GUIDES } from "../findings/guide.ts";
 import { HIDES_FAILURES } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 
-// `detron scan --agent`: findings as instructions an agent can follow, grouped by rule so the
+// `attentry scan --agent`: findings as instructions an agent can follow, grouped by rule so the
 // why/fix/check is said once. Things that fail at runtime come first; hotspots (warnings,
 // not tasks) last.
 
@@ -45,7 +45,7 @@ export function formatAgent(root: string, findings: Finding[], showHints: boolea
   const hidden = findings.length - shown.length;
   const tasks = shown.filter((f) => f.category !== "hotspot");
   const head = [
-    `# Detron findings: ${root}`,
+    `# Attentry findings: ${root}`,
     "",
     `${tasks.length} finding${tasks.length === 1 ? "" : "s"}${hidden ? `, ${hidden} hint${hidden === 1 ? "" : "s"} left out (--all shows them)` : ""}.`,
     "",

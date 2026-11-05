@@ -21,7 +21,7 @@ test("--markdown: a summary table, then each part rule by rule, every place link
     "my app/key.js": `export const s = process.env.JWT_SECRET || "supersecret";\n`,
   });
   const md = formatMarkdown(await collectFindings(await scanRepo(root)), { root, showHints: false, stats: { files: 4, functions: 3 } });
-  assert.match(md, /^# Detron report: detron-\w+\n\n4 files, 3 functions · \d+ findings/);
+  assert.match(md, /^# Attentry report: attentry-\w+\n\n4 files, 3 functions · \d+ findings/);
   assert.match(md, /\| Part \| Findings \| What it means \|\n\| --- \| ---: \| --- \|\n\| Security \| 1 \|/);
   // Security before clean-up; links work with spaces in the path.
   assert.ok(md.indexOf("## Security (1)") < md.indexOf("## Clean-up"));

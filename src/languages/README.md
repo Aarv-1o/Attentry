@@ -1,6 +1,6 @@
 # src/languages
 
-Everything language-specific lives here. The rest of Detron only talks to `LanguageSupport`.
+Everything language-specific lives here. The rest of Attentry only talks to `LanguageSupport`.
 
 ## Adding a language (e.g. Go, Java, Astro)
 

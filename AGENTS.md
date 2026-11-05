@@ -1,6 +1,6 @@
-# Rules for working on Detron
+# Rules for working on Attentry
 
-Detron exists to stop AI agents from making a mess. These rules come from the
+Attentry exists to stop AI agents from making a mess. These rules come from the
 mistakes we found in real AI-written repos. Every agent and human on this repo follows them.
 
 ## Before writing code
@@ -24,7 +24,7 @@ mistakes we found in real AI-written repos. Every agent and human on this repo f
 
 8. **Small commits.** One idea per commit, about 200 changed lines max.
    Never mix a feature and a cleanup in one commit.
-9. **Every commit passes** the tests, the type check, and `detron scan` on this repo
+9. **Every commit passes** the tests, the type check, and `attentry scan` on this repo
    (once it exists).
 
 ## Rules (the product's checks)

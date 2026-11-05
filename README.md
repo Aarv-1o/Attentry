@@ -1,6 +1,6 @@
-# Detron
+# Attentry
 
-Detron stops AI coding agents from making a mess of your codebase.
+Attentry stops AI coding agents from making a mess of your codebase.
 
 It watches what your agent writes, catches duplicate code, dead code and bloat,
 gets the agent to clean it up, proves nothing broke, and explains what changed.
@@ -15,7 +15,7 @@ Needs Node 22+. From a clone of this repo:
 
 ```
 npm install
-npm run detron -- scan path/to/your/repo
+npm run attentry -- scan path/to/your/repo
 ```
 
 - `--changed` shows only what your changes added: this branch since it left main, or your
@@ -28,20 +28,20 @@ npm run detron -- scan path/to/your/repo
   it's safe to do alone, and how to check
 - `--markdown` writes a report to read in a Markdown preview (VS Code, GitHub, a PR comment):
   a summary table, then every finding linked to its line, with the fix folded under it.
-  `--out detron-report.md` saves it to a file (as UTF-8, even from PowerShell)
+  `--out attentry-report.md` saves it to a file (as UTF-8, even from PowerShell)
 - `--json` prints the same findings, machine-readable
-- `detron explain src/app.ts:42` gives everything about the findings on one line
-- `detron doctor` says whether Detron is set up and working here: which folder it checks, git,
+- `attentry explain src/app.ts:42` gives everything about the findings on one line
+- `attentry doctor` says whether Attentry is set up and working here: which folder it checks, git,
   the agent's hooks and MCP tools, and what to do about anything missing
 
-To silence one finding, write why: `// detron-ignore empty-catch: the cache is optional`
+To silence one finding, write why: `// attentry-ignore empty-catch: the cache is optional`
 (`#` in Python) on its line or the line above. Without a reason, it doesn't count.
 
 ## With your agent
 
 ```
-npm run build                      # once: Detron as one file, dist/detron.mjs
-node dist/detron.mjs init path/to/your/repo
+npm run build                      # once: Attentry as one file, dist/attentry.mjs
+node dist/attentry.mjs init path/to/your/repo
 ```
 
 That sets up Claude Code's hooks in your repo (`.claude/settings.local.json`; Cursor and
@@ -52,15 +52,15 @@ Copilot CLI read them too). Then, in every agent session:
   instead of adding a copy
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
-- **At the start** one line, so the agent knows Detron is on for this project
+- **At the start** one line, so the agent knows Attentry is on for this project
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
-  end. If they fail, the agent hears it on its next edit. Detron finds the command (`npm test`,
+  end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,
   `pnpm test`, pytest, in each app of the repo), or set `"tests": "make check"` (or `"off"`) in
-  `.detron/config.json`; `"testTimeoutSeconds"` limits a run (default 300, then the whole process
-  tree is stopped). A repo's test command runs whatever the repo says, so Detron runs only the
+  `.attentry/config.json`; `"testTimeoutSeconds"` limits a run (default 300, then the whole process
+  tree is stopped). A repo's test command runs whatever the repo says, so Attentry runs only the
   commands you allowed by connecting it (`init`, or Connect in the sidebar), and asks again when
-  they change. `detron doctor` shows which ones are allowed
+  they change. `attentry doctor` shows which ones are allowed
 - **At the end** a change card for you: the files it changed, the problems it added and fixed,
   and whether the tests passed
 - **Suggest mode** (default) only tells the agent. `init --mode block` also refuses exact copies,
@@ -69,7 +69,7 @@ Copilot CLI read them too). Then, in every agent session:
 
 ### Tools the agent can call (MCP)
 
-Hooks speak up on their own. With Detron's MCP server, the agent can also ask:
+Hooks speak up on their own. With Attentry's MCP server, the agent can also ask:
 
 - **find_existing**: "is there already a function that formats a date?" (`query`), or the code
   it's about to write (`code` and `file`). Answers with what exists, where, how often it's used,
@@ -88,34 +88,34 @@ can read and fix. All three tools only read.
 settings (Cursor: `.cursor/mcp.json`, Windsurf: `mcp_config.json`, Cline: its MCP settings):
 
 ```json
-{ "mcpServers": { "detron": { "command": "node", "args": ["/path/to/detron/dist/detron.mjs", "mcp", "/path/to/your/repo"] } } }
+{ "mcpServers": { "attentry": { "command": "node", "args": ["/path/to/attentry/dist/attentry.mjs", "mcp", "/path/to/your/repo"] } } }
 ```
 
 Codex (`~/.codex/config.toml`):
 
 ```toml
-[mcp_servers.detron]
+[mcp_servers.attentry]
 command = "node"
-args = ["/path/to/detron/dist/detron.mjs", "mcp", "/path/to/your/repo"]
+args = ["/path/to/attentry/dist/attentry.mjs", "mcp", "/path/to/your/repo"]
 ```
 
-This is how agents without hooks (Windsurf, Cline) get Detron's help too.
+This is how agents without hooks (Windsurf, Cline) get Attentry's help too.
 
-A background Detron keeps the repo in memory (never on disk), so a check after an edit rereads
+A background Attentry keeps the repo in memory (never on disk), so a check after an edit rereads
 only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
 start the hook). It starts on first use and stops after a quiet half hour. Its first read of the
-repo takes about 10 s per 1,000 files; the agent doesn't wait for it. Detron says it's still
+repo takes about 10 s per 1,000 files; the agent doesn't wait for it. Attentry says it's still
 reading, and checks the edits made meanwhile once it's done. Hooks, MCP tools and the editor ask
 the same one, so the repo is read once and they agree on what's there and what this task added; with two agents in one repo, each hears only
-about the files it edited. It proves it's Detron on every answer (a key in `~/.detron` only you
+about the files it edited. It proves it's Attentry on every answer (a key in `~/.attentry` only you
 can read), so nothing else holding its address can talk to your agent.
 
 ## In your editor
 
 `editors/vscode` is an extension for VS Code, Cursor, Windsurf and Antigravity. Build it with
 `npm install && npm run package` in that folder, then install the `.vsix` (Extensions →
-"..." → Install from VSIX). Other editors (JetBrains, Zed, Neovim) can run `detron lsp` as a
-language server. Its findings come from the repo's background Detron, so the editor shows exactly
+"..." → Install from VSIX). Other editors (JetBrains, Zed, Neovim) can run `attentry lsp` as a
+language server. Its findings come from the repo's background Attentry, so the editor shows exactly
 what your agent hears.
 
 - Squiggles on **your changes** by default; click the status bar for the whole repo
@@ -127,7 +127,7 @@ what your agent hears.
 - Light bulb: delete unused code (the only automatic fix), copy the fix for your agent, ignore
   with a reason, or "not useful" (a rule marked on more than 10% of its findings becomes a hint)
 - A line at the top of hotspot files: make small changes there, and test after each
-- The Detron panel connects Claude Code in one click: its hooks, and (on by default) its MCP
+- The Attentry panel connects Claude Code in one click: its hooks, and (on by default) its MCP
   tools, through Claude Code's own `claude mcp add`. It shows whether each is set up
 
 It finds:
@@ -158,4 +158,4 @@ Supports JavaScript, TypeScript (incl. JSX/TSX), Python and Astro.
 - What V1 will do: [SPEC.md](SPEC.md)
 - Rules for anyone (human or agent) working on this repo: [AGENTS.md](AGENTS.md)
 - Research behind the decisions: [docs/research.md](docs/research.md)
-- How to test Detron by hand (features, security, load): [docs/TESTING.md](docs/TESTING.md)
+- How to test Attentry by hand (features, security, load): [docs/TESTING.md](docs/TESTING.md)

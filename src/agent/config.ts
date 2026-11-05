@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-// .detron/config.json, written by the person (or `detron init`): how strict hooks are, and the
+// .attentry/config.json, written by the person (or `attentry init`): how strict hooks are, and the
 // tests to run.
 
 export interface Config {
@@ -9,7 +9,7 @@ export interface Config {
   // has added security or crash problems.
   mode: "suggest" | "block";
   checkInEvery: number; // edits between check-ins
-  // The test command run at check-ins and at the end, or "off". Unset: Detron finds it.
+  // The test command run at check-ins and at the end, or "off". Unset: Attentry finds it.
   tests: string | undefined;
   testTimeoutSeconds: number;
 }
@@ -19,7 +19,7 @@ const DEFAULTS: Config = { mode: "suggest", checkInEvery: 10, tests: undefined, 
 export async function loadConfig(root: string): Promise<Config> {
   let text: string;
   try {
-    text = await readFile(join(root, ".detron/config.json"), "utf8");
+    text = await readFile(join(root, ".attentry/config.json"), "utf8");
   } catch {
     return DEFAULTS; // no config file: the defaults
   }
@@ -34,7 +34,7 @@ export async function loadConfig(root: string): Promise<Config> {
 
 // Changes the mode, keeping the rest of the file.
 export async function writeMode(root: string, mode: Config["mode"]): Promise<string> {
-  const path = join(root, ".detron/config.json");
+  const path = join(root, ".attentry/config.json");
   let config: Record<string, unknown> = {};
   try {
     config = JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;

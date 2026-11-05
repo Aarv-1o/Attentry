@@ -4,7 +4,7 @@ import { join } from "node:path";
 const BINARY = /\.(png|jpe?g|gif|webp|avif|ico|woff2?|ttf|otf|eot|mp[34]|wav|pdf|zip|gz|pem|lock)$|package-lock\.json$/i;
 const AT_ONCE = 64; // files read in parallel: fast, without running out of file handles
 
-// The background Detron rescans after every edit, and most files haven't changed since the last
+// The background Attentry rescans after every edit, and most files haven't changed since the last
 // scan: their text is kept, and read again only when their size or modified time changes.
 const known = new Map<string, { stamp: string; text: string }>();
 

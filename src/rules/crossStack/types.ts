@@ -27,11 +27,11 @@ export interface Mount {
 }
 
 export interface ApiCall {
-  method: string | undefined; // undefined: set by a value Detron can't read
+  method: string | undefined; // undefined: set by a value Attentry can't read
   url: string; // with HOLE where a value couldn't be worked out
   line: number;
   // Called on an object (`api.get("/users")`): its base URL, if it's a client, is added later.
-  // `client`: named like one, so it's a call even if Detron can't find where it was made.
+  // `client`: named like one, so it's a call even if Attentry can't find where it was made.
   via?: { name: string; client: boolean };
 }
 

@@ -4,26 +4,26 @@ import { homedir, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { folderId } from "../index/project.ts";
 
-// Where one repo's background Detron listens: a named pipe on Windows, a socket in a folder
+// Where one repo's background Attentry listens: a named pipe on Windows, a socket in a folder
 // only this user can open elsewhere. Named after the repo, so each repo gets its own.
 
 export function addressFor(root: string): string {
   const id = createHash("sha256").update(folderId(root)).digest("hex").slice(0, 16);
   const user = userInfo().username.replace(/[^\w.-]/g, "_");
-  if (process.platform === "win32") return `\\\\.\\pipe\\detron-${user}-${id}`;
+  if (process.platform === "win32") return `\\\\.\\pipe\\attentry-${user}-${id}`;
   // Socket paths have a short length limit (about 100 characters on macOS): stay short.
   const base = tmpdir().length > 40 ? "/tmp" : tmpdir();
-  const dir = join(base, `detron-${user}`);
+  const dir = join(base, `attentry-${user}`);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   // /tmp is shared: a folder someone else made first, or left open, isn't ours to trust.
   const folder = lstatSync(dir);
   if (!folder.isDirectory() || folder.uid !== process.getuid!() || (folder.mode & 0o077) !== 0) {
-    throw new Error(`${dir} isn't a private folder of yours: delete it, and Detron makes it again`);
+    throw new Error(`${dir} isn't a private folder of yours: delete it, and Attentry makes it again`);
   }
   return join(dir, `${id}.sock`);
 }
 
-// Which Detron is running: a background Detron from before an update must not answer.
+// Which Attentry is running: a background Attentry from before an update must not answer.
 export function buildId(): string {
   const entry = process.argv[1] ?? "";
   return `${entry}:${statSync(entry, { throwIfNoEntry: false })?.mtimeMs ?? 0}`;
@@ -31,11 +31,11 @@ export function buildId(): string {
 
 // A pipe or socket name can be taken by any process that gets there first, and whatever answers
 // there talks straight to the agent. So each request carries a random challenge that only a
-// Detron holding this person's key (in their home folder, unreadable to others) can sign.
+// Attentry holding this person's key (in their home folder, unreadable to others) can sign.
 let kept: Buffer | undefined;
 function key(): Buffer {
   if (kept) return kept;
-  const dir = join(homedir(), ".detron");
+  const dir = join(homedir(), ".attentry");
   const path = join(dir, "daemon.key");
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   try {

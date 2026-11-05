@@ -33,7 +33,7 @@ test("before writing a copy of an existing helper, the agent hears where it is",
   assert.equal(said.hookEventName, "PreToolUse");
   assert.equal(said.permissionDecision, undefined, "suggest mode never refuses");
   assert.equal(said.additionalContext, [
-    "Detron: before you add this function, the repo already has one that does this:",
+    "Attentry: before you add this function, the repo already has one that does this:",
     "- `fileTimeAgo`: `timeAgo` in utils/time.js:1 (used in 2 places) has the same code, only the names differ. Instead of a copy, import it.",
     "Reuse it, or say why a new one is needed.",
   ].join("\n"));
@@ -41,7 +41,7 @@ test("before writing a copy of an existing helper, the agent hears where it is",
 });
 
 test("block mode refuses an exact copy", async () => {
-  const { before } = await agent({ ".detron/config.json": JSON.stringify({ mode: "block" }) });
+  const { before } = await agent({ ".attentry/config.json": JSON.stringify({ mode: "block" }) });
   const said = await before("Write", "page.js", { content: `export function fileTimeAgo${TIME_AGO}\n` });
   assert.equal(said.permissionDecision, "deny");
   assert.match(said.permissionDecisionReason, /`timeAgo` in utils\/time\.js:1/);

@@ -2,9 +2,9 @@
 
 ## 0.0.11
 
-- Connect Claude Code also adds Detron's MCP tools (an option, on by default), and the panel shows hooks and MCP tools separately, with "Add the MCP tools" when only the hooks are set up.
+- Connect Claude Code also adds Attentry's MCP tools (an option, on by default), and the panel shows hooks and MCP tools separately, with "Add the MCP tools" when only the hooks are set up.
 - Your agent's task shows the files it changed and its tests: passed, failed, running or not run yet.
-- When the folder you opened holds one project (an unzipped repo), Detron checks that project and says so.
+- When the folder you opened holds one project (an unzipped repo), Attentry checks that project and says so.
 - No more "this is everything" above "No problems in your changes".
 - Files with a bare & in JSX (a link with a query string) are read in full.
 
@@ -38,15 +38,15 @@
 
 - A cleaner sidebar: counts at a glance, file name first, Copy fix on hover, empty groups folded into one line, Scan again / Full report / Copy report in the panel's title bar.
 - Says when it can't tell what changed (the open folder isn't a git repo).
-- The panel's script nonce comes from crypto, not Math.random() (found by Detron).
+- The panel's script nonce comes from crypto, not Math.random() (found by Attentry).
 
 ## 0.0.3
 
-- Fix: the extension stopped at startup ("command 'detron.toggleShow' already exists"). The server's commands are now detron.server.*.
+- Fix: the extension stopped at startup ("command 'attentry.toggleShow' already exists"). The server's commands are now attentry.server.*.
 
 ## 0.0.2
 
-- The Detron sidebar: scan, your changes or the whole repo, findings by part, reports.
+- The Attentry sidebar: scan, your changes or the whole repo, findings by part, reports.
 - Fix: the server didn't start in VS Code, so the status bar kept spinning.
 
 ## 0.0.1

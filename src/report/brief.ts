@@ -8,15 +8,15 @@ import type { Finding } from "../findings/types.ts";
 export const AGENT_MAX = 10;
 const order = (a: Finding, b: Finding) => PARTS.indexOf(partOf(a)) - PARTS.indexOf(partOf(b));
 
-export const briefLine = (f: Finding) => `${f.file}:${f.line} ${severityOf(f)} detron/${f.rule}: ${f.title}`;
+export const briefLine = (f: Finding) => `${f.file}:${f.line} ${severityOf(f)} attentry/${f.rule}: ${f.title}`;
 
 // `all` is the command that lists every finding, for the "…and N more" line.
-export function formatForAgent(findings: Finding[], all = "detron scan --agent"): string {
+export function formatForAgent(findings: Finding[], all = "attentry scan --agent"): string {
   const sent = findings.filter((f) => ["error", "warning"].includes(severityOf(f))).sort(order);
   if (!sent.length) return "";
   const shown = sent.slice(0, AGENT_MAX);
   const more = sent.length - shown.length;
-  return `${[...shown.map(briefLine), ...(more ? [`…and ${more} more: \`${all}\` lists all of them.`] : []), "Full steps for one: `detron explain <file:line>`."].join("\n")}\n`;
+  return `${[...shown.map(briefLine), ...(more ? [`…and ${more} more: \`${all}\` lists all of them.`] : []), "Full steps for one: `attentry explain <file:line>`."].join("\n")}\n`;
 }
 
 export function formatForPerson(findings: Finding[], hiddenOld: number): string {
@@ -33,6 +33,6 @@ export function formatForPerson(findings: Finding[], hiddenOld: number): string 
     out.push("");
   }
   if (!out.length) out.push("Nothing found in your changes.", "");
-  if (hiddenOld) out.push(`${hiddenOld} older finding${hiddenOld === 1 ? "" : "s"} from before this change (\`detron scan\` shows everything).`);
+  if (hiddenOld) out.push(`${hiddenOld} older finding${hiddenOld === 1 ? "" : "s"} from before this change (\`attentry scan\` shows everything).`);
   return `${out.join("\n").trimEnd()}\n`;
 }

@@ -9,7 +9,7 @@ import { indentComplexity, stringRows, type FileSize } from "../rules/codebase/h
 import type { FileApi } from "../rules/crossStack/types.ts";
 import { runLineRules, type LineFinding } from "../rules/line/index.ts";
 
-// What Detron learns from one file on its own: 95% of a scan's time. Kept in memory between
+// What Attentry learns from one file on its own: 95% of a scan's time. Kept in memory between
 // scans (never on disk) and redone only for files whose size or modified time changed, so a
 // re-check after an edit reads one file, not the repo.
 

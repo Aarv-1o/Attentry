@@ -16,19 +16,19 @@ import { testsAllowed } from "./trust.ts";
 import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
 // One repo's agent sessions: each session's task, and one cache of what every file taught us,
-// so a check after an edit reads only that file. Lives in the background Detron (or for one
+// so a check after an edit reads only that file. Lives in the background Attentry (or for one
 // hook call, when that can't start).
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
 const READ_WAIT_MS = 2_000; // a small repo is read by then: it answers as if it always had been
-const READING = "reading"; // the agent heard that Detron is still reading the repo
-// MCP sessions are named by Detron's MCP server, one per agent session: never a hook's session id.
+const READING = "reading"; // the agent heard that Attentry is still reading the repo
+// MCP sessions are named by Attentry's MCP server, one per agent session: never a hook's session id.
 export const MCP_SESSION = "mcp:";
 
 export const greeting = (project: string, files: number, mode: string) =>
-  `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
+  `Attentry is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Attentry's MCP tools, call find_existing before writing a helper.`;
 
 const tell = (event: string, text: string): HookReply =>
   ({ stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`, exitCode: 0 });
@@ -57,7 +57,7 @@ export class Sessions {
   private sourceFiles = 0;
   private readonly unstarted = new Set<Task>();
 
-  // `background`: the long-lived Detron. Only it runs tests (a one-off hook process would be held
+  // `background`: the long-lived Attentry. Only it runs tests (a one-off hook process would be held
   // open by them until the agent's hook timeout kills it) and reads the repo while hooks answer.
   constructor(readonly root: string, private readonly background = false, private readonly readWaitMs = READ_WAIT_MS) {}
 
@@ -151,7 +151,7 @@ export class Sessions {
   // agent's hooks running, that's its task; otherwise the MCP server's own, from when it started.
   async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
-    if (!(await this.ready())) return { text: `Detron is still reading this repo (${this.progress()}). Ask again then.` };
+    if (!(await this.ready())) return { text: `Attentry is still reading this repo (${this.progress()}). Ask again then.` };
     const hooks = this.hookTasks();
     const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
@@ -201,7 +201,7 @@ export class Sessions {
       this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
       const ready = await this.ready();
       await this.taskOf(input.session_id);
-      // One line, once per session, so the agent (and the person asking it) knows Detron is on.
+      // One line, once per session, so the agent (and the person asking it) knows Attentry is on.
       const mode = (await loadConfig(this.root)).mode;
       if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
       return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
@@ -219,7 +219,7 @@ export class Sessions {
         noteEdit(input, this.root, task);
         if (told.has(READING)) return SILENT;
         told.add(READING);
-        return tell(event, `Detron is still reading the repo (${this.progress()}). It checks this task's edits once it's done.`);
+        return tell(event, `Attentry is still reading the repo (${this.progress()}). It checks this task's edits once it's done.`);
       }
       const config = await loadConfig(this.root);
       this.markShared(task);

@@ -4,7 +4,7 @@ const SHOWN = 5;
 const SHOWN_ALL = 10;
 const num = (n: number) => n.toLocaleString("en-US");
 
-// `findings`: how many other Detron findings each file has, so "clean here first" has a starting point.
+// `findings`: how many other Attentry findings each file has, so "clean here first" has a starting point.
 export function formatHotspots(history: History, hotspots: Hotspot[], findings: Map<string, number>, showAll: boolean): string {
   if (!history.ok) return `Hotspots: not checked (${history.reason}).\n`;
   const worth = hotspots.filter((h) => worthFlagging(h, findings.has(h.file)));

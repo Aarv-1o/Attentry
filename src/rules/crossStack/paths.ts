@@ -2,14 +2,14 @@
 // "/users/:id", "/users/{id}", "/users/<int:id>", "/users/[id]" and `/users/${id}` are all
 // ["users", "*"].
 
-// Stands in for a part of a URL Detron can't work out: `${userId}`, or a constant from elsewhere.
+// Stands in for a part of a URL Attentry can't work out: `${userId}`, or a constant from elsewhere.
 export const HOLE = "\u0000";
 const PARAM = "*";
 const REST = "**"; // matches any number of segments: Express "{*splat}", Next "[...slug]"
 
 export interface ApiPath {
   segments: string[];
-  // The URL starts with a value Detron couldn't read (`${API}/usage`): only the end is known.
+  // The URL starts with a value Attentry couldn't read (`${API}/usage`): only the end is known.
   unknownPrefix: boolean;
   text: string; // for people
 }
@@ -62,7 +62,7 @@ const fits = (mode: Match) => (call: string, route: string) =>
   call === route || (route === PARAM && (mode !== "exact" || call === PARAM)) || (mode === "loose" && call === PARAM);
 
 // Does a call to `call` reach `route`? Either may have an unknown start (a base URL from
-// elsewhere, a router mounted where Detron can't see): then only the ends are compared.
+// elsewhere, a router mounted where Attentry can't see): then only the ends are compared.
 export function reaches(call: ApiPath, route: ApiPath, mode: Match = "loose"): boolean {
   const same = fits(mode);
   const rest = route.segments.indexOf(REST);

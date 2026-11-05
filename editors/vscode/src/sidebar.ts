@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 
-// The Detron panel in the activity bar, in three parts: findings (by part, each opens its line),
+// The Attentry panel in the activity bar, in three parts: findings (by part, each opens its line),
 // scanning (scan now, automatic checks on or off, the agent's next check-in), and the agent
 // (connect Claude Code and its MCP tools, suggest or block, how its task is going).
 
@@ -50,7 +50,7 @@ export class Sidebar implements vscode.WebviewViewProvider {
   }
 
   private async agent(): Promise<void> {
-    const info = await this.client()?.sendRequest("detron/agent", {});
+    const info = await this.client()?.sendRequest("attentry/agent", {});
     if (info) void this.view?.webview.postMessage({ type: "agent", info });
   }
 
@@ -58,14 +58,14 @@ export class Sidebar implements vscode.WebviewViewProvider {
     this.status = status;
     if (!this.view) return;
     void this.view.webview.postMessage({ type: "status", status });
-    if (!status.scanning && !status.error) void this.view.webview.postMessage({ type: "findings", data: await this.client()?.sendRequest("detron/findings", {}) });
+    if (!status.scanning && !status.error) void this.view.webview.postMessage({ type: "findings", data: await this.client()?.sendRequest("attentry/findings", {}) });
     await this.agent();
   }
 
   // Without Claude Code's command the person runs it: offer to copy it.
   private async mcpFailed(what: string, mcp: Extract<McpResult, { ok: false }>): Promise<void> {
     const copy = "Copy the command";
-    if ((await vscode.window.showWarningMessage(`Detron: ${what}: ${mcp.reason}. Run this in the project's folder instead.`, copy)) === copy) {
+    if ((await vscode.window.showWarningMessage(`Attentry: ${what}: ${mcp.reason}. Run this in the project's folder instead.`, copy)) === copy) {
       await vscode.env.clipboard.writeText(mcp.command);
     }
   }
@@ -78,31 +78,31 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (!client) return;
     const command = (name: string) => client.sendRequest("workspace/executeCommand", { command: name, arguments: [] });
     if (m.type === "ready" && this.status) return this.update(this.status);
-    if (m.type === "rescan") await command("detron.server.rescan");
-    if (m.type === "toggleShow") await command("detron.server.toggleShow");
-    if (m.type === "toggleHints") await command("detron.server.toggleHints");
-    if (m.type === "toggleAuto") await command("detron.server.toggleAuto");
+    if (m.type === "rescan") await command("attentry.server.rescan");
+    if (m.type === "toggleShow") await command("attentry.server.toggleShow");
+    if (m.type === "toggleHints") await command("attentry.server.toggleHints");
+    if (m.type === "toggleAuto") await command("attentry.server.toggleAuto");
     if (m.type === "setMode") {
-      await client.sendRequest("workspace/executeCommand", { command: "detron.server.setMode", arguments: [m.mode] });
+      await client.sendRequest("workspace/executeCommand", { command: "attentry.server.setMode", arguments: [m.mode] });
       await this.agent();
     }
     if (m.type === "connectAgent") {
       try {
-        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "detron.server.connectAgent", arguments: [!!m.withMcp] });
+        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [!!m.withMcp] });
         if (mcp && !mcp.ok) await this.mcpFailed("Claude Code is connected, but its MCP tools couldn't be added", mcp);
-        else void vscode.window.showInformationMessage(`Detron: Claude Code is connected${mcp ? ", with its MCP tools" : ""}. Start a new Claude Code session in this folder to use ${mcp ? "them" : "it"}.`);
+        else void vscode.window.showInformationMessage(`Attentry: Claude Code is connected${mcp ? ", with its MCP tools" : ""}. Start a new Claude Code session in this folder to use ${mcp ? "them" : "it"}.`);
       } catch (error) {
-        void vscode.window.showErrorMessage(`Detron: couldn't connect Claude Code. ${(error as Error).message}`);
+        void vscode.window.showErrorMessage(`Attentry: couldn't connect Claude Code. ${(error as Error).message}`);
       }
       await this.agent();
     }
     if (m.type === "connectMcp") {
-      const mcp = await command("detron.server.connectMcp") as McpResult;
-      if (mcp.ok) void vscode.window.showInformationMessage("Detron: MCP tools added. Start a new Claude Code session in this folder to see them.");
+      const mcp = await command("attentry.server.connectMcp") as McpResult;
+      if (mcp.ok) void vscode.window.showInformationMessage("Attentry: MCP tools added. Start a new Claude Code session in this folder to see them.");
       else await this.mcpFailed("Couldn't add the MCP tools", mcp);
       await this.agent();
     }
-    if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "detron");
+    if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "open") {
       const folder = vscode.workspace.workspaceFolders?.[0];
       if (!folder) return;
@@ -111,16 +111,16 @@ export class Sidebar implements vscode.WebviewViewProvider {
       await vscode.window.showTextDocument(doc, { selection: new vscode.Range(at, at) });
     }
     if (m.type === "copyFix") {
-      await vscode.env.clipboard.writeText(await client.sendRequest<string>("detron/explain", { id: m.id }));
-      void vscode.window.showInformationMessage("Detron: fix copied. Paste it into your agent's chat.");
+      await vscode.env.clipboard.writeText(await client.sendRequest<string>("attentry/explain", { id: m.id }));
+      void vscode.window.showInformationMessage("Attentry: fix copied. Paste it into your agent's chat.");
     }
     if (m.type === "copyReport") {
-      await vscode.env.clipboard.writeText(await client.sendRequest<string>("detron/report", { format: "agent" }));
-      void vscode.window.showInformationMessage("Detron: report copied. Paste it into your agent's chat.");
+      await vscode.env.clipboard.writeText(await client.sendRequest<string>("attentry/report", { format: "agent" }));
+      void vscode.window.showInformationMessage("Attentry: report copied. Paste it into your agent's chat.");
     }
     if (m.type === "openReport") {
       // Rendered, not as source: a summary table, each finding a link to its line.
-      const content = await client.sendRequest<string>("detron/report", { format: "markdown" });
+      const content = await client.sendRequest<string>("attentry/report", { format: "markdown" });
       const doc = await vscode.workspace.openTextDocument({ content, language: "markdown" });
       await vscode.commands.executeCommand("markdown.showPreview", doc.uri);
     }

@@ -63,7 +63,7 @@ test("scan --changed: plain words for people, one line each for agents", async (
   assert.equal(brief, "", "clean-up isn't sent to agents: nothing to say");
   let all = "";
   await run(["scan", root, "--brief"], (t) => (all += t));
-  assert.match(all, /^index\.js:4 warning detron\/empty-catch: /);
+  assert.match(all, /^index\.js:4 warning attentry\/empty-catch: /);
 });
 
 test("without git, everything counts as yours", async () => {

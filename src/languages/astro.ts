@@ -2,7 +2,7 @@ import { javascript } from "./javascript.ts";
 import type { LanguageSupport } from "./types.ts";
 
 // Astro: an .astro file is TypeScript (the --- frontmatter and <script> blocks) plus an HTML
-// template. Detron reads it as TypeScript with the template blanked out, line for line, so
+// template. Attentry reads it as TypeScript with the template blanked out, line for line, so
 // every line number still matches the real file.
 
 const RESERVED = new Set([

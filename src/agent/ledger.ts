@@ -3,7 +3,7 @@ import type { TestRun } from "./tests.ts";
 
 // What a task started with, so "new" means new in this task: not before it (old issues never
 // nag), and not limited to the lines it touched (deleting a caller in one file can make a
-// function dead in another). Kept in memory by the background Detron, per agent session.
+// function dead in another). Kept in memory by the background Attentry, per agent session.
 
 // Same problem in the same place, even when lines move: titles name the function or route.
 export const keyOf = (f: Finding) => `${f.rule}|${f.file}|${f.title}`;
@@ -33,7 +33,7 @@ export function startTask(findings: Finding[] = []): Task {
   return task;
 }
 
-// What the task started with. Filled in later for a task that began while Detron was still reading the repo.
+// What the task started with. Filled in later for a task that began while Attentry was still reading the repo.
 export function recordStart(task: Task, findings: Finding[]): void {
   for (const f of findings) task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
 }

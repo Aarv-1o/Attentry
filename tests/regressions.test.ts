@@ -5,9 +5,9 @@ import { test } from "node:test";
 import { collectFindings } from "../src/findings/collect.ts";
 import { scanRepo } from "../src/scan/scan.ts";
 
-// Repos made from hand-checked reviews of real AI-built code. Each lists every finding Detron
+// Repos made from hand-checked reviews of real AI-built code. Each lists every finding Attentry
 // must report there, hints included: a new finding is a false alarm until a person says it
-// isn't, and a missing one is a real problem Detron stopped catching.
+// isn't, and a missing one is a real problem Attentry stopped catching.
 
 const DIR = join(import.meta.dirname, "fixtures/regressions");
 

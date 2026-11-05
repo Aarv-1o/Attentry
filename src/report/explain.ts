@@ -2,7 +2,7 @@ import type { Finding } from "../findings/types.ts";
 import { formatAgent } from "./agent.ts";
 
 // Everything about the findings on one line: the code in plain words, then the full steps.
-// Used by `detron explain` and the editor's "Copy fix for agent".
+// Used by `attentry explain` and the editor's "Copy fix for agent".
 export function explainFindings(root: string, here: Finding[]): string {
   const plain = [...new Set(here.flatMap((f) => [f.plain?.does, f.plain?.replacedBy]).filter((t): t is string => !!t))];
   return `${plain.map((t) => `${t}\n`).join("")}${plain.length ? "\n" : ""}${formatAgent(root, here, true)}`;
