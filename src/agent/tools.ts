@@ -52,10 +52,10 @@ function describe(fn: FunctionInfo, uses: number): string {
   return `- \`${fn.name}(${fn.params.join(", ")})\` in ${where}, used in ${plural(uses, "place")} (${how})`;
 }
 
-// "format a date": functions whose name, or whose text ("just now"), says so.
-function searchByWords(query: string, index: RepoIndex): string {
+// "format a date": functions whose name, or whose text ("just now"), says so. Best first.
+export function similarFunctions(query: string, index: RepoIndex): { fn: FunctionInfo; uses: number }[] {
   const wanted = [...new Set(words(query))];
-  if (!wanted.length) return "Say what the function should do, like \"format a date as time ago\".";
+  if (!wanted.length) return [];
   const uses = nameUses(index.usage, index.functions);
   // Components (DeleteDialog) only when a component is asked for: a "send email" helper isn't EmailCard.
   const wantsComponent = /\b(component|view|page|card|button|dialog|modal|form|screen)\b/i.test(query);
@@ -81,6 +81,12 @@ function searchByWords(query: string, index: RepoIndex): string {
     .filter((m) => (m.coverage === 1 && (m.rareName || m.matched >= 2)) || (m.coverage >= 0.5 && m.matched >= Math.min(2, wanted.length)))
     .sort((a, b) => b.coverage - a.coverage || b.matched - a.matched || Number(b.fn.exported) - Number(a.fn.exported) || b.uses - a.uses)
     .slice(0, MAX_MATCHES);
+  return scored;
+}
+
+function searchByWords(query: string, index: RepoIndex): string {
+  if (!words(query).length) return "Say what the function should do, like \"format a date as time ago\".";
+  const scored = similarFunctions(query, index);
   if (!scored.length) return `Nothing in the repo looks like "${query}". Write it, in a shared place if more than one file will need it.`;
   return [`Functions that may already do "${query}" (read them before writing a new one):`, ...scored.map((m) => describe(m.fn, m.uses))].join("\n");
 }

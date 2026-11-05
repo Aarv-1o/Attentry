@@ -53,6 +53,10 @@ Copilot CLI read them too). Then, in every agent session:
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
 - **At the start** one line, so the agent knows Attentry is on for this project
+- **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
+  a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
+  route that's already there, files that change all the time, a plan too big for one go. Only
+  matches it's sure of, never a block, and nothing when there's nothing to say
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,

@@ -38,6 +38,7 @@ export function withAttentryHooks(settings: Settings, command: string): Settings
   const add = (event: string, group: Group) => (hooks[event] = [...(hooks[event] ?? []), group]);
   add("SessionStart", { hooks: [handler] });
   add("PreToolUse", { matcher: EDITS, hooks: [handler] });
+  add("PreToolUse", { matcher: "ExitPlanMode", hooks: [handler] }); // notes on a plan before Claude starts it
   add("PostToolUse", { matcher: EDITS, hooks: [handler] });
   add("Stop", { hooks: [handler] });
   return { ...settings, hooks };

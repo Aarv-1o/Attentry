@@ -9,7 +9,8 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, noteEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, isEdit, noteEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { reviewPlan } from "./plan.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
 import { testsAllowed } from "./trust.ts";
@@ -205,6 +206,12 @@ export class Sessions {
       const mode = (await loadConfig(this.root)).mode;
       if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
       return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
+    }
+    if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") {
+      const plan = input.tool_input?.plan;
+      if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
+      const scan = await scanRepo(this.root, this.cache);
+      return beforePlan(reviewPlan(plan, scan, await collectFindings(scan)));
     }
     if (event === "PreToolUse" && isEdit(input)) {
       if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
