@@ -3,10 +3,11 @@ import { createConnection, createServer, type Socket } from "node:net";
 import type { HookInput, HookReply } from "../agent/hooks.ts";
 import { Sessions, type AgentStatus } from "../agent/session.ts";
 import type { ToolResult } from "../agent/tools.ts";
+import type { Finding } from "../findings/types.ts";
 import { addressFor, buildId, sign } from "./address.ts";
 
-// `detron serve`: the background Detron for one repo. Hooks and MCP tools ask it instead of
-// scanning from scratch: it keeps what each file taught us in memory, and each agent session's
+// `detron serve`: the background Detron for one repo. Hooks, MCP tools and the editor ask it
+// instead of scanning from scratch, so the repo is read once and they all agree: it keeps what each file taught us in memory, and each agent session's
 // task. Nothing is written to disk. It stops after a quiet half hour.
 
 export type Request =
@@ -14,9 +15,11 @@ export type Request =
   | { kind: "tool"; build: string; name: string; args: Record<string, unknown>; session?: string | undefined }
   | { kind: "begin"; build: string; session: string }
   | { kind: "ping"; build: string }
-  | { kind: "status" };
+  | { kind: "status" }
+  | { kind: "findings" };
 export type Response =
-  | { reply: HookReply } | { result: ToolResult } | { ok: true } | { restart: true } | { error: string } | { status: AgentStatus | null };
+  | { reply: HookReply } | { result: ToolResult } | { ok: true } | { restart: true } | { error: string } | { status: AgentStatus | null }
+  | { findings: Finding[] } | { reading: string };
 
 const IDLE_MS = 30 * 60 * 1000;
 const MAX_REQUEST = 8 * 1024 * 1024; // a hook's whole Write content fits; anything bigger isn't Detron's
@@ -68,8 +71,10 @@ export async function serve(root: string): Promise<void> {
   });
   const answer = async (request: Request): Promise<Response> => {
     stayAwake();
-    // The editor's live view asks any Detron that's running, whichever build: it only reads.
+    // The editor asks any Detron that's running, whichever build: it only reads, so it never
+    // restarts the one the agent uses.
     if (request.kind === "status") return { status: (await sessions.status()) ?? null };
+    if (request.kind === "findings") return sessions.repoFindings();
     if (request.build !== build) return { restart: true }; // Detron was updated: the caller starts the new one
     if (request.kind === "ping") return { ok: true };
     if (request.kind === "begin") return (await sessions.begin(request.session), { ok: true });

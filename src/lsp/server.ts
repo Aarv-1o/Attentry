@@ -5,7 +5,7 @@ import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connecti
 import { loadConfig, writeMode } from "../agent/config.ts";
 import { hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
-import { agentStatus } from "../daemon/client.ts";
+import { agentStatus, repoFindings } from "../daemon/client.ts";
 import { collectFindings } from "../findings/collect.ts";
 import { markNotUseful } from "../findings/feedback.ts";
 import { PARTS, partOf, severityOf, type Part } from "../findings/severity.ts";
@@ -21,8 +21,9 @@ import { projectRoot } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
 // `detron lsp`: Detron as a language server, so every editor that speaks LSP (VS Code, Cursor,
-// Windsurf, Antigravity, JetBrains, Zed, Neovim) shows findings where the code is. One full
-// scan when the folder opens, then again after each save.
+// Windsurf, Antigravity, JetBrains, Zed, Neovim) shows findings where the code is. The findings
+// come from the repo's background Detron, the one agents use: the repo is read once, and the
+// editor and the agent see the same findings. Asked when the folder opens and after each save.
 
 export interface Options {
   show: "changes" | "all"; // "changes": only what this branch or uncommitted work added
@@ -38,10 +39,12 @@ export interface Status {
   older: number; // findings left out because they're from before your changes
   autoScan: boolean;
   lastScanAt: number; // 0 before the first scan
+  reading?: string; // the first read of the repo, so far: "40% of 9,000 files, about 1 min left"
   error?: string;
 }
 
 const SAVE_DELAY_MS = 400; // several files saved at once: one scan
+const READING_POLL_MS = 2_000; // while the background Detron reads the repo, asked again this often
 
 async function readOrEmpty(path: string): Promise<string> {
   try {
@@ -58,7 +61,7 @@ export function startServer(connection: Connection): void {
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
   let all: Finding[] = [];
-  const files: FileCache = new Map(); // in memory only: each save re-reads just the changed files
+  const files: FileCache = new Map(); // only when no background Detron can start: then this one reads
   let changes: Changes = { ok: false, reason: "not scanned yet" };
   let published = new Set<string>();
   let texts = new Map<string, string[]>();
@@ -72,10 +75,10 @@ export function startServer(connection: Connection): void {
   const fileOf = (uri: string) => relative(root, fileURLToPath(uri)).replace(/\\/g, "/");
   const linesOf = (file: string) => texts.get(file) ?? [];
 
-  function status(scanning: boolean, error?: string): void {
+  function status(scanning: boolean, more: { error?: string; reading?: string } = {}): void {
     const now = shown().filter((f) => severityOf(f) !== "hint" && f.rule !== "hotspot");
     const counts = Object.fromEntries(PARTS.map((p) => [p, now.filter((f) => partOf(f) === p).length])) as Record<Part, number>;
-    void connection.sendNotification("detron/status", { scanning, show: options.show, counts, older: older(), autoScan: options.autoScan, lastScanAt, ...(error ? { error } : {}) } satisfies Status);
+    void connection.sendNotification("detron/status", { scanning, show: options.show, counts, older: older(), autoScan: options.autoScan, lastScanAt, ...more } satisfies Status);
   }
 
   async function publish(): Promise<void> {
@@ -97,13 +100,20 @@ export function startServer(connection: Connection): void {
   async function scan(): Promise<void> {
     status(true);
     try {
-      all = await collectFindings(await scanRepo(root, files));
+      const found = await repoFindings(root, async () => collectFindings(await scanRepo(root, files)));
+      if (!Array.isArray(found)) {
+        status(true, found);
+        clearTimeout(timer);
+        timer = setTimeout(() => void rescan(), READING_POLL_MS);
+        return;
+      }
+      all = found;
       changes = await changedLines(root);
       lastScanAt = Date.now();
       await publish();
     } catch (error) {
       connection.console.error(`Detron scan failed: ${(error as Error).stack ?? error}`);
-      status(false, (error as Error).message);
+      status(false, { error: (error as Error).message });
     }
   }
 

@@ -13,6 +13,7 @@ export interface Status {
   older: number;
   autoScan: boolean;
   lastScanAt: number;
+  reading?: string; // the first read of the repo, so far
   error?: string;
 }
 

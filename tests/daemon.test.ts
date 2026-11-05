@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { createConnection, createServer } from "node:net";
+import { createServer } from "node:net";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { addressFor } from "../src/daemon/address.ts";
 import { agentStatus } from "../src/daemon/client.ts";
-import { makeRepo } from "./helpers.ts";
+import { makeRepo, stopBackground } from "./helpers.ts";
 
 const run = promisify(execFile);
 const DETRON = join(import.meta.dirname, "../src/cli/bin.ts");
@@ -19,14 +19,6 @@ async function hook(root: string, input: object) {
   const { stdout } = await child;
   return stdout ? JSON.parse(stdout) : undefined;
 }
-
-// Asks the background Detron to stop (a build it doesn't know makes it step aside).
-const stop = (root: string) => new Promise<void>((done) => {
-  const socket = createConnection(addressFor(root), () => socket.write(`${JSON.stringify({ kind: "ping", build: "test-cleanup" })}\n`));
-  socket.on("data", () => socket.end());
-  socket.on("close", () => done());
-  socket.on("error", () => done());
-});
 
 const START = `export function load(url) {\n  try {\n    return fetch(url);\n  } catch (e) {}\n}\n`;
 
@@ -52,7 +44,7 @@ test("hooks share one background Detron that remembers the task between calls", 
     assert.match(end.systemMessage, /^Detron change card\n- Changed: 1 file \(index\.js\)\n- Problems: 1 added \(1 will break\)\n[^]*- Tests: none found/, "the task survived across hook processes");
     console.log(`# after-edit hook took ${took}ms (process start included)`);
   } finally {
-    await stop(root);
+    await stopBackground(root);
   }
 });
 

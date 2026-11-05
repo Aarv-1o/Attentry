@@ -162,6 +162,13 @@ export class Sessions {
     });
   }
 
+  // Every finding in the repo, for the editor. While the first scan reads, how far it got: the
+  // editor asks again later, so hooks never queue behind it.
+  async repoFindings(): Promise<{ findings: Finding[] } | { reading: string }> {
+    void this.readRepo();
+    return this.read ? { findings: await this.findings() } : { reading: this.progress() };
+  }
+
   // The most recently active agent task, for the editor: no scan, just what's known.
   async status(): Promise<AgentStatus | undefined> {
     const latest = this.latestTask();

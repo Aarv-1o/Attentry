@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
 import { createConnection } from "node:net";
-import { dirname } from "node:path";
+import { dirname, resolve } from "node:path";
 import type { HookInput, HookReply } from "../agent/hooks.ts";
 import { Sessions, type AgentStatus } from "../agent/session.ts";
 import type { ToolResult } from "../agent/tools.ts";
+import type { Finding } from "../findings/types.ts";
 import { addressFor, buildId, challenge, signedBy } from "./address.ts";
 import type { Request, Response } from "./server.ts";
 
@@ -43,7 +44,8 @@ function ask(address: string, request: Request): Promise<Response> {
 // The same Detron that's running now (same Node flags and entry file), in the background.
 function startBackground(root: string): void {
   // From Detron's own folder: Node flags like `--import tsx` resolve there, not in the repo.
-  const child = spawn(process.execPath, [...process.execArgv, process.argv[1]!, "serve", root], { cwd: dirname(process.argv[1]!), detached: true, stdio: "ignore", windowsHide: true });
+  const entry = resolve(process.argv[1]!);
+  const child = spawn(process.execPath, [...process.execArgv, entry, "serve", root], { cwd: dirname(entry), detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
 
@@ -111,6 +113,11 @@ export const hookReply = (root: string, input: HookInput): Promise<HookReply> =>
 
 export const toolReply = (root: string, name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> =>
   viaBackground(root, { kind: "tool", build: buildId(), name, args, session }, (r) => ("result" in r ? r.result : undefined), () => new Sessions(root).tool(name, args));
+
+// Every finding, for the editor: from the background Detron the agent uses, so both see the same
+// ones and the repo is read once. `here` scans in this process when it can't start.
+export const repoFindings = (root: string, here: () => Promise<Finding[]>): Promise<Finding[] | { reading: string }> =>
+  viaBackground<Finding[] | { reading: string }>(root, { kind: "findings" }, (r) => ("findings" in r ? r.findings : "reading" in r ? { reading: r.reading } : undefined), here);
 
 // An MCP server's task starts now. Without a background Detron there's no task to remember: nothing to do.
 export const beginTask = async (root: string, session: string): Promise<void> => {

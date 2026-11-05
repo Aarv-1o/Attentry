@@ -105,8 +105,8 @@ A background Detron keeps the repo in memory (never on disk), so a check after a
 only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
 start the hook). It starts on first use and stops after a quiet half hour. Its first read of the
 repo takes about 10 s per 1,000 files; the agent doesn't wait for it. Detron says it's still
-reading, and checks the edits made meanwhile once it's done. Hooks and MCP tools ask
-the same one, so they agree on what this task added; with two agents in one repo, each hears only
+reading, and checks the edits made meanwhile once it's done. Hooks, MCP tools and the editor ask
+the same one, so the repo is read once and they agree on what's there and what this task added; with two agents in one repo, each hears only
 about the files it edited. It proves it's Detron on every answer (a key in `~/.detron` only you
 can read), so nothing else holding its address can talk to your agent.
 
@@ -115,7 +115,8 @@ can read), so nothing else holding its address can talk to your agent.
 `editors/vscode` is an extension for VS Code, Cursor, Windsurf and Antigravity. Build it with
 `npm install && npm run package` in that folder, then install the `.vsix` (Extensions →
 "..." → Install from VSIX). Other editors (JetBrains, Zed, Neovim) can run `detron lsp` as a
-language server.
+language server. Its findings come from the repo's background Detron, so the editor shows exactly
+what your agent hears.
 
 - Squiggles on **your changes** by default; click the status bar for the whole repo
 - Hover a squiggle: what the code does in plain words, what can go wrong, how to fix and check.
