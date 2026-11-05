@@ -27,7 +27,7 @@ export interface ScanResult {
   root: string;
   index: RepoIndex;
   facts: FunctionFacts[]; // what each function does, for plain-language explanations
-  skipped: Map<string, number>; // files in languages Detron doesn't read yet, by extension
+  skipped: Map<string, number>; // files in languages Attentry doesn't read yet, by extension
   groups: DuplicateGroup[];
   differences: Map<DuplicateGroup, CopyDifferences>;
   dead: DeadCode;
@@ -100,7 +100,7 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   // Only Express 4 leaves async errors uncaught: Koa, Hono, Fastify, Nest and Express 5 catch them.
   const express4 = /"express"\s*:\s*"[\^~>=]*4/.test(deps) && !/"express-async-errors"|"express-async-handler"|"express-promise-router"/.test(deps);
   const hashes = [...imports.values()].some((list) => list.some((i) => /^(bcrypt|bcryptjs|argon2|@node-rs\/(argon2|bcrypt)|passlib|werkzeug\.security|django\.contrib\.auth)/.test(i.source)));
-  // `// detron-ignore rule: reason` comments, so every report leaves out the same findings.
+  // `// attentry-ignore rule: reason` comments, so every report leaves out the same findings.
   const ignored = ignoreChecker(texts);
   const notIgnored = (file: string, line: number, rule: string) => !ignored(file, line, rule)?.reason;
   dead.functions = dead.functions.filter((d) => notIgnored(d.fn.file, d.fn.startLine, "dead-function"));

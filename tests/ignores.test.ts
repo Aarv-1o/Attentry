@@ -9,14 +9,14 @@ const rulesIn = async (files: Record<string, string>) => (await collectFindings(
 
 test("an ignore comment with a reason hides that rule on that line", async () => {
   assert.deepEqual(await rulesIn({
-    "index.js": `export function a() {\n  // detron-ignore empty-catch: the cache is optional\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  try { load(); } catch (e) {} // detron-ignore empty-catch, catch-only-logs: same as above\n}\n`,
+    "index.js": `export function a() {\n  // attentry-ignore empty-catch: the cache is optional\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  try { load(); } catch (e) {} // attentry-ignore empty-catch, catch-only-logs: same as above\n}\n`,
   }), []);
-  assert.deepEqual(await rulesIn({ "app.py": `def a():\n    try:\n        load()\n    except Exception:  # detron-ignore empty-catch: optional\n        pass\n` }), []);
+  assert.deepEqual(await rulesIn({ "app.py": `def a():\n    try:\n        load()\n    except Exception:  # attentry-ignore empty-catch: optional\n        pass\n` }), []);
 });
 
 test("an ignore without a reason, or for another rule, doesn't count", async () => {
   assert.deepEqual(await rulesIn({
-    "index.js": `export function a() {\n  // detron-ignore empty-catch\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  // detron-ignore dead-function: wrong rule\n  try { load(); } catch (e) {}\n}\n`,
+    "index.js": `export function a() {\n  // attentry-ignore empty-catch\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  // attentry-ignore dead-function: wrong rule\n  try { load(); } catch (e) {}\n}\n`,
   }), ["3 empty-catch (no reason)", "7 empty-catch"]);
 });
 
@@ -30,12 +30,12 @@ test("explain gives the plain words and full steps for one line", async () => {
   } finally {
     process.chdir(cwd);
   }
-  assert.match(text, /^`calcTax\(total\)`: it returns `total \* 0\.18`\.\n\n# Detron findings/);
+  assert.match(text, /^`calcTax\(total\)`: it returns `total \* 0\.18`\.\n\n# Attentry findings/);
   assert.match(text, /## Dead functions \(1\)[\s\S]*Fix:\n1\. Delete the function/);
 });
 
 test("the text report leaves out ignored findings too", async () => {
-  const root = await makeRepo({ "index.js": `export function a() {\n  // detron-ignore empty-catch: the cache is optional\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  try { load(); } catch (e) {}\n}\n` });
+  const root = await makeRepo({ "index.js": `export function a() {\n  // attentry-ignore empty-catch: the cache is optional\n  try { load(); } catch (e) {}\n}\nexport function b() {\n  try { load(); } catch (e) {}\n}\n` });
   let text = "";
   await run(["scan", root], (t) => (text += t));
   assert.match(text, /index\.js:6/);

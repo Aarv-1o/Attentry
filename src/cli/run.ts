@@ -19,26 +19,26 @@ import { runMcpServer } from "../mcp/server.ts";
 import { projectRoot, repoAround } from "../index/project.ts";
 import { scanRepo } from "../scan/scan.ts";
 
-const HELP = `Detron: stops AI coding agents from making a mess of your codebase.
+const HELP = `Attentry: stops AI coding agents from making a mess of your codebase.
 
 Usage:
-  detron scan [path]          Find security holes, crash risks, frontend/backend mismatches,
+  attentry scan [path]          Find security holes, crash risks, frontend/backend mismatches,
                               database issues, copied and dead code in a repo, and where
                               to clean first (default: current folder)
-  detron lsp                  Run as a language server, for editors (VS Code, Cursor,
+  attentry lsp                  Run as a language server, for editors (VS Code, Cursor,
                               Windsurf, Antigravity, JetBrains, Zed, Neovim)
-  detron init [path]          Set up Detron's hooks for Claude Code in a repo (Cursor and
+  attentry init [path]          Set up Attentry's hooks for Claude Code in a repo (Cursor and
                               Copilot CLI read them too). --mode block to also stop tasks
                               that add security or crash problems
-  detron hook claude          Run as an agent hook: reads the hook's JSON on stdin, answers
+  attentry hook claude          Run as an agent hook: reads the hook's JSON on stdin, answers
                               in Claude Code's format (Cursor and Copilot CLI read it too)
-  detron mcp [path]           Run as an MCP server: tools agents call themselves
+  attentry mcp [path]           Run as an MCP server: tools agents call themselves
                               (find_existing, check, explain). For agents without hooks
                               too: Windsurf, Cline, and any MCP client
-  detron serve [path]         The background Detron that hooks and MCP talk to (started for you)
-  detron doctor [path]        Is Detron set up here, and working: the project it checks, git,
-                              the agent's hooks and MCP tools, the background Detron
-  detron explain <file:line>  Everything about the findings on one line: what the code
+  attentry serve [path]         The background Attentry that hooks and MCP talk to (started for you)
+  attentry doctor [path]        Is Attentry set up here, and working: the project it checks, git,
+                              the agent's hooks and MCP tools, the background Attentry
+  attentry explain <file:line>  Everything about the findings on one line: what the code
                               does, why it matters, how to fix it, how to check
 
 Options:
@@ -53,7 +53,7 @@ Options:
                         summary, then every finding linked to its line, with the fix
   --json                The same findings, machine-readable
   --out <file>          Write the report to a file instead of printing it
-                        (detron scan --markdown --out detron-report.md)
+                        (attentry scan --markdown --out attentry-report.md)
   -h, --help            Show this help
 `;
 
@@ -92,7 +92,7 @@ async function scan(path: string, { all, format, changed, base, reportAt }: Scan
     findings = mine;
   }
   const shown = all ? findings : findings.filter((f) => f.confidence !== "maybe");
-  if (format === "brief") out(formatForAgent(shown, `detron scan${changed ? " --changed" : ""} --agent`));
+  if (format === "brief") out(formatForAgent(shown, `attentry scan${changed ? " --changed" : ""} --agent`));
   else if (format === "text") out(formatForPerson(shown, older));
   else if (format === "agent") out(formatAgent(root, findings, all));
   else if (format === "markdown") {
@@ -109,11 +109,11 @@ async function readStdin(): Promise<string> {
   return text;
 }
 
-// An agent hook. Detron failing must not break the agent: exit 1 shows the error to the person
+// An agent hook. Attentry failing must not break the agent: exit 1 shows the error to the person
 // without blocking the agent (exit 2 would block).
 async function hook(agent: string | undefined, out: Write): Promise<number> {
   if (agent !== "claude") {
-    process.stderr.write(`detron hook: unknown agent "${agent ?? ""}". Supported: claude.\n`);
+    process.stderr.write(`attentry hook: unknown agent "${agent ?? ""}". Supported: claude.\n`);
     return 1;
   }
   try {
@@ -123,12 +123,12 @@ async function hook(agent: string | undefined, out: Write): Promise<number> {
     out(reply.stdout);
     return reply.exitCode;
   } catch (error) {
-    process.stderr.write(`Detron hook failed: ${(error as Error).message}\n`);
+    process.stderr.write(`Attentry hook failed: ${(error as Error).message}\n`);
     return 1;
   }
 }
 
-// detron explain src/routes/orders.js:9
+// attentry explain src/routes/orders.js:9
 async function explain(target: string, out: Write): Promise<number> {
   const m = /^(.+):(\d+)$/.exec(target);
   if (!m) {
@@ -213,7 +213,7 @@ export async function run(argv: string[], out: Write): Promise<number> {
   const format: Format = values.json ? "json" : values.markdown ? "markdown" : values.agent ? "agent" : values.brief ? "brief" : "text";
   const options = { all: values.all ?? false, format, changed: values.changed ?? !!values.base, base: values.base, reportAt: values.out };
   if (!values.out) return scan(path, options, out);
-  // Written as UTF-8 by Detron itself: PowerShell's `>` would save UTF-16.
+  // Written as UTF-8 by Attentry itself: PowerShell's `>` would save UTF-16.
   let report = "";
   const code = await scan(path, options, (text) => (report += text));
   if (code !== 0) {

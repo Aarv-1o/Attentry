@@ -9,7 +9,7 @@ import { addressFor } from "../src/daemon/address.ts";
 import { makeRepo } from "./helpers.ts";
 import { REPO } from "./agentRepo.ts";
 
-const DETRON = join(import.meta.dirname, "../src/cli/bin.ts");
+const ATTENTRY = join(import.meta.dirname, "../src/cli/bin.ts");
 const CWD = join(import.meta.dirname, "..");
 const run = promisify(execFile);
 const stop = (root: string) => new Promise<void>((done) => {
@@ -19,9 +19,9 @@ const stop = (root: string) => new Promise<void>((done) => {
   socket.on("error", () => done());
 });
 
-// `detron mcp` over stdio, the way an agent runs it: send a request, wait for its reply.
+// `attentry mcp` over stdio, the way an agent runs it: send a request, wait for its reply.
 function startMcp(root: string) {
-  const mcp: ChildProcess = spawn(process.execPath, ["--import", "tsx", DETRON, "mcp", root], { cwd: CWD });
+  const mcp: ChildProcess = spawn(process.execPath, ["--import", "tsx", ATTENTRY, "mcp", root], { cwd: CWD });
   let buffer = "";
   const replies = new Map<number, (m: any) => void>();
   mcp.stdout!.on("data", (chunk: Buffer) => {
@@ -45,12 +45,12 @@ function startMcp(root: string) {
   return { mcp, ask, call, close, raw: (line: string) => mcp.stdin!.write(`${line}\n`) };
 }
 
-test("detron mcp: both protocol eras, and wrong calls come back as errors the agent can fix", { timeout: 60_000 }, async () => {
+test("attentry mcp: both protocol eras, and wrong calls come back as errors the agent can fix", { timeout: 60_000 }, async () => {
   const root = await makeRepo({ "src/time.js": 'export function timeAgo(d) {\n  return "just now";\n}\n' });
   const server = startMcp(root);
   try {
     const init = await server.ask("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } });
-    assert.equal(init.result.serverInfo.name, "detron");
+    assert.equal(init.result.serverInfo.name, "attentry");
     assert.match(init.result.instructions, /find_existing/);
     const tools = (await server.ask("tools/list")).result.tools;
     assert.deepEqual(tools.map((t: any) => t.name), ["find_existing", "check", "explain"]);
@@ -81,13 +81,13 @@ test("detron mcp: both protocol eras, and wrong calls come back as errors the ag
   }
 });
 
-test("detron mcp over stdio shares the background Detron with hooks: the same task", { timeout: 60_000 }, async () => {
+test("attentry mcp over stdio shares the background Attentry with hooks: the same task", { timeout: 60_000 }, async () => {
   const root = await makeRepo({ ...REPO, "src/api.js": "export const x = 1;\n" });
   let server: ReturnType<typeof startMcp> | undefined;
   try {
     // An agent session, through the hook process the way Claude Code runs it.
     const hook = async (input: object) => {
-      const child = run(process.execPath, ["--import", "tsx", DETRON, "hook", "claude"], { cwd: CWD, env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
+      const child = run(process.execPath, ["--import", "tsx", ATTENTRY, "hook", "claude"], { cwd: CWD, env: { ...process.env, CLAUDE_PROJECT_DIR: root } });
       child.child.stdin!.end(JSON.stringify({ session_id: "s1", cwd: root, ...input }));
       await child;
     };
@@ -96,9 +96,9 @@ test("detron mcp over stdio shares the background Detron with hooks: the same ta
     await hook({ hook_event_name: "PostToolUse", tool_name: "Edit", tool_input: { file_path: join(root, "src/api.js") } });
 
     server = startMcp(root);
-    assert.equal((await server.ask("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })).result.serverInfo.name, "detron");
+    assert.equal((await server.ask("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "1" } })).result.serverInfo.name, "attentry");
     const checked = await server.call("check", { files: ["src/api.js"] });
-    assert.match(checked.content[0].text, /src\/api\.js:4 warning detron\/empty-catch: .+ \(new in this task\)/, "the task the hooks started");
+    assert.match(checked.content[0].text, /src\/api\.js:4 warning attentry\/empty-catch: .+ \(new in this task\)/, "the task the hooks started");
     await server.close();
   } finally {
     server?.mcp.kill();

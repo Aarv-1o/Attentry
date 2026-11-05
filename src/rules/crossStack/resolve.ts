@@ -8,7 +8,7 @@ import type { FileApi } from "./types.ts";
 
 export interface FullRoute {
   method: string;
-  path: ApiPath; // unknownPrefix when Detron couldn't find where its router is mounted
+  path: ApiPath; // unknownPrefix when Attentry couldn't find where its router is mounted
   file: string;
   line: number;
   handler?: string;

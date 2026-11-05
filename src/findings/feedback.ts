@@ -2,11 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Finding } from "./types.ts";
 
-// "Not useful" clicks, kept in the repo (.detron/feedback.json) so a team shares them. The
+// "Not useful" clicks, kept in the repo (.attentry/feedback.json) so a team shares them. The
 // finding clicked is hidden; a rule people keep marking drops to a hint, the way Google's
 // Tricorder turns off checks with more than 10% "not useful" (Sadowski et al., CACM 2018).
 
-const FILE = ".detron/feedback.json";
+const FILE = ".attentry/feedback.json";
 const MIN_CLICKS = 2;
 const MAX_SHARE = 0.1;
 

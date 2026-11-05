@@ -27,8 +27,8 @@ function getParser(language: LanguageId): Promise<Parser> {
   let parser = parsers.get(language);
   if (!parser) {
     parser = (async () => {
-      // Bundled (the editor extension): the .wasm files sit in one folder, named by DETRON_WASM_DIR.
-      const dir = process.env.DETRON_WASM_DIR;
+      // Bundled (the editor extension): the .wasm files sit in one folder, named by ATTENTRY_WASM_DIR.
+      const dir = process.env.ATTENTRY_WASM_DIR;
       await Parser.init(dir ? { locateFile: (file: string) => join(dir, file) } : undefined);
       const grammar = await Language.load(dir ? join(dir, basename(wasmFor(language))) : require.resolve(wasmFor(language)));
       const p = new Parser();
@@ -46,7 +46,7 @@ export async function parseSource(source: string, language: LanguageId): Promise
   return tree;
 }
 
-// Returns undefined for files in a language Detron doesn't support yet.
+// Returns undefined for files in a language Attentry doesn't support yet.
 export async function parseFile(path: string): Promise<ParsedFile | undefined> {
   if (!grammarForFile(path)) return undefined;
   return parseText(path, await readFile(path, "utf8"));

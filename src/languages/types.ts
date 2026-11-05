@@ -5,7 +5,7 @@ import type { FileApi } from "../rules/crossStack/types.ts";
 
 export type LanguageId = "javascript" | "typescript" | "tsx" | "python" | "astro";
 
-// Everything Detron needs to know about one language family. Adding a language
+// Everything Attentry needs to know about one language family. Adding a language
 // (Java, Go, Astro...) means writing one of these and registering it in index.ts.
 export interface LanguageSupport {
   family: string; // dialects that share code rules, e.g. JS, TS and TSX are all "js"

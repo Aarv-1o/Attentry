@@ -1,10 +1,10 @@
 import type { Finding } from "./types.ts";
 
-// `// detron-ignore missing-ownership-check: admins only, checked by the gateway` on a finding's
+// `// attentry-ignore missing-ownership-check: admins only, checked by the gateway` on a finding's
 // line or the line above hides it. The reason is required: an ignore with no reason is an
 // easy way for an agent to silence a real problem, so it doesn't count.
 
-const IGNORE = /(?:\/\/|#|\/\*|\{\/\*)\s*detron-ignore\s+([\w-]+(?:\s*,\s*[\w-]+)*)\s*(?::\s*(.*?))?\s*(?:\*\/\s*\}?)?\s*$/;
+const IGNORE = /(?:\/\/|#|\/\*|\{\/\*)\s*attentry-ignore\s+([\w-]+(?:\s*,\s*[\w-]+)*)\s*(?::\s*(.*?))?\s*(?:\*\/\s*\}?)?\s*$/;
 
 export type Ignore = { reason: true } | { reason: false; line: number } | undefined;
 

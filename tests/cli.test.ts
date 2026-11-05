@@ -15,7 +15,7 @@ async function cli(...args: string[]): Promise<{ code: number; text: string }> {
 test("scan prints copies found in a repo", async () => {
   const { code, text } = await cli("scan", flagRepo);
   assert.equal(code, 0);
-  assert.match(text, /Detron scan: .*flag/);
+  assert.match(text, /Attentry scan: .*flag/);
   assert.match(text, /\d+ files, \d+ functions/);
   assert.match(text, /Copies \(3\)/);
   assert.match(text, /web\/time\.ts:1 {2}timeAgo/);
@@ -31,7 +31,7 @@ test("scan --json and --agent: the same findings, with what, why, fix, safety an
   assert.ok(copy);
   for (const key of ["id", "file", "line", "title", "evidence", "related", "why", "fix", "safety", "verify"]) assert.ok(key in copy, key);
   const agent = await cli("scan", flagRepo, "--agent");
-  assert.match(agent.text, /^# Detron findings: /);
+  assert.match(agent.text, /^# Attentry findings: /);
   assert.match(agent.text, /## Same logic in two languages \(1\)\n\nWhy: .+\nSafety: ask the user first\n/);
   assert.match(agent.text, /\nFix:\n1\. /);
   assert.match(agent.text, /\nCheck: /);

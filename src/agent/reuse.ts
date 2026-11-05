@@ -11,7 +11,7 @@ import { findDuplicates, nameWords } from "../rules/codebase/duplicates.ts";
 
 // Before an agent writes a function: does the repo already have one that does this? Agents
 // rebuild helpers under new names because they lose track of what exists (AI code has ~1.9x the
-// redundancy of human code). Uses the same copy finder as `detron scan`, so a "sure" here is an
+// redundancy of human code). Uses the same copy finder as `attentry scan`, so a "sure" here is an
 // exact copy, nothing looser.
 
 const family = (fn: FunctionInfo) => supportFor(fn.language).family;

@@ -20,15 +20,15 @@ import { scanRepo } from "../scan/scan.ts";
 import { projectRoot } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
-// `detron lsp`: Detron as a language server, so every editor that speaks LSP (VS Code, Cursor,
+// `attentry lsp`: Attentry as a language server, so every editor that speaks LSP (VS Code, Cursor,
 // Windsurf, Antigravity, JetBrains, Zed, Neovim) shows findings where the code is. The findings
-// come from the repo's background Detron, the one agents use: the repo is read once, and the
+// come from the repo's background Attentry, the one agents use: the repo is read once, and the
 // editor and the agent see the same findings. Asked when the folder opens and after each save.
 
 export interface Options {
   show: "changes" | "all"; // "changes": only what this branch or uncommitted work added
   hints: boolean;
-  clientCommands: boolean; // the Detron extension handles detron.copyFix
+  clientCommands: boolean; // the Attentry extension handles attentry.copyFix
   autoScan: boolean; // check again when files change; off: only when asked
 }
 
@@ -44,7 +44,7 @@ export interface Status {
 }
 
 const SAVE_DELAY_MS = 400; // several files saved at once: one scan
-const READING_POLL_MS = 2_000; // while the background Detron reads the repo, asked again this often
+const READING_POLL_MS = 2_000; // while the background Attentry reads the repo, asked again this often
 
 async function readOrEmpty(path: string): Promise<string> {
   try {
@@ -56,12 +56,12 @@ async function readOrEmpty(path: string): Promise<string> {
 
 export function startServer(connection: Connection): void {
   let workspace = ""; // the folder the editor opened: where Claude Code starts, so its hooks go here
-  let root = ""; // the project in it, which Detron scans
+  let root = ""; // the project in it, which Attentry scans
   let rootUri = "";
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
   let all: Finding[] = [];
-  const files: FileCache = new Map(); // only when no background Detron can start: then this one reads
+  const files: FileCache = new Map(); // only when no background Attentry can start: then this one reads
   let changes: Changes = { ok: false, reason: "not scanned yet" };
   let published = new Set<string>();
   let texts = new Map<string, string[]>();
@@ -78,7 +78,7 @@ export function startServer(connection: Connection): void {
   function status(scanning: boolean, more: { error?: string; reading?: string } = {}): void {
     const now = shown().filter((f) => severityOf(f) !== "hint" && f.rule !== "hotspot");
     const counts = Object.fromEntries(PARTS.map((p) => [p, now.filter((f) => partOf(f) === p).length])) as Record<Part, number>;
-    void connection.sendNotification("detron/status", { scanning, show: options.show, counts, older: older(), autoScan: options.autoScan, lastScanAt, ...more } satisfies Status);
+    void connection.sendNotification("attentry/status", { scanning, show: options.show, counts, older: older(), autoScan: options.autoScan, lastScanAt, ...more } satisfies Status);
   }
 
   async function publish(): Promise<void> {
@@ -112,7 +112,7 @@ export function startServer(connection: Connection): void {
       lastScanAt = Date.now();
       await publish();
     } catch (error) {
-      connection.console.error(`Detron scan failed: ${(error as Error).stack ?? error}`);
+      connection.console.error(`Attentry scan failed: ${(error as Error).stack ?? error}`);
       status(false, { error: (error as Error).message });
     }
   }
@@ -148,11 +148,11 @@ export function startServer(connection: Connection): void {
         hoverProvider: true,
         codeActionProvider: true,
         codeLensProvider: {},
-        // "detron.server.*": the editor's language client registers each of these as an editor
-        // command, so they mustn't share names with the extension's own detron.* commands.
-        executeCommandProvider: { commands: ["detron.server.notUseful", "detron.server.toggleShow", "detron.server.toggleHints", "detron.server.toggleAuto", "detron.server.rescan", "detron.server.connectAgent", "detron.server.connectMcp", "detron.server.setMode"] },
+        // "attentry.server.*": the editor's language client registers each of these as an editor
+        // command, so they mustn't share names with the extension's own attentry.* commands.
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.toggleHints", "attentry.server.toggleAuto", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectMcp", "attentry.server.setMode"] },
       },
-      serverInfo: { name: "detron" },
+      serverInfo: { name: "attentry" },
     };
   });
   connection.onInitialized(() => void rescan());
@@ -176,39 +176,39 @@ export function startServer(connection: Connection): void {
   });
   connection.onCodeLens(({ textDocument }) => shown().filter((f) => f.rule === "hotspot" && f.file === fileOf(textDocument.uri)).map(hotspotLens));
   connection.onExecuteCommand(async ({ command, arguments: args }) => {
-    if (command === "detron.server.notUseful") {
+    if (command === "attentry.server.notUseful") {
       const [id, rule] = args as [string, string];
       await markNotUseful(root, { id, rule });
       all = all.filter((f) => f.id !== id);
       return rescan();
     }
-    if (command === "detron.server.toggleShow") {
+    if (command === "attentry.server.toggleShow") {
       options.show = options.show === "changes" ? "all" : "changes";
       return publish();
     }
-    if (command === "detron.server.toggleHints") {
+    if (command === "attentry.server.toggleHints") {
       options.hints = !options.hints;
       return publish();
     }
-    if (command === "detron.server.toggleAuto") {
+    if (command === "attentry.server.toggleAuto") {
       options.autoScan = !options.autoScan;
       if (options.autoScan) return rescan(); // catch up on what changed while it was off
       return status(false);
     }
-    if (command === "detron.server.rescan") return rescan();
+    if (command === "attentry.server.rescan") return rescan();
     // Not printed to the editor: init's own messages are for the terminal. With `true`, also
     // the MCP tools; what happened with those goes back to the sidebar.
-    if (command === "detron.server.connectAgent") {
+    if (command === "attentry.server.connectAgent") {
       await init(workspace, process.argv[1]!, undefined);
       return args?.[0] === true ? addMcp(workspace, process.argv[1]!) : undefined;
     }
-    if (command === "detron.server.connectMcp") return addMcp(workspace, process.argv[1]!);
-    if (command === "detron.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
+    if (command === "attentry.server.connectMcp") return addMcp(workspace, process.argv[1]!);
+    if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
 
   // For the editor's sidebar: the list, a whole report, one finding's full explanation.
-  connection.onRequest("detron/findings", () => ({
+  connection.onRequest("attentry/findings", () => ({
     show: options.show, hints: options.hints, older: older(),
     // The project, when it's a folder inside the one the editor opened.
     ...(root !== workspace ? { project: relative(workspace, root).replace(/\\/g, "/") } : {}),
@@ -216,20 +216,20 @@ export function startServer(connection: Connection): void {
     ...(changes.ok ? {} : { noChanges: changes.reason }),
     items: shown().map((f) => ({ id: f.id, rule: f.rule, part: partOf(f), severity: severityOf(f), file: f.file, line: f.line, title: f.title, why: f.why, does: f.plain?.does, replacedBy: f.plain?.replacedBy })),
   }));
-  // The agent: are Detron's hooks set up, which mode, and how its task is going right now.
-  connection.onRequest("detron/agent", async () => ({
+  // The agent: are Attentry's hooks set up, which mode, and how its task is going right now.
+  connection.onRequest("attentry/agent", async () => ({
     hooks: await hookState(workspace),
     mcp: await mcpState(workspace),
     mode: (await loadConfig(root)).mode,
     live: (await agentStatus(root)) ?? null,
   }));
-  connection.onRequest("detron/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
+  connection.onRequest("attentry/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
     if (format === "agent") return formatAgent(root, shown(), options.hints);
     // Opened in a preview that has no file of its own: links name each file in full.
     if (format === "markdown") return formatMarkdown(shown(), { root, showHints: options.hints, older: older(), linkBase: `${pathToFileURL(root).href}/` });
     return formatForPerson(shown(), older());
   });
-  connection.onRequest("detron/explain", ({ id }: { id: string }) => {
+  connection.onRequest("attentry/explain", ({ id }: { id: string }) => {
     const f = all.find((x) => x.id === id);
     return f ? explainFindings(root, [f]) : "";
   });

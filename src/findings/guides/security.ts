@@ -133,7 +133,7 @@ export const SECURITY_GUIDES: Record<string, Guide> = {
     category: "security", safety: "ask-first",
     why: "Any <script> or onerror= in the data runs in your users' browsers, with their session (86% of AI code failed XSS-prone tasks, Veracode 2025).",
     fix: [
-      "Follow where the HTML comes from first. If a renderer that can't output scripts builds it (markdown-it with html: false, a rich-text editor's own generateHTML), it's safe: say so with `// detron-ignore xss: <the renderer, and why>` on the line.",
+      "Follow where the HTML comes from first. If a renderer that can't output scripts builds it (markdown-it with html: false, a rich-text editor's own generateHTML), it's safe: say so with `// attentry-ignore xss: <the renderer, and why>` on the line.",
       "Otherwise render the data as text (textContent, normal JSX {value}).",
       "If it must be HTML (markdown, rich text), sanitize it first with DOMPurify.",
     ],

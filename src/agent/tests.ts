@@ -4,7 +4,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import treeKill from "tree-kill";
 
-// The project's tests, run by Detron at check-ins and at the end of a task: never on every edit
+// The project's tests, run by Attentry at check-ins and at the end of a task: never on every edit
 // (too slow). The result is evidence for the change card: passed, failed, or no tests found.
 
 export interface TestCommand {
@@ -44,7 +44,7 @@ async function commandIn(dir: string): Promise<{ command: string; runs: string }
   return undefined;
 }
 
-// `"tests"` in .detron/config.json: a command, or "off". Otherwise the project's own test script,
+// `"tests"` in .attentry/config.json: a command, or "off". Otherwise the project's own test script,
 // or, in a repo of several apps (frontend/, backend/), each app's.
 export async function findTests(root: string, setting: string | undefined): Promise<TestCommand[]> {
   if (setting === "off") return [];
@@ -99,9 +99,9 @@ export async function runTests(commands: TestCommand[], timeoutMs: number): Prom
 
 export function describeTests(run: TestRun | undefined): string {
   if (!run) return "not run";
-  if (run.state === "none") return "none found (set \"tests\" in .detron/config.json)";
-  if (run.state === "off") return "off (\"tests\": \"off\" in .detron/config.json)";
-  if (run.state === "blocked") return `not run: allow ${run.label} first (run \`detron init\` here, or Connect in the Detron sidebar)`;
+  if (run.state === "none") return "none found (set \"tests\" in .attentry/config.json)";
+  if (run.state === "off") return "off (\"tests\": \"off\" in .attentry/config.json)";
+  if (run.state === "blocked") return `not run: allow ${run.label} first (run \`attentry init\` here, or Connect in the Attentry sidebar)`;
   if (run.state === "passed") return `passed (${run.label}, ${run.seconds}s)`;
   if (run.state === "timeout") return `didn't finish in time (${run.label})`;
   const missing = run.tail.find((l) => NOT_INSTALLED.test(l));

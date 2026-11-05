@@ -6,7 +6,7 @@ import type { FileUsage } from "./usage.ts";
 export interface RepoIndex {
   root: string;
   allFiles: string[]; // including configs, styles, docs: for finding references outside code
-  files: string[]; // source files Detron parses
+  files: string[]; // source files Attentry parses
   functions: FunctionInfo[];
   usage: Map<string, FileUsage>; // per file: what it imports and which names it uses
   // Files tree-sitter couldn't fully parse. Their results may be incomplete.

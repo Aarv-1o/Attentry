@@ -13,7 +13,7 @@ const SKIP_DIRS = new Set([
 const TEST_FILE = /(^|\/)(__tests__|tests?|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)tests?\.[cm]?[jt]s$|(^|\/)test_[^/]*\.py$|_test\.py$/;
 export const isTestFile = (path: string) => TEST_FILE.test(path);
 
-// Code Detron can't read yet (see src/languages/README.md to add one). Counted so a scan
+// Code Attentry can't read yet (see src/languages/README.md to add one). Counted so a scan
 // never looks clean just because it skipped the code.
 const UNSUPPORTED_CODE = /\.(vue|svelte|java|kt|go|rs|rb|php|cs|c|cc|cpp|h|hpp|swift|dart|scala)$/i;
 

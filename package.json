@@ -1,5 +1,5 @@
 {
-  "name": "detron",
+  "name": "attentry",
   "version": "0.0.1",
   "description": "Stops AI coding agents from making a mess of your codebase.",
   "license": "MIT",
@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "detron": "node --import tsx src/cli/bin.ts",
+    "attentry": "node --import tsx src/cli/bin.ts",
     "test": "node --import tsx --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs"
@@ -30,6 +30,6 @@
     "typescript": "5.9.3"
   },
   "bin": {
-    "detron": "dist/detron.mjs"
+    "attentry": "dist/attentry.mjs"
   }
 }

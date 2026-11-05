@@ -1,3 +1,3 @@
 # src/cli
 
-The `detron` command: scan, check, report.
+The `attentry` command: scan, check, report.

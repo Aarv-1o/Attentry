@@ -2,7 +2,7 @@ import { readTexts } from "../../index/texts.ts";
 import { HOLE } from "./paths.ts";
 import type { ApiCall } from "./types.ts";
 
-// Calls in HTML pages: inline <script> fetches and <form action>. Detron doesn't parse HTML,
+// Calls in HTML pages: inline <script> fetches and <form action>. Attentry doesn't parse HTML,
 // so this reads the text; it only takes literal URLs.
 
 const FETCH = /\bfetch\(\s*(['"`])([^'"`]*)\1\s*(?:,\s*\{([^}]{0,300}))?/g;
