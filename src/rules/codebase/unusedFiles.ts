@@ -20,13 +20,28 @@ const ENTRY = new RegExp(
     String.raw`\.config\.\w+$`, String.raw`(^|/)\.\w+rc\.\w+$`, String.raw`\.d\.ts$`,
     // Migrations (Alembic keeps them in versions/) are loaded by the migration tool.
     String.raw`(^|/)(migrations|scripts|bin)/`, String.raw`(^|/)alembic/versions/`,
+    // Project templates (cookiecutter, copier) run these after generating a project.
+    String.raw`(^|/)hooks/(pre|post)_(gen_project|prompt)\.\w+$`,
   ].join("|"),
 );
-// With file-based routing, pages are loaded by the framework.
-const ROUTING_FRAMEWORKS = ["next", "nuxt", "@remix-run/react", "@sveltejs/kit", "astro", "expo-router"];
-const ROUTED = /(^|\/)(pages|app|routes)\//;
-// @fastify/autoload loads every file in its folders (plugins/, routes/, and autohooks files).
-const AUTOLOADED = /(^|\/)(plugins|routes)\//;
+// Tools that load every file in some folders, when a package.json the file is under uses them.
+const LOADED_BY: [RegExp, RegExp][] = [
+  // File-based routing: pages are loaded by the framework.
+  [/"(next|nuxt|@remix-run\/react|@sveltejs\/kit|astro|expo-router)"/, /(^|\/)(pages|app|routes)\//],
+  // @fastify/autoload loads every file in its folders (plugins/, routes/, and autohooks files).
+  [/"@fastify\/autoload"/, /(^|\/)(plugins|routes)\//],
+  // react-email renders each file in emails/ (email dev, email export).
+  [/"react-email"/, /(^|\/)emails\//],
+];
+
+// The package.json files above a file, joined: its own package's tools load it, a sibling's don't.
+function manifestsOver(file: string, texts: Map<string, string>): string {
+  const found: string[] = [];
+  for (let dir = posix.dirname(file); ; dir = posix.dirname(dir)) {
+    found.push(texts.get(posix.join(dir, "package.json")) ?? "");
+    if (dir === ".") return found.join("\n");
+  }
+}
 
 
 const stemOf = (file: string) => posix.basename(file).replace(/\.[^.]+$/, "");
@@ -77,13 +92,11 @@ export async function findUnusedFiles(index: RepoIndex): Promise<UnusedFile[]> {
   }
 
   const texts = await readTexts(index.root, index.allFiles);
-  const rootManifest = texts.get("package.json") ?? "";
-  const routed = ROUTING_FRAMEWORKS.some((fw) => rootManifest.includes(`"${fw}"`));
-  const autoloaded = rootManifest.includes('"@fastify/autoload"');
 
   // Files nothing imports: unused, unless some text mentions them.
   const candidates = index.files.filter((file) => {
-    if (ENTRY.test(file) || isTestFile(file) || (routed && ROUTED.test(file)) || (autoloaded && AUTOLOADED.test(file))) return false;
+    if (ENTRY.test(file) || isTestFile(file)) return false;
+    if (LOADED_BY.some(([tool, folder]) => folder.test(file) && tool.test(manifestsOver(file, texts)))) return false;
     const by = importers.get(importNameOf(file));
     return !(by && [...by].some((f) => f !== file));
   });

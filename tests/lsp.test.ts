@@ -2,15 +2,17 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
-import { makeRepo } from "./helpers.ts";
+import { backgroundRunning } from "../src/daemon/client.ts";
+import { makeRepo, stopBackground } from "./helpers.ts";
 
 // Talks to `detron lsp` the way an editor does: JSON-RPC messages with Content-Length headers.
 function startServer() {
   // DETRON_LSP_BUNDLE=editors/vscode/dist tests the server as the extension ships it.
-  const bundle = process.env.DETRON_LSP_BUNDLE;
+  // Absolute: the background Detron it starts runs from another folder.
+  const bundle = process.env.DETRON_LSP_BUNDLE && resolve(process.env.DETRON_LSP_BUNDLE);
   // The flags VS Code adds when it starts a language server.
   const flags = ["lsp", "--stdio", `--clientProcessId=${process.pid}`];
   const args = bundle ? [join(bundle, "server.mjs"), ...flags] : ["--import", "tsx", "src/cli/bin.ts", ...flags];
@@ -83,6 +85,7 @@ test("the language server shows your changes, explains them, and offers safe fix
     const status = await server.waitFor("detron/status", (p) => !p.scanning);
     assert.deepEqual(status.counts, { security: 0, breaks: 0, database: 0, cleanup: 1 });
     assert.equal(status.older, 1, "the old empty catch isn't yours");
+    assert.equal(await backgroundRunning(root), true, "read by the background Detron agents use, not a second copy");
     const { diagnostics } = await server.waitFor("textDocument/publishDiagnostics", (p) => p.uri === uri);
     assert.deepEqual(diagnostics.map((d: any) => [d.code, d.severity, d.tags, d.range.start.line, d.range.end.line, d.message]), [["dead-function", 3, [1], 5, 7, "Dead function: calcTax"]]);
 
@@ -124,6 +127,7 @@ test("the language server shows your changes, explains them, and offers safe fix
     assert.equal((await server.waitFor("detron/status", (p) => !p.scanning, mark)).autoScan, false);
   } finally {
     server.stop();
+    await stopBackground(root); // the language server's findings came from it
   }
 });
 

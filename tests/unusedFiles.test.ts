@@ -63,3 +63,12 @@ test("Fastify autoload: plugin and route files are loaded by folder, not importe
   }));
   assert.deepEqual((await findUnusedFiles(index)).map((f) => f.file), ["src/lib/old.ts"]);
 });
+
+test("files a tool loads by folder, in the package that uses it, and project-template hooks", async () => {
+  assert.deepEqual(await unusedIn({
+    "packages/mail/package.json": JSON.stringify({ dependencies: { "react-email": "1" } }),
+    "packages/mail/emails/welcome.tsx": "export default () => null;\n",
+    "packages/web/emails/old.tsx": "export default () => null;\n",
+    "hooks/post_gen_project.py": "print(1)\n",
+  }), ["likely packages/web/emails/old.tsx"]);
+});

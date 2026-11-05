@@ -18,6 +18,7 @@ function serverOptions(context: vscode.ExtensionContext): ServerOptions {
 
 function statusText(s: Status): [string, string] {
   if (s.error) return ["$(error) Detron: scan failed", s.error];
+  if (s.reading) return ["$(sync~spin) Detron: reading the repo…", `Detron is reading the repo before its first check: ${s.reading}.`];
   if (s.scanning) return ["$(sync~spin) Detron: checking…", "Detron is checking the code."];
   const { security, breaks, database, cleanup } = s.counts;
   const parts = [security && `${security} security`, breaks && `${breaks} will break`, database && `${database} database`, cleanup && `${cleanup} clean-up`].filter(Boolean);

@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { addressFor } from "../src/daemon/address.ts";
 import type { FunctionInfo } from "../src/index/functions.ts";
 import { extractUsage } from "../src/index/usage.ts";
 import { detectLanguage, parseSource } from "../src/parse/parse.ts";
@@ -54,3 +56,11 @@ export async function withClaudeSettings(settings: object, run: () => Promise<vo
     }
   }
 }
+
+// Asks the background Detron to stop (a build it doesn't know makes it step aside).
+export const stopBackground = (root: string) => new Promise<void>((done) => {
+  const socket = createConnection(addressFor(root), () => socket.write(`${JSON.stringify({ kind: "ping", build: "test-cleanup" })}\n`));
+  socket.on("data", () => socket.end());
+  socket.on("close", () => done());
+  socket.on("error", () => done());
+});

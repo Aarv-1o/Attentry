@@ -90,3 +90,14 @@ test("react counts as used with JSX, even with no import (the automatic runtime)
   });
   assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["preact"]);
 });
+
+test("without node_modules: commands named unlike their package, and react-email's peers", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({
+      scripts: { dev: "email dev" },
+      dependencies: { "react-email": "1", "react-dom": "1" },
+      devDependencies: { "@react-email/ui": "1", "@types/react-dom": "1", "left-pad": "1" },
+    }),
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["left-pad"]);
+});

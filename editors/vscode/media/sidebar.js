@@ -96,6 +96,7 @@ function scanning() {
   const busy = !status || status.scanning;
   const line = status?.error
     ? `<span class="bad">Scan failed: ${esc(status.error)}</span>`
+    : status?.reading ? `Reading the repo first: ${esc(status.reading)}`
     : busy ? "Checking your code…" : `Up to date, checked ${status.lastScanAt ? ago(status.lastScanAt) : "just now"}`;
   return `<section class="scanning ${busy ? "busy" : ""}">
     <header><h2>Scanning</h2><button class="ghost" data-act="rescan" ${busy ? "disabled" : ""}>Scan your repo</button></header>

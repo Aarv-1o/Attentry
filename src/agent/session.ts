@@ -3,14 +3,15 @@ import { basename, relative } from "node:path";
 import { collectFindings } from "../findings/collect.ts";
 import type { Finding } from "../findings/types.ts";
 import type { FileCache } from "../index/fileScan.ts";
+import { isSource, listRepoFiles } from "../index/files.ts";
 import { buildIndex } from "../index/repo.ts";
 import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, contentAfter, isEdit, noteEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
-import { startTask, type Task } from "./ledger.ts";
+import { recordStart, startTask, type Task } from "./ledger.ts";
 import { testsAllowed } from "./trust.ts";
 import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 
@@ -21,11 +22,19 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
+const READ_WAIT_MS = 2_000; // a small repo is read by then: it answers as if it always had been
+const READING = "reading"; // the agent heard that Detron is still reading the repo
 // MCP sessions are named by Detron's MCP server, one per agent session: never a hook's session id.
 export const MCP_SESSION = "mcp:";
 
 export const greeting = (project: string, files: number, mode: string) =>
   `Detron is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Detron's MCP tools, call find_existing before writing a helper.`;
+
+const tell = (event: string, text: string): HookReply =>
+  ({ stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`, exitCode: 0 });
+
+// "about 40 s", "about 3 min".
+const about = (ms: number) => (ms < 90_000 ? `about ${Math.ceil(ms / 1000)} s` : `about ${Math.round(ms / 60_000)} min`);
 
 export interface AgentStatus {
   edits: number;
@@ -40,10 +49,47 @@ export interface AgentStatus {
 export class Sessions {
   private readonly cache: FileCache = new Map();
   private readonly tasks = new Map<string, { task: Task; told: Set<string> }>();
+  // The first scan, which reads every file (minutes on a big repo), and the tasks that began
+  // during it: what they started with is filled in when it ends.
+  private reading?: Promise<void>;
+  private read = false;
+  private readStart = 0;
+  private sourceFiles = 0;
+  private readonly unstarted = new Set<Task>();
 
-  // `runsTests`: only the background Detron runs tests. A one-off hook process would be held
-  // open by them until the agent's hook timeout kills it.
-  constructor(readonly root: string, private readonly runsTests = false) {}
+  // `background`: the long-lived Detron. Only it runs tests (a one-off hook process would be held
+  // open by them until the agent's hook timeout kills it) and reads the repo while hooks answer.
+  constructor(readonly root: string, private readonly background = false, private readonly readWaitMs = READ_WAIT_MS) {}
+
+  // Starts the first scan. Hooks don't wait for it, so on a big repo the agent never does
+  // (and Claude Code never times a hook out).
+  readRepo(): Promise<void> {
+    this.reading ??= (async () => {
+      this.readStart = Date.now();
+      this.sourceFiles = (await listRepoFiles(this.root)).filter(isSource).length;
+      const findings = await this.findings();
+      for (const task of this.unstarted) recordStart(task, findings);
+      this.unstarted.clear();
+    })()
+      .catch(() => undefined) // a scan that failed fails again, with its error, on the next check
+      .finally(() => (this.read = true));
+    return this.reading;
+  }
+
+  // Can this answer use the scan? Waits a moment for the first one: a small repo is read by then.
+  private async ready(): Promise<boolean> {
+    if (!this.background || this.read) return true;
+    await Promise.race([this.readRepo(), new Promise((wait) => setTimeout(wait, this.readWaitMs))]);
+    return this.read;
+  }
+
+  // "40% of 9,000 files, about 1 min left". The rules after the files take a while too: never 100%.
+  private progress(): string {
+    const done = Math.min(this.cache.size, this.sourceFiles);
+    const percent = this.sourceFiles ? Math.min(99, Math.floor((done / this.sourceFiles) * 100)) : 0;
+    const left = done ? `, ${about(((this.sourceFiles - done) * (Date.now() - this.readStart)) / done)} left` : "";
+    return `${percent}% of ${plural(this.sourceFiles, "file")}${left}`;
+  }
 
   // Only commands the person allowed for this repo run: a cloned repo's test script could be anything.
   private async testRun(config: Config): Promise<TestRun> {
@@ -72,9 +118,14 @@ export class Sessions {
   }
 
   // The task starts at the session's start, or before its first edit if that came first.
-  private async taskOf(session: string, findings?: Finding[]) {
+  private async taskOf(session: string) {
     let entry = this.tasks.get(session);
-    if (!entry) this.tasks.set(session, (entry = { task: startTask(findings ?? (await this.findings())), told: new Set() }));
+    if (!entry) {
+      let task: Task;
+      if (this.background && !this.read) this.unstarted.add((task = startTask()));
+      else task = startTask(await this.findings());
+      this.tasks.set(session, (entry = { task, told: new Set() }));
+    }
     return entry;
   }
 
@@ -100,6 +151,7 @@ export class Sessions {
   // agent's hooks running, that's its task; otherwise the MCP server's own, from when it started.
   async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
+    if (!(await this.ready())) return { text: `Detron is still reading this repo (${this.progress()}). Ask again then.` };
     const hooks = this.hookTasks();
     const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
@@ -108,6 +160,13 @@ export class Sessions {
       findings: () => this.findings(),
       task: () => task,
     });
+  }
+
+  // Every finding in the repo, for the editor. While the first scan reads, how far it got: the
+  // editor asks again later, so hooks never queue behind it.
+  async repoFindings(): Promise<{ findings: Finding[] } | { reading: string }> {
+    void this.readRepo();
+    return this.read ? { findings: await this.findings() } : { reading: this.progress() };
   }
 
   // The most recently active agent task, for the editor: no scan, just what's known.
@@ -140,32 +199,44 @@ export class Sessions {
     const event = input.hook_event_name;
     if (event === "SessionStart") {
       this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
+      const ready = await this.ready();
       await this.taskOf(input.session_id);
       // One line, once per session, so the agent (and the person asking it) knows Detron is on.
-      const files = (await buildIndex(this.root, this.cache)).files.length;
-      return { stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: greeting(basename(this.root), files, (await loadConfig(this.root)).mode) } })}\n`, exitCode: 0 };
+      const mode = (await loadConfig(this.root)).mode;
+      if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
+      return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
     }
     if (event === "PreToolUse" && isEdit(input)) {
+      if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
       const { told } = await this.taskOf(input.session_id);
       return this.reuseCheck(input, told);
     }
     if (event === "PostToolUse" && isEdit(input)) {
+      const ready = await this.ready();
       const { task, told } = await this.taskOf(input.session_id);
+      if (!ready) {
+        // Counted now, checked after the first scan: the next edit then hears what this one added.
+        noteEdit(input, this.root, task);
+        if (told.has(READING)) return SILENT;
+        told.add(READING);
+        return tell(event, `Detron is still reading the repo (${this.progress()}). It checks this task's edits once it's done.`);
+      }
       const config = await loadConfig(this.root);
       this.markShared(task);
       const checkIns = task.lastCheckIn;
       const reply = afterEdit(input, this.root, task, told, await this.findings(), config);
       // A check-in: the tests, in the background (the agent doesn't wait).
-      if (this.runsTests && task.lastCheckIn !== checkIns) void this.startTests(task, config);
+      if (this.background && task.lastCheckIn !== checkIns) void this.startTests(task, config);
       return reply;
     }
     if (event === "Stop") {
       const entry = this.tasks.get(input.session_id);
       if (!entry) return SILENT; // nothing was edited in this session
+      if (!(await this.ready())) return SILENT; // no card yet: finishing doesn't wait for the first scan
       const config = await loadConfig(this.root);
       this.markShared(entry.task);
       // The card's evidence: tests run on the final code, waited for as long as the hook may take.
-      if (this.runsTests && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
+      if (this.background && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);
       }
       return atStop(input, entry.task, await this.findings(), config);
