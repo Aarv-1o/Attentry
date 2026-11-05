@@ -1,0 +1,12 @@
+{
+  "name": "attentry",
+  "description": "Attentry for Claude Code, installed by the Attentry editor extension.",
+  "owner": { "name": "Aarv Singh Chauhan" },
+  "plugins": [
+    {
+      "name": "attentry",
+      "source": "./attentry",
+      "description": "Stops AI coding agents from making a mess of your codebase."
+    }
+  ]
+}

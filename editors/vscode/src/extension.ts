@@ -12,8 +12,8 @@ let client: LanguageClient | undefined;
 function serverOptions(context: vscode.ExtensionContext): ServerOptions {
   const own = vscode.workspace.getConfiguration("attentry").get<string[]>("serverCommand", []);
   if (own.length) return { command: own[0]!, args: own.slice(1), transport: TransportKind.stdio };
-  const dist = context.asAbsolutePath("dist");
-  return { module: join(dist, "server.mjs"), args: ["lsp"], transport: TransportKind.stdio };
+  // The Attentry inside the Claude Code plugin this extension carries: the editor and the agent run one build.
+  return { module: context.asAbsolutePath(join("claude", "attentry", "dist", "attentry.mjs")), args: ["lsp"], transport: TransportKind.stdio };
 }
 
 function statusText(s: Status): [string, string] {

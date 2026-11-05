@@ -10,12 +10,12 @@ import { makeRepo, stopBackground } from "./helpers.ts";
 
 // Talks to `attentry lsp` the way an editor does: JSON-RPC messages with Content-Length headers.
 function startServer() {
-  // ATTENTRY_LSP_BUNDLE=editors/vscode/dist tests the server as the extension ships it.
+  // ATTENTRY_LSP_BUNDLE=editors/vscode/claude/attentry/dist tests the server as the extension ships it.
   // Absolute: the background Attentry it starts runs from another folder.
   const bundle = process.env.ATTENTRY_LSP_BUNDLE && resolve(process.env.ATTENTRY_LSP_BUNDLE);
   // The flags VS Code adds when it starts a language server.
   const flags = ["lsp", "--stdio", `--clientProcessId=${process.pid}`];
-  const args = bundle ? [join(bundle, "server.mjs"), ...flags] : ["--import", "tsx", "src/cli/bin.ts", ...flags];
+  const args = bundle ? [join(bundle, "attentry.mjs"), ...flags] : ["--import", "tsx", "src/cli/bin.ts", ...flags];
   const env = bundle ? { ...process.env, ATTENTRY_WASM_DIR: join(bundle, "wasm") } : process.env;
   const child = spawn(process.execPath, args, { cwd: join(import.meta.dirname, ".."), env });
   let buffer = Buffer.alloc(0);
