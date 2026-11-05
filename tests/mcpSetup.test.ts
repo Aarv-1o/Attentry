@@ -46,3 +46,12 @@ test("mcpState: added, missing, or pointing at an Attentry that moved", async ()
   await withClaudeSettings(at(attentry), async () => assert.equal(await mcpState(folder), "added"));
   await withClaudeSettings(at("/old/attentry.attentry-0.0.9/dist/server.mjs"), async () => assert.equal(await mcpState(folder), "stale"));
 });
+
+test("mcpState: found under any spelling of the folder Claude Code keeps (d:/repo and D:/repo)", async () => {
+  const project = await makeRepo({});
+  const server = join(project, "attentry.mjs");
+  await writeFile(server, "");
+  const other = project.replace(/^./, (c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()));
+  const projects = { [other]: { mcpServers: { detron: { command: "node", args: ["old.mjs", "mcp"] } } }, [project]: { mcpServers: { attentry: { command: "node", args: [server, "mcp"] } } } };
+  await withClaudeSettings({ projects }, async () => assert.equal(await mcpState(project), "added"));
+});

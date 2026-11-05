@@ -28,8 +28,8 @@ export async function attentryMcp(folders: string[]): Promise<{ where: string; s
   const user = await readJson(join(homedir(), ".claude.json"));
   const projects = (user?.projects ?? {}) as Record<string, { mcpServers?: Record<string, McpServer> }>;
   for (const folder of folders) {
-    const key = Object.keys(projects).find((k) => same(k, folder));
-    const local = key ? projects[key]?.mcpServers?.attentry : undefined;
+    // Claude Code keeps d:/repo and D:/repo apart (VS Code says d:, a terminal D:): any of them counts.
+    const local = Object.keys(projects).filter((k) => same(k, folder)).map((k) => projects[k]?.mcpServers?.attentry).find(Boolean);
     if (local) return { where: `Claude Code, for ${folder}`, server: local };
     const shared = ((await readJson(join(folder, ".mcp.json")))?.mcpServers as Record<string, McpServer> | undefined)?.attentry;
     if (shared) return { where: join(folder, ".mcp.json"), server: shared };
