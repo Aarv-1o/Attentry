@@ -1,4 +1,4 @@
-# Detron
+# Attentry
 
 Finds the mess AI coding agents leave, right where the code is, in plain words.
 
@@ -18,7 +18,7 @@ Every card says what the code does and what can go wrong, read from the code its
   Agents in Cursor, Copilot and Windsurf read errors and warnings, so they see the real problems
   while they work, and nothing is spent on clean-up.
 - The light bulb has: delete unused code (the only automatic fix), copy the fix for your agent,
-  ignore with a reason (`// detron-ignore rule: reason`), and "not useful".
+  ignore with a reason (`// attentry-ignore rule: reason`), and "not useful".
 
 Works in VS Code, Cursor, Windsurf and Antigravity. Other editors (JetBrains, Zed, Neovim) can
-run `detron lsp` as a language server.
+run `attentry lsp` as a language server.

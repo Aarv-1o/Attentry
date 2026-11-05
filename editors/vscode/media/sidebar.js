@@ -44,7 +44,7 @@ function note() {
   return `${where}What this branch or your uncommitted work added.${data.older ? ` ${plural(data.older, "older finding")} hidden.` : ""}`;
 }
 
-// "Your changes" means everything when Detron can't tell what changed: say so, not "in your changes".
+// "Your changes" means everything when Attentry can't tell what changed: say so, not "in your changes".
 const clearText = (show) => (show === "changes" && !data?.noChanges ? "in your changes" : "in this repo");
 
 function findings() {
@@ -73,7 +73,7 @@ function findings() {
     <p class="note">${note()}</p>
     ${done && !total ? `<p class="clear">No problems ${clearText(show)}.${show === "changes" && data.older ? ` <a data-act="toggleShow">Show ${plural(data.older, "older finding")}</a>` : ""}</p>` : groups}
     ${hotspots.length ? `<details id="hotspots"><summary>Hotspots<span class="n">${hotspots.length}</span></summary><p class="quiet">Files that change often and are complex: change them in small steps and test after each.</p>${hotspots.map((h) => `<div class="row" tabindex="0" data-open="${esc(h.file)}" data-line="1"><i class="glyph hint"></i><span class="title">${esc(h.file)}</span><span class="does">${esc(h.title)}</span></div>`).join("")}</details>` : ""}
-    <label class="check"><input type="checkbox" data-act="toggleHints" ${data?.hints ? "checked" : ""}> Show hints Detron is less sure about</label>
+    <label class="check"><input type="checkbox" data-act="toggleHints" ${data?.hints ? "checked" : ""}> Show hints Attentry is less sure about</label>
   </section>`;
 }
 
@@ -130,8 +130,8 @@ function yourAgent() {
   const mcpNeeded = agent.mcp && agent.mcp !== "added";
   const connect = connected
     ? (mcpNeeded ? `<button class="ghost wide" data-act="connectMcp">${agent.mcp === "stale" ? "Re-add the MCP tools" : "Add the MCP tools"}</button>` : "")
-    : `<p class="quiet">${agent.hooks === "stale" ? "The agent's hooks point to an old copy of Detron, which moves when the extension updates." : "Detron tells your agent about problems right after each edit, and checks in every 10 edits."}</p>
-      <label class="check"><input type="checkbox" data-act="withMcp" ${withMcp ? "checked" : ""}> Also add the MCP tools, so the agent can ask Detron itself (find_existing, check, explain)</label>
+    : `<p class="quiet">${agent.hooks === "stale" ? "The agent's hooks point to an old copy of Attentry, which moves when the extension updates." : "Attentry tells your agent about problems right after each edit, and checks in every 10 edits."}</p>
+      <label class="check"><input type="checkbox" data-act="withMcp" ${withMcp ? "checked" : ""}> Also add the MCP tools, so the agent can ask Attentry itself (find_existing, check, explain)</label>
       <button class="primary wide" data-act="connectAgent">${agent.hooks === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>`;
   return `<section class="agent">
     <h2>Your agent</h2>
@@ -147,7 +147,7 @@ function yourAgent() {
         <button role="tab" data-mode="suggest" aria-selected="${mode === "suggest"}" ${mode === "suggest" ? "disabled" : ""}>Suggest</button>
         <button role="tab" data-mode="block" aria-selected="${mode === "block"}" ${mode === "block" ? "disabled" : ""}>Block</button>
       </div>
-      <p class="quiet">${mode === "block" ? "Problems are sent back as errors, and a task can't finish while it has added security or crash problems." : "Detron tells the agent, and never stops it."}</p>
+      <p class="quiet">${mode === "block" ? "Problems are sent back as errors, and a task can't finish while it has added security or crash problems." : "Attentry tells the agent, and never stops it."}</p>
     </div>
     <p class="quiet">Cursor and Copilot CLI use the same hooks. New tools show up in a new agent session.</p>
   </section>`;
@@ -155,7 +155,7 @@ function yourAgent() {
 
 function render() {
   const scroll = window.scrollY;
-  // detron-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Detron's own script
+  // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
   app.innerHTML = findings() + scanning() + yourAgent();
   for (const [id, open] of opened) {
     const group = document.getElementById(id);

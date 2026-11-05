@@ -1,9 +1,9 @@
 {
-  "name": "detron",
-  "displayName": "Detron",
+  "name": "attentry",
+  "displayName": "Attentry",
   "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.12",
-  "publisher": "detron",
+  "version": "0.0.13",
+  "publisher": "attentry",
   "license": "MIT",
   "author": {
     "name": "Aarv Singh Chauhan",
@@ -26,33 +26,33 @@
   "contributes": {
     "commands": [
       {
-        "command": "detron.toggleShow",
-        "title": "Detron: Switch between your changes and the whole repo"
+        "command": "attentry.toggleShow",
+        "title": "Attentry: Switch between your changes and the whole repo"
       },
       {
-        "command": "detron.rescan",
-        "title": "Detron: Scan again",
+        "command": "attentry.rescan",
+        "title": "Attentry: Scan again",
         "icon": "$(refresh)"
       },
       {
-        "command": "detron.toggleHints",
-        "title": "Detron: Show or hide hints"
+        "command": "attentry.toggleHints",
+        "title": "Attentry: Show or hide hints"
       },
       {
-        "command": "detron.openReport",
-        "title": "Detron: Open the full report",
+        "command": "attentry.openReport",
+        "title": "Attentry: Open the full report",
         "icon": "$(preview)"
       },
       {
-        "command": "detron.copyReport",
-        "title": "Detron: Copy the report for an agent",
+        "command": "attentry.copyReport",
+        "title": "Attentry: Copy the report for an agent",
         "icon": "$(copy)"
       }
     ],
     "configuration": {
-      "title": "Detron",
+      "title": "Attentry",
       "properties": {
-        "detron.show": {
+        "attentry.show": {
           "type": "string",
           "enum": [
             "changes",
@@ -65,20 +65,20 @@
           ],
           "description": "Which findings to show."
         },
-        "detron.hints": {
+        "attentry.hints": {
           "type": "boolean",
           "default": false,
-          "description": "Also show hints: findings Detron is less sure about."
+          "description": "Also show hints: findings Attentry is less sure about."
         },
-        "detron.serverCommand": {
+        "attentry.serverCommand": {
           "type": "array",
           "items": {
             "type": "string"
           },
           "default": [],
-          "description": "Run your own Detron instead of the bundled one, e.g. [\"node\", \"--import\", \"tsx\", \"D:/detron/De-Tron/src/cli/bin.ts\", \"lsp\"]. Empty: the bundled one."
+          "description": "Run your own Attentry instead of the bundled one, e.g. [\"node\", \"--import\", \"tsx\", \"D:/detron/De-Tron/src/cli/bin.ts\", \"lsp\"]. Empty: the bundled one."
         },
-        "detron.autoScan": {
+        "attentry.autoScan": {
           "type": "boolean",
           "default": true,
           "description": "Check again whenever files change (your saves and an agent's edits). Off: only when you click Scan your repo."
@@ -88,17 +88,17 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "detron",
-          "title": "Detron",
-          "icon": "resources/detron.svg"
+          "id": "attentry",
+          "title": "Attentry",
+          "icon": "resources/attentry.svg"
         }
       ]
     },
     "views": {
-      "detron": [
+      "attentry": [
         {
           "type": "webview",
-          "id": "detron.panel",
+          "id": "attentry.panel",
           "name": "Findings"
         }
       ]
@@ -106,18 +106,18 @@
     "menus": {
       "view/title": [
         {
-          "command": "detron.rescan",
-          "when": "view == detron.panel",
+          "command": "attentry.rescan",
+          "when": "view == attentry.panel",
           "group": "navigation@1"
         },
         {
-          "command": "detron.openReport",
-          "when": "view == detron.panel",
+          "command": "attentry.openReport",
+          "when": "view == attentry.panel",
           "group": "navigation@2"
         },
         {
-          "command": "detron.copyReport",
-          "when": "view == detron.panel",
+          "command": "attentry.copyReport",
+          "when": "view == attentry.panel",
           "group": "navigation@3"
         }
       ]
