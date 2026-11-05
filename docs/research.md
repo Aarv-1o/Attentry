@@ -1,4 +1,4 @@
-# Research behind Detron
+# Research behind Attentry
 
 ## The problem is real
 
@@ -94,13 +94,13 @@ What made the difference:
 ## Dead code detection v1 results (Oct 2026)
 
 - **Unused packages:** Escrows-AI: three, @react-three/drei, @react-three/fiber,
-  @types/three, openai (51.5 MB). 5 of 5 real, same as knip. Detron itself: none,
+  @types/three, openai (51.5 MB). 5 of 5 real, same as knip. Attentry itself: none,
   after fixing a false alarm (grammar packages loaded through a runtime path string).
 - **Unused files:** Travscape: both leftover orchestrator files. Escrows-AI and
   BlogManager: none.
 - **Dead functions:** Escrows-AI: planAllows, getStorageLimitMB, brokerKillSwitch,
   stopScheduler. 4 of 4 real (only mentioned in a comment, or nowhere).
-- **Dogfooding:** Detron found `listSourceFiles` dead in its own code (only tests
+- **Dogfooding:** Attentry found `listSourceFiles` dead in its own code (only tests
   used it). Removed.
 
 Known gaps:
@@ -110,14 +110,14 @@ Known gaps:
 
 ## First blind test: AgentinFlow (Oct 2026)
 
-An Astro marketing site I hadn't tuned on. Detron reported "no copies, no dead code"
+An Astro marketing site I hadn't tuned on. Attentry reported "no copies, no dead code"
 after reading only 3 of 19 code files: the other 16 were `.astro`. A clean report
 on a repo you mostly didn't read is the worst kind of false confidence, so scans now
 list what they skipped.
 
 Checked by hand: all 11 components are used, every CSS/JS file is referenced, both
 packages are used, and the inline scripts don't repeat each other. So the repo really
-is clean, but Detron got that right by luck.
+is clean, but Attentry got that right by luck.
 
 Lesson for adding Astro/Vue/Svelte: their imports end in `.astro`/`.vue`/`.svelte`.
 A quick trial that ignored this produced 10 false "unused file" alarms.
@@ -188,7 +188,7 @@ prompt text alone, and dropped out once strings were skipped.
 - Escrows-AI (47 commits): #1 `InboxPage.tsx` (12 changes, 2,149 lines, 19 findings),
   #2 `InventoryPage.tsx` (7, 1,123, 12). Same #1 as the baseline hand check.
 - Travscape (22 commits): `agents/utils.py`, then `agents/orchestrator.py`.
-- Detron itself: `src/cli/run.ts` was #2, because every new check changed it. Split into
+- Attentry itself: `src/cli/run.ts` was #2, because every new check changed it. Split into
   running the checks and printing them; now #6.
 
 The ranking is relative, so every repo has a #1. It says where to start, not that a file
@@ -199,7 +199,7 @@ is bad. Under 10 commits, it's skipped.
 So the rules don't only fit our own repos, each framework is checked on public repos:
 RealWorld (one API spec, many implementations), framework examples and templates.
 Two "full-stack" test repos join the React RealWorld frontend with a backend written to the
-same spec, so any mismatch is either real or a Detron bug.
+same spec, so any mismatch is either real or an Attentry bug.
 
 | Repo | Calls / routes | Found | Checked by hand |
 |---|---|---|---|
@@ -209,7 +209,7 @@ same spec, so any mismatch is either real or a Detron bug.
 | Koa examples | 25 / 5 | 1 hint | the app handles it in middleware: right to be a hint |
 | Hono, Fastify, NestJS, Django alone; Ignite (React Native) | | not checked: no frontend or no backend | right |
 
-Bugs this found in Detron:
+Bugs this found in Attentry:
 - Paths without a leading slash (NestJS "api", Django "articles/") were dropped.
 - Koa chains (`router.get("/a").post("/b")`) all got the first path.
 - `prefix=settings.API_V1_STR` counted as no prefix. Unknown prefixes now stay unknown.
@@ -248,7 +248,7 @@ Lessons from Karwin that decided what to build:
   for scientific values. So only money-named fields count (price, amount, fee...), never
   ratings, scores or coordinates, and not priceCents or taxRate.
 - **Index Shotgun (ch. 13):** "Know your data, know your queries, MENTOR your indexes". Index
-  advice needs measurements Detron doesn't have, so it never tells an agent to add an index.
+  advice needs measurements Attentry doesn't have, so it never tells an agent to add an index.
   That's how Index Shotgun happens.
 - **Naive Trees (ch. 3):** a parent pointer is fine for shallow trees ("Don't over-engineer").
   Walking a tree one query per level is a hint, fixed with one recursive query
@@ -265,7 +265,7 @@ Not in the book, but the most common database mistake in AI code: queries inside
 | Escrows-AI (Mongoose) | 12 N+1, 4 tree walks, 2 money fields, 19 $regex searches | N+1: 11 real + 1 parallel (hint). Tree walks: real, shallow. Money: `budget` (whole dollars) and `cost` (credits) are borderline: right to be hints |
 | proshop (Mongoose) | 5 money fields, 1 $regex search | real: prices with 15% tax computed on them |
 | FastAPI template, Django and NestJS RealWorld, MERN repos | nothing | right |
-| AgentinFlow, Detron | "not checked": no database | right |
+| AgentinFlow, Attentry | "not checked": no database | right |
 
 False alarms found and fixed on the way: `TOKEN_RE.exec()` and `Object.create()` read as model
 queries; `totalUsed` read as money; a seed script inserting row by row; tests holding example
@@ -327,21 +327,21 @@ fields; ownership checks done in a service layer called from the handler aren't 
 
 ## In the editor, without annoying people or costing agents (Oct 2026)
 
-What forums and studies say, and what Detron does about it:
+What forums and studies say, and what Attentry does about it:
 
 - **Trust dies with false alarms.** Google keeps a check only if under 10% of its findings get
   "not useful"; above that it's turned off until fixed. When tools report a lot, little gets fixed
-  (16% of 9,473 FindBugs warnings in one Google fixit). Detron: a "not useful" button; a rule
+  (16% of 9,473 FindBugs warnings in one Google fixit). Attentry: a "not useful" button; a rule
   over 10% (and at least 2 clicks) becomes a hint for the repo.
 - **Showing everything buries people.** Snyk's answer is "delta findings": only what your change
-  added. Detron: "your changes" is the default in the editor, and `scan --changed` in the CLI.
+  added. Attentry: "your changes" is the default in the editor, and `scan --changed` in the CLI.
 - **Agents drown in lint output.** In Cursor, a lint-heavy project filled the agent's context,
   the agent re-read it in a loop, and 5% of an Ultra plan went in minutes; `read_lints` still
-  has no cap (Oct 2026). Agents also loop "fixing" lints and undoing their own fix. Detron: at
+  has no cap (Oct 2026). Agents also loop "fixing" lints and undoing their own fix. Attentry: at
   most 20 squiggles per file, your changes only, one-line messages, and `--brief` caps an agent
   at 10 lines.
 - **Severity decides what agents read.** Cursor's agent reads only Error and Warning diagnostics,
-  for open files. Detron: security and crashes are errors, things that will break are warnings,
+  for open files. Attentry: security and crashes are errors, things that will break are warnings,
   clean-up is info, so people see it and no credits go to it.
 - **Hooks should be silent when clean.** Claude Code shows a hook's stderr to Claude only on
   exit 2, and caps hook output at 10,000 characters. For the coming hooks: print nothing when an
@@ -354,7 +354,7 @@ fields and calls. No AI. It's only as clear as the code's names, and it can't kn
 On Escrows-AI the whole repo's findings in `--brief` form are 1,120 characters (about 280
 tokens) against 26,800 for `--agent`.
 
-Found by dogfooding: Detron flagged its own extension's `activate`/`deactivate` as dead (VS
+Found by dogfooding: Attentry flagged its own extension's `activate`/`deactivate` as dead (VS
 Code calls them by name), and "route nothing calls" was a warning though it breaks nothing.
 
 Not verified yet: the extension inside a real VS Code (the workspace can't download VS Code);
@@ -368,7 +368,7 @@ Sources: [Google, CACM 2018](https://cacm.acm.org/magazines/2018/4/226371-lesson
 [Claude Code hooks](https://code.claude.com/docs/en/hooks),
 [MCP token bloat](https://thenewstack.io/how-to-reduce-mcp-token-bloat/).
 
-## Hooks, the background Detron and speed (Oct 2026)
+## Hooks, the background Attentry and speed (Oct 2026)
 
 - **Speed.** 95% of a scan was per-file work, and most of that was walking syntax trees: every
   rule walked every tree on its own, recursing through the parser's WASM memory. One cursor walk
@@ -377,19 +377,19 @@ Sources: [Google, CACM 2018](https://cacm.acm.org/magazines/2018/4/226371-lesson
   built hook it answers in ~120ms. Findings stayed identical on five repos (compared line by line).
 - **No disk cache.** Options weighed: a cache in the repo (can be committed, or shipped poisoned
   in a clone), a signed cache in the user's folder (work), or memory only. Chose memory only, in a
-  background Detron per repo: the first scan of a session is the only slow one.
+  background Attentry per repo: the first scan of a session is the only slow one.
 - **The ledger.** "New" means new since the agent's session started (or before its first edit),
   matched by rule, file and title, so moved lines don't count as new and a function made dead by
   an edit elsewhere does.
 - **Found while building.** `node --import tsx` resolves `tsx` from the current folder, and hooks
   run from the project's folder: hooks now run a built single file with plain `node`.
 - **Real run.** Claude Code 2.1.312, asked to add an `eval()` route: after the edit it got
-  "index.js:14 error detron/code-eval: eval() runs code from req.body" and passed it on.
+  "index.js:14 error attentry/code-eval: eval() runs code from req.body" and passed it on.
 
 ## Reuse before writing (Oct 2026)
 
 Before each agent edit, the functions it adds are compared with the repo by the same copy
-finder as `detron scan`. Tested by treating every function in five repos as if it were being
+finder as `attentry scan`. Tested by treating every function in five repos as if it were being
 written now, and reading every match:
 
 | Repo | Functions | Notes, first try | Notes, final |

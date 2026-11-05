@@ -1,4 +1,4 @@
-# Detron V1 Spec
+# Attentry V1 Spec
 
 ## Problem
 
@@ -21,7 +21,7 @@ come from **the agent not knowing what already exists**, not from single bad lin
 | JS/TS (frontend + Node backend), Python and Astro | Other languages (Java, C/C++, Go, Vue, Svelte…): at the end, one adapter each. Until then, scans say what they skipped |
 | Works with every agent (see below) | VS Code / editor UI |
 | Codebase checks + the line rules that passed our hand-check | Project planner, DB mind maps |
-| Safety layer (checkpoint, tests, type check, undo) | General security scanning (Semgrep, CodeQL do this): Detron checks what AI agents get wrong, using its route map |
+| Safety layer (checkpoint, tests, type check, undo) | General security scanning (Semgrep, CodeQL do this): Attentry checks what AI agents get wrong, using its route map |
 | Change card | Our own paid agent |
 
 ## Agent compatibility
@@ -30,30 +30,30 @@ One core engine. Thin adapters on top, so adding an agent means adding a small a
 
 | Layer | What it does | Works with |
 |---|---|---|
-| CLI (`detron scan`, `--changed`, `--brief`, `explain`) | Any agent that can run a command can use it | Every agent |
-| Language server (`detron lsp`) + extension | Squiggles, plain-word cards and safe fixes in the editor; editors' agents read the errors and warnings | VS Code, Cursor, Windsurf, Antigravity (extension); JetBrains, Zed, Neovim (LSP) |
+| CLI (`attentry scan`, `--changed`, `--brief`, `explain`) | Any agent that can run a command can use it | Every agent |
+| Language server (`attentry lsp`) + extension | Squiggles, plain-word cards and safe fixes in the editor; editors' agents read the errors and warnings | VS Code, Cursor, Windsurf, Antigravity (extension); JetBrains, Zed, Neovim (LSP) |
 | MCP server | Tools like "find existing function" and "check my changes" | Claude Code, Cursor, Copilot, Codex, Gemini CLI, Windsurf, Cline… |
-| Hooks (`detron init`, `detron hook claude`) | Run automatically: session start, before and after each edit, at the end. Built for Claude Code's format | Claude Code (Cursor and Copilot CLI load it); Codex, Gemini CLI next |
-| Instruction files | `detron init` adds a short block to AGENTS.md / CLAUDE.md / Cursor rules | Every agent that reads them |
+| Hooks (`attentry init`, `attentry hook claude`) | Run automatically: session start, before and after each edit, at the end. Built for Claude Code's format | Claude Code (Cursor and Copilot CLI load it); Codex, Gemini CLI next |
+| Instruction files | `attentry init` adds a short block to AGENTS.md / CLAUDE.md / Cursor rules | Every agent that reads them |
 | Git hook + CI | Checks every commit, whoever wrote it | Everyone |
 
 ## How it works
 
-1. The agent edits a file. Detron scans it locally. **Free.**
+1. The agent edits a file. Attentry scans it locally. **Free.**
 2. Findings pile up. At a checkpoint (every 10 edits, at task end, or "Focus here"),
-   Detron sends only the **sure** findings to the agent.
+   Attentry sends only the **sure** findings to the agent.
 3. The agent fixes them as a **separate step**, never mixed with feature work.
-4. Detron runs tests and the type check. If they pass, the fix is kept. If not, it's undone.
-5. Detron shows a change card: what changed, why, and what it touches.
+4. Attentry runs tests and the type check. If they pass, the fix is kept. If not, it's undone.
+5. Attentry shows a change card: what changed, why, and what it touches.
 
 ## Credits
 
 | Part | Who | Cost |
 |---|---|---|
-| Scanning, index, hotspots | Detron, locally | 0 |
-| Safety checks | Detron, locally | 0 |
+| Scanning, index, hotspots | Attentry, locally | 0 |
+| Safety checks | Attentry, locally | 0 |
 | Fixing | The user's own agent, same session | User's credits |
-| Change card facts | Detron, locally | 0 |
+| Change card facts | Attentry, locally | 0 |
 | Change card summary | The user's agent, or a no-AI template | Tiny or 0 |
 
 Optional later: bring-your-own API key, for scans with no agent running (cloned repos, CI).
@@ -89,10 +89,10 @@ Optional later: bring-your-own API key, for scans with no agent running (cloned 
 **Dropped after hand-check** (mostly false alarms): async without await,
 tiny single-use helpers, assign-then-return.
 
-Status: all of the above are built and report through `detron scan`, plus the cross-stack
+Status: all of the above are built and report through `attentry scan`, plus the cross-stack
 check, security and crash checks, database checks and hotspots. Every finding comes with why, fix steps, safe or ask
 first, and how to check (`--agent`, `--json`). The reuse hint runs before each agent edit. The MCP
-server (`detron mcp`) gives agents find_existing, check and explain. Tests run at check-ins and at
+server (`attentry mcp`) gives agents find_existing, check and explain. Tests run at check-ins and at
 the end, and the change card shows them. Not built yet: vague names, the safety layer's undo.
 
 ## Safety rules
@@ -109,7 +109,7 @@ the end, and the change card shows them. Not built yet: vague names, the safety 
 
 - Warn when a change grows much bigger than the task (many files, many lines).
 - Suggest splitting it: cleanup commit, then feature commit.
-- Detron's own fixes always go in their own small commits.
+- Attentry's own fixes always go in their own small commits.
 
 ## Success
 
