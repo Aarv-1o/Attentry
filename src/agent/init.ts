@@ -6,9 +6,9 @@ import { loadConfig, writeMode } from "./config.ts";
 import { findTests } from "./tests.ts";
 import { allowTests } from "./trust.ts";
 
-// `attentry init`: sets up Attentry's hooks for Claude Code in a repo (Cursor and Copilot CLI load
-// Claude Code's hooks too). In .claude/settings.local.json: it names where Attentry is on this
-// machine, so it isn't one to commit.
+// `attentry init`: sets up Attentry's hooks for Claude Code in a repo, for running Attentry from its
+// source (the editor extension installs a plugin instead). In .claude/settings.local.json: it names
+// where Attentry is on this machine, so it isn't one to commit.
 
 const EDITS = "Write|Edit|MultiEdit|NotebookEdit";
 const TIMEOUT_S = 60; // the first hook of a session scans the whole repo
@@ -54,7 +54,7 @@ export function hookCommand(entry: string): string {
 // The MCP server, for agents to call Attentry themselves (see mcpSetup.ts). Added per person, not
 // to the repo's .mcp.json: the path is this machine's.
 export const mcpSetup = (command: string) =>
-  `For tools the agent can call (find_existing, check, explain), add Attentry's MCP server (run this in the repo's folder):\n  ${command}\nOther agents (Cursor, Windsurf, Cline, Codex): see "With your agent" in Attentry's README.`;
+  `For tools the agent can call (find_existing, check, explain), add Attentry's MCP server (run this in the repo's folder):\n  ${command}`;
 
 export async function init(root: string, entry: string, mode: "suggest" | "block" | undefined): Promise<string[]> {
   const command = hookCommand(entry);

@@ -2,9 +2,9 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 
-// The Attentry panel in the activity bar, in three parts: findings (by part, each opens its line),
-// scanning (scan now, automatic checks on or off, the agent's next check-in), and the agent
-// (connect Claude Code and its MCP tools, suggest or block, how its task is going).
+// The Attentry panel in the activity bar: the findings (by part, each opens its line), Claude Code
+// (connect it, suggest or block, how its task is going), and one line on the last check. Hints and
+// automatic checks are settings, not switches here.
 
 export interface Status {
   scanning: boolean;
@@ -22,8 +22,7 @@ type McpResult = { ok: true } | { ok: false; reason: string; command: string };
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "toggleHints" | "toggleAuto" | "connectMcp" | "copyReport" | "openReport" | "settings" }
-  | { type: "connectAgent"; withMcp?: boolean }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "copyReport" | "openReport" | "settings" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -63,7 +62,7 @@ export class Sidebar implements vscode.WebviewViewProvider {
   }
 
   // Without Claude Code's command the person runs it: offer to copy it.
-  private async mcpFailed(what: string, mcp: Extract<McpResult, { ok: false }>): Promise<void> {
+  private async connectFailed(what: string, mcp: Extract<McpResult, { ok: false }>): Promise<void> {
     const copy = "Copy the command";
     if ((await vscode.window.showWarningMessage(`Attentry: ${what}: ${mcp.reason}. Run this in the project's folder instead.`, copy)) === copy) {
       await vscode.env.clipboard.writeText(mcp.command);
@@ -80,26 +79,19 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (m.type === "ready" && this.status) return this.update(this.status);
     if (m.type === "rescan") await command("attentry.server.rescan");
     if (m.type === "toggleShow") await command("attentry.server.toggleShow");
-    if (m.type === "toggleHints") await command("attentry.server.toggleHints");
-    if (m.type === "toggleAuto") await command("attentry.server.toggleAuto");
     if (m.type === "setMode") {
       await client.sendRequest("workspace/executeCommand", { command: "attentry.server.setMode", arguments: [m.mode] });
       await this.agent();
     }
+    // The plugin brings the hooks and the MCP tools together; from Attentry's source, `true` adds both too.
     if (m.type === "connectAgent") {
       try {
-        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [!!m.withMcp] });
-        if (mcp && !mcp.ok) await this.mcpFailed("Claude Code is connected, but its MCP tools couldn't be added", mcp);
-        else void vscode.window.showInformationMessage(`Attentry: Claude Code is connected${mcp ? ", with its MCP tools" : ""}. Start a new Claude Code session in this folder to use ${mcp ? "them" : "it"}.`);
+        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [true] });
+        if (mcp && !mcp.ok) await this.connectFailed("couldn't connect Claude Code", mcp);
+        else void vscode.window.showInformationMessage("Attentry: Claude Code is connected. Start a new Claude Code session to use it.");
       } catch (error) {
         void vscode.window.showErrorMessage(`Attentry: couldn't connect Claude Code. ${(error as Error).message}`);
       }
-      await this.agent();
-    }
-    if (m.type === "connectMcp") {
-      const mcp = await command("attentry.server.connectMcp") as McpResult;
-      if (mcp.ok) void vscode.window.showInformationMessage("Attentry: MCP tools added. Start a new Claude Code session in this folder to see them.");
-      else await this.mcpFailed("Couldn't add the MCP tools", mcp);
       await this.agent();
     }
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");

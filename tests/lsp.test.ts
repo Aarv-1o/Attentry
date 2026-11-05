@@ -119,17 +119,17 @@ test("the language server shows your changes, explains them, and offers safe fix
     assert.deepEqual(whole.diagnostics.map((d: any) => [d.code, d.severity]), [["empty-catch", 2], ["dead-function", 3]], "warnings before info");
 
     // The agent section: not connected, connect it, change the mode.
-    assert.deepEqual(await server.request("attentry/agent", {}), { hooks: "missing", mcp: "missing", mode: "suggest", live: null });
+    assert.deepEqual(await server.request("attentry/agent", {}), { claude: "missing", hooks: "missing", mcp: "missing", mode: "suggest", live: null });
     // From the extension's plugin, Connect installs it (hooks and MCP tools in one), with the real
     // `claude` command; from Attentry's source, it adds hooks to the folder.
     const connected = await server.request("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [] });
     await server.request("workspace/executeCommand", { command: "attentry.server.setMode", arguments: ["block"] });
     if (server.bundled) assert.deepEqual(connected, { ok: true });
-    assert.deepEqual(await server.request("attentry/agent", {}), { hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
+    assert.deepEqual(await server.request("attentry/agent", {}), { claude: "connected", hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
 
-    // Auto-check off: the status says so.
+    // Auto-check turned off in the editor's settings: the status says so.
     const mark = server.count();
-    await server.request("workspace/executeCommand", { command: "attentry.server.toggleAuto", arguments: [] });
+    await server.request("workspace/executeCommand", { command: "attentry.server.set", arguments: [{ autoScan: false }] });
     assert.equal((await server.waitFor("attentry/status", (p) => !p.scanning, mark)).autoScan, false);
   } finally {
     server.stop();

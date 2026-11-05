@@ -156,7 +156,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.toggleHints", "attentry.server.toggleAuto", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectMcp", "attentry.server.setMode"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.setMode"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -195,14 +195,13 @@ export function startServer(connection: Connection): void {
       options.show = options.show === "changes" ? "all" : "changes";
       return publish();
     }
-    if (command === "attentry.server.toggleHints") {
-      options.hints = !options.hints;
-      return publish();
-    }
-    if (command === "attentry.server.toggleAuto") {
-      options.autoScan = !options.autoScan;
-      if (options.autoScan) return rescan(); // catch up on what changed while it was off
-      return status(false);
+    // The editor's settings changed: hints, automatic checks.
+    if (command === "attentry.server.set") {
+      const set = (args?.[0] ?? {}) as { hints?: boolean; autoScan?: boolean };
+      const catchUp = set.autoScan === true && !options.autoScan; // what changed while it was off
+      if (typeof set.hints === "boolean") options.hints = set.hints;
+      if (typeof set.autoScan === "boolean") options.autoScan = set.autoScan;
+      return catchUp ? rescan() : publish();
     }
     if (command === "attentry.server.rescan") return rescan();
     // From the extension: install its plugin (hooks and MCP tools in one), and say how it went.
@@ -217,7 +216,6 @@ export function startServer(connection: Connection): void {
       await init(workspace, process.argv[1]!, undefined);
       return args?.[0] === true ? addMcp(workspace, process.argv[1]!) : undefined;
     }
-    if (command === "attentry.server.connectMcp") return addMcp(workspace, process.argv[1]!);
     if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
@@ -235,9 +233,13 @@ export function startServer(connection: Connection): void {
   // plugin, when it's on, brings both the hooks and the MCP tools.
   connection.onRequest("attentry/agent", async () => {
     const on = await plugin.then((p) => p?.installed && p.enabled);
+    const hooks = on ? "connected" : await hookState(workspace);
+    const mcp = on ? "added" : await mcpState(workspace);
     return {
-      hooks: on ? "connected" : await hookState(workspace),
-      mcp: on ? "added" : await mcpState(workspace),
+      // One state for the panel: Reconnect fixes either part pointing at an old Attentry.
+      claude: hooks === "stale" || mcp === "stale" ? "stale" : hooks === "connected" ? "connected" : "missing",
+      hooks,
+      mcp,
       mode: (await loadConfig(root)).mode,
       live: (await agentStatus(root)) ?? null,
     };

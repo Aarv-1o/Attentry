@@ -2,7 +2,7 @@
   "name": "attentry",
   "displayName": "Attentry",
   "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "publisher": "attentry",
   "license": "MIT",
   "author": {
@@ -81,7 +81,7 @@
         "attentry.autoScan": {
           "type": "boolean",
           "default": true,
-          "description": "Check again whenever files change (your saves and an agent's edits). Off: only when you click Scan your repo."
+          "description": "Check again whenever files change (your saves and an agent's edits). Off: only when you click the refresh button at the top of the Attentry panel."
         }
       }
     },
