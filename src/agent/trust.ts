@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { folderId } from "../index/project.ts";
 import type { TestCommand } from "./tests.ts";
 
 // Running a repo's tests runs whatever the repo says: its test script, or "tests" in
@@ -24,11 +24,11 @@ async function readAllowed(): Promise<Record<string, string>> {
 }
 
 export async function testsAllowed(root: string, commands: TestCommand[]): Promise<boolean> {
-  return (await readAllowed())[realpathSync(root)] === fingerprint(root, commands);
+  return (await readAllowed())[folderId(root)] === fingerprint(root, commands);
 }
 
 export async function allowTests(root: string, commands: TestCommand[]): Promise<void> {
-  const allowed = { ...(await readAllowed()), [realpathSync(root)]: fingerprint(root, commands) };
+  const allowed = { ...(await readAllowed()), [folderId(root)]: fingerprint(root, commands) };
   await mkdir(dirname(allowedFile()), { recursive: true, mode: 0o700 });
   await writeFile(allowedFile(), `${JSON.stringify(allowed, null, 2)}\n`, { mode: 0o600 });
 }
