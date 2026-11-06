@@ -27,14 +27,13 @@ Usage:
                               to clean first (default: current folder)
   attentry lsp                  Run as a language server, for editors (VS Code, Cursor,
                               Windsurf, Antigravity, JetBrains, Zed, Neovim)
-  attentry init [path]          Set up Attentry's hooks for Claude Code in a repo (Cursor and
-                              Copilot CLI read them too). --mode block to also stop tasks
-                              that add security or crash problems
+  attentry init [path]          Set up Attentry's hooks for Claude Code in a repo (the VS Code
+                              extension's Connect does this for you). --mode block to also
+                              stop tasks that add security or crash problems
   attentry hook claude          Run as an agent hook: reads the hook's JSON on stdin, answers
-                              in Claude Code's format (Cursor and Copilot CLI read it too)
+                              in Claude Code's format
   attentry mcp [path]           Run as an MCP server: tools agents call themselves
-                              (find_existing, check, explain). For agents without hooks
-                              too: Windsurf, Cline, and any MCP client
+                              (find_existing, check, explain)
   attentry serve [path]         The background Attentry that hooks and MCP talk to (started for you)
   attentry doctor [path]        Is Attentry set up here, and working: the project it checks, git,
                               the agent's hooks and MCP tools, the background Attentry

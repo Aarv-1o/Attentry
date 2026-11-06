@@ -1,0 +1,8 @@
+{
+  "name": "attentry",
+  "displayName": "Attentry",
+  "description": "Stops AI coding agents from making a mess of your codebase: after each edit Claude hears about copies and new problems its task added, and it can ask Attentry before writing a helper.",
+  "author": { "name": "Aarv Singh Chauhan" },
+  "license": "MIT",
+  "keywords": ["code quality", "duplicates", "dead code", "security", "agents"]
+}

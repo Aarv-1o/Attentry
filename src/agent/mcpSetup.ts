@@ -51,19 +51,31 @@ export async function mcpState(folder: string): Promise<"added" | "missing" | "s
 
 export const mcpAddCommand = (entry: string) => `claude mcp add attentry --scope local -- ${hookCommand(entry).replace(/ hook claude$/, " mcp")}`;
 
+// Claude Code's own command, run in `folder`. It's a .cmd on Windows, which only a shell can start:
+// there, arguments with spaces or shell characters are quoted.
+export const claude = (args: string[], folder: string) => {
+  const windows = process.platform === "win32";
+  const quoted = windows ? args.map((a) => (/[\s&()^|<>"]/.test(a) ? `"${a}"` : a)) : args;
+  return run("claude", quoted, { cwd: folder, timeout: 60_000, shell: windows, windowsHide: true });
+};
+
+export type Setup = { ok: true } | { ok: false; reason: string; command: string };
+
+// Why running `claude` failed, for the person, with the command they can run themselves.
+export function setupFailed(error: unknown, command: string): Setup {
+  const missing = (error as NodeJS.ErrnoException).code === "ENOENT" || /not recognized|not found/i.test(String((error as { stderr?: string }).stderr ?? ""));
+  return { ok: false, reason: missing ? "Claude Code's `claude` command isn't installed" : (error as Error).message.split("\n")[0]!, command };
+}
+
 // Adds (or re-adds, after an update moved Attentry) the server for `folder`, with Claude Code's own
 // command. When Claude Code's command isn't installed, says so with the line to run.
-export async function addMcp(folder: string, entry: string): Promise<{ ok: true } | { ok: false; reason: string; command: string }> {
-  const command = mcpAddCommand(entry);
+export async function addMcp(folder: string, entry: string): Promise<Setup> {
   const built = hookCommand(entry).match(/^node "(.+)" hook claude$/)![1]!;
-  // claude is a .cmd on Windows, which only a shell can start.
-  const claude = (args: string[]) => run("claude", args, { cwd: folder, timeout: 30_000, shell: process.platform === "win32", windowsHide: true });
   try {
-    await claude(["mcp", "remove", "attentry", "--scope", "local"]).catch(() => undefined); // not there yet: fine
-    await claude(["mcp", "add", "attentry", "--scope", "local", "--", "node", process.platform === "win32" ? `"${built}"` : built, "mcp"]);
+    await claude(["mcp", "remove", "attentry", "--scope", "local"], folder).catch(() => undefined); // not there yet: fine
+    await claude(["mcp", "add", "attentry", "--scope", "local", "--", "node", built, "mcp"], folder);
     return { ok: true };
   } catch (error) {
-    const missing = (error as NodeJS.ErrnoException).code === "ENOENT" || /not recognized|not found/i.test(String((error as { stderr?: string }).stderr ?? ""));
-    return { ok: false, reason: missing ? "Claude Code's `claude` command isn't installed" : (error as Error).message.split("\n")[0]!, command };
+    return setupFailed(error, mcpAddCommand(entry));
   }
 }

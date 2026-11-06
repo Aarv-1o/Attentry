@@ -12,8 +12,8 @@ let client: LanguageClient | undefined;
 function serverOptions(context: vscode.ExtensionContext): ServerOptions {
   const own = vscode.workspace.getConfiguration("attentry").get<string[]>("serverCommand", []);
   if (own.length) return { command: own[0]!, args: own.slice(1), transport: TransportKind.stdio };
-  const dist = context.asAbsolutePath("dist");
-  return { module: join(dist, "server.mjs"), args: ["lsp"], transport: TransportKind.stdio };
+  // The Attentry inside the Claude Code plugin this extension carries: the editor and the agent run one build.
+  return { module: context.asAbsolutePath(join("claude", "attentry", "dist", "attentry.mjs")), args: ["lsp"], transport: TransportKind.stdio };
 }
 
 function statusText(s: Status): [string, string] {
@@ -29,10 +29,10 @@ function statusText(s: Status): [string, string] {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const settings = vscode.workspace.getConfiguration("attentry");
+  const settings = () => vscode.workspace.getConfiguration("attentry");
   client = new LanguageClient("attentry", "Attentry", serverOptions(context), {
     documentSelector: [{ scheme: "file" }],
-    initializationOptions: { show: settings.get("show"), hints: settings.get("hints"), autoScan: settings.get("autoScan", true), clientCommands: true },
+    initializationOptions: { show: settings().get("show"), hints: settings().get("hints"), autoScan: settings().get("autoScan", true), clientCommands: true },
     // Files changed on disk too (an agent's edits, a checkout), not only saves in the editor.
     synchronize: { fileEvents: vscode.workspace.createFileSystemWatcher("**/*.{js,jsx,ts,tsx,mjs,cjs,py,astro,prisma,sql,json}") },
   });
@@ -49,7 +49,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void vscode.window.showInformationMessage("Attentry: copied. Paste it into your agent's chat.");
     }),
     vscode.commands.registerCommand("attentry.toggleShow", () => run("attentry.server.toggleShow")),
-    vscode.commands.registerCommand("attentry.toggleHints", () => run("attentry.server.toggleHints")),
+    // Hints and automatic checks are settings: the panel stays short, and the choice is kept.
+    vscode.commands.registerCommand("attentry.toggleHints", () => settings().update("hints", !settings().get("hints"), vscode.ConfigurationTarget.Global)),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("attentry.hints") || e.affectsConfiguration("attentry.autoScan")) {
+        void client?.sendRequest("workspace/executeCommand", { command: "attentry.server.set", arguments: [{ hints: settings().get("hints"), autoScan: settings().get("autoScan", true) }] });
+      }
+    }),
     vscode.commands.registerCommand("attentry.rescan", () => run("attentry.server.rescan")),
   );
   const sidebar = new Sidebar(context.extensionUri, () => client);

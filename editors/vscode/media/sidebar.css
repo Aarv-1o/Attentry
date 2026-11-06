@@ -16,19 +16,17 @@
 }
 body { margin: 0; padding: 0 0 16px; color: var(--vscode-foreground); font: var(--vscode-font-size) var(--vscode-font-family); line-height: 1.45; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
-button:focus-visible, .row:focus-visible, a:focus-visible, input:focus-visible + .track { outline: 1px solid var(--accent); outline-offset: 1px; }
+button:focus-visible, .row:focus-visible, a:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
 a { color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
 a:hover { text-decoration: underline; }
 h2 { margin: 0; font-size: 1em; font-weight: 600; }
 p { margin: 0; }
 code { font-family: var(--mono); font-size: 0.92em; }
-.quiet, .note { color: var(--muted); font-size: 0.92em; margin-top: 8px; }
+.quiet { color: var(--muted); font-size: 0.92em; margin-top: 8px; }
 
-/* The three parts */
+/* The parts: findings, Claude Code, the last check */
 section { padding: 12px 14px 14px; border-top: 1px solid var(--line); }
 section:first-child { border-top: 0; }
-section > h2 { margin-bottom: 10px; }
-section > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 
 /* Severity glyphs: a shape per level, so color isn't the only cue. */
 .glyph { display: inline-block; width: 8px; height: 8px; flex: none; background: var(--muted); }
@@ -45,25 +43,27 @@ section > header { display: flex; align-items: center; justify-content: space-be
 .tabs button[aria-selected="true"] { background: var(--vscode-editor-background); color: var(--vscode-foreground); cursor: default; box-shadow: 0 0 0 1px var(--line); }
 .tabs button:not([disabled]):hover { color: var(--vscode-foreground); }
 
-/* Findings: one bar for the whole picture, then the counts as text */
-.bar { display: flex; gap: 2px; height: 4px; border-radius: 2px; overflow: hidden; transition: opacity 0.2s; }
-.bar.busy { opacity: 0.4; }
+/* Findings: one headline that answers "is anything wrong?", a bar for the mix, then the groups */
+.headline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 12px; font-size: 1.1em; }
+.headline b { font-weight: 600; }
+.headline a { margin-left: auto; font-size: 0.85em; }
+.headline .glyph.ok { width: 9px; height: 9px; }
+.bar { display: flex; gap: 2px; height: 4px; margin-top: 8px; border-radius: 2px; overflow: hidden; }
 .bar i { display: block; height: 100%; }
 .bar i.error { background: var(--error); }
 .bar i.warning { background: var(--warning); }
 .bar i.info { background: var(--info); }
-.bar i.none { flex: 1; background: var(--line); }
-.tallies { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 8px; }
+.tallies { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 10px; }
 .tally { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.92em; text-align: left; }
 .tally b { color: var(--vscode-foreground); font-weight: 600; }
-.tally.zero { opacity: 0.6; }
+.tally.zero { opacity: 0.6; cursor: default; }
 .tally.zero .glyph { background: var(--muted); }
-.tally:hover b { text-decoration: underline; }
-.clear { margin-top: 12px; color: var(--muted); }
+.tally:not(.zero):hover b { text-decoration: underline; }
 
 details { margin-top: 12px; }
 summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 2px 0; font-weight: 600; font-size: 0.95em; }
 summary::-webkit-details-marker { display: none; }
+summary .glyph { margin-left: 2px; }
 summary::before { content: ""; width: 0; height: 0; border-left: 4px solid currentColor; border-top: 3.5px solid transparent; border-bottom: 3.5px solid transparent; opacity: 0.7; transition: transform 0.12s; }
 details[open] > summary::before { transform: rotate(90deg); }
 summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
@@ -83,28 +83,10 @@ summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 .row:hover .loc, .row:focus-within .loc { visibility: hidden; }
 .row .fix:hover { text-decoration: underline; }
 
-.check { display: flex; gap: 6px; align-items: center; margin-top: 14px; color: var(--muted); font-size: 0.92em; cursor: pointer; }
-
 /* Buttons: one filled at most; the rest are quiet. */
 .primary { width: 100%; margin-top: 10px; padding: 6px 10px; border-radius: 4px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
 .primary:hover { background: var(--vscode-button-hoverBackground); }
-.ghost { padding: 2px 8px; border-radius: 4px; color: var(--vscode-textLink-foreground); font-size: 0.92em; }
-.ghost:hover:not([disabled]) { background: var(--lift); }
-.ghost[disabled] { color: var(--muted); cursor: default; }
 
-/* Scanning */
-.scanning { position: relative; }
-.state { display: flex; align-items: center; gap: 8px; }
-.state .bad { color: var(--vscode-errorForeground); }
-/* The one moving thing while a scan runs: a band sweeping along the top edge. */
-.scanning.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 35% 100%; background-repeat: no-repeat; animation: sweep 1.3s ease-in-out infinite; }
-@keyframes sweep { from { background-position: -35% 0; } to { background-position: 135% 0; } }
-.switch { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer; color: var(--muted); font-size: 0.92em; }
-.switch input { position: absolute; opacity: 0; pointer-events: none; }
-.switch .track { width: 26px; height: 14px; border-radius: 7px; background: var(--line); position: relative; transition: background 0.15s; }
-.switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: var(--vscode-foreground); opacity: 0.7; transition: transform 0.15s; }
-.switch input:checked + .track { background: var(--accent); }
-.switch input:checked + .track::after { transform: translateX(12px); opacity: 1; background: var(--vscode-button-foreground, #fff); }
 .meter { margin-top: 14px; }
 .meter p { color: var(--muted); font-size: 0.92em; }
 .meter p b { color: var(--vscode-foreground); font-weight: 600; }
@@ -116,7 +98,7 @@ summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 
 /* Your agent */
 .who { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.who .name { font-weight: 600; }
+
 .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92em; color: var(--muted); }
 .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
 .pill.ok i, .pill.live i { background: var(--ok); }
@@ -128,12 +110,15 @@ summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 .task b { font-weight: 600; color: var(--warning); }
 .tests { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--muted); font-size: 0.92em; }
 .tests.failed, .tests.timeout { color: var(--vscode-foreground); }
-.mode { margin-top: 14px; }
-.conns { margin-top: 10px; display: grid; gap: 4px; }
-.conn { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.92em; color: var(--muted); }
-.agent .check { align-items: flex-start; margin: 12px 0 8px; }
-.agent .check input { margin-top: 2px; }
-.ghost.wide { width: 100%; margin-top: 10px; }
+.mode { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; }
+.mode .quiet { margin-top: 0; }
+
+/* The last check: one line at the bottom. While a check runs, a band sweeps along its top edge. */
+footer { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.92em; }
+footer span { flex: 1; min-width: 0; }
+footer .bad { color: var(--vscode-errorForeground); }
+footer.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 35% 100%; background-repeat: no-repeat; animation: sweep 1.3s ease-in-out infinite; }
+@keyframes sweep { from { background-position: -35% 0; } to { background-position: 135% 0; } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

@@ -32,20 +32,26 @@ npm run attentry -- scan path/to/your/repo
 - `--json` prints the same findings, machine-readable
 - `attentry explain src/app.ts:42` gives everything about the findings on one line
 - `attentry doctor` says whether Attentry is set up and working here: which folder it checks, git,
-  the agent's hooks and MCP tools, and what to do about anything missing
+  whether Claude Code is connected, and what to do about anything missing
 
 To silence one finding, write why: `// attentry-ignore empty-catch: the cache is optional`
 (`#` in Python) on its line or the line above. Without a reason, it doesn't count.
 
-## With your agent
+## With Claude Code
+
+The easy way: install the VS Code extension (below) and click **Connect Claude Code** in the
+Attentry panel. That installs Attentry's Claude Code plugin for every project: the hooks, the MCP
+tools, and `/attentry:check` and `/attentry:explain`. When the extension updates, so does the plugin.
+
+From a clone of this repo instead:
 
 ```
 npm run build                      # once: Attentry as one file, dist/attentry.mjs
 node dist/attentry.mjs init path/to/your/repo
 ```
 
-That sets up Claude Code's hooks in your repo (`.claude/settings.local.json`; Cursor and
-Copilot CLI read them too). Then, in every agent session:
+That sets up Claude Code's hooks in that repo (`.claude/settings.local.json`). Then, in every
+Claude Code session:
 
 - **Before it writes a function the repo already has**, the agent hears where the existing one is
   ("`timeAgo` in utils/time.js:1, used in 9 places, has the same code: import it"), so it reuses
@@ -53,6 +59,10 @@ Copilot CLI read them too). Then, in every agent session:
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
 - **At the start** one line, so the agent knows Attentry is on for this project
+- **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
+  a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
+  route that's already there, files that change all the time, a plan too big for one go. Only
+  matches it's sure of, never a block, and nothing when there's nothing to say
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,
@@ -84,22 +94,7 @@ Built on the official MCP SDK: it speaks both the handshake protocol (2025 revis
 2026-07-28, and checks every call's arguments, so a wrong call comes back as an error the agent
 can read and fix. All three tools only read.
 
-`init` prints the command for Claude Code. Other agents take the same server in their MCP
-settings (Cursor: `.cursor/mcp.json`, Windsurf: `mcp_config.json`, Cline: its MCP settings):
-
-```json
-{ "mcpServers": { "attentry": { "command": "node", "args": ["/path/to/attentry/dist/attentry.mjs", "mcp", "/path/to/your/repo"] } } }
-```
-
-Codex (`~/.codex/config.toml`):
-
-```toml
-[mcp_servers.attentry]
-command = "node"
-args = ["/path/to/attentry/dist/attentry.mjs", "mcp", "/path/to/your/repo"]
-```
-
-This is how agents without hooks (Windsurf, Cline) get Attentry's help too.
+The plugin adds them. Without it, `init` prints the `claude mcp add` command.
 
 A background Attentry keeps the repo in memory (never on disk), so a check after an edit rereads
 only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
@@ -127,8 +122,9 @@ what your agent hears.
 - Light bulb: delete unused code (the only automatic fix), copy the fix for your agent, ignore
   with a reason, or "not useful" (a rule marked on more than 10% of its findings becomes a hint)
 - A line at the top of hotspot files: make small changes there, and test after each
-- The Attentry panel connects Claude Code in one click: its hooks, and (on by default) its MCP
-  tools, through Claude Code's own `claude mcp add`. It shows whether each is set up
+- The Attentry panel, top to bottom: what's wrong in your changes (or the whole repo), Claude Code
+  (connect it in one click; then suggest or block, and how its task is going), and one line on the
+  last check. Hints and automatic checks are in Settings
 
 It finds:
 

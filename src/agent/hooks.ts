@@ -23,6 +23,7 @@ export interface HookInput {
     new_string?: string;
     replace_all?: boolean;
     edits?: { old_string: string; new_string: string; replace_all?: boolean }[]; // MultiEdit
+    plan?: string; // ExitPlanMode: Claude Code puts the plan's text here
   };
   stop_hook_active?: boolean;
 }
@@ -121,6 +122,13 @@ export function contentAfter(input: HookInput, before: string): string | undefin
     text = e.replace_all ? text.split(e.old_string).join(e.new_string) : text.replace(e.old_string, () => e.new_string);
   }
   return edits.length ? text : undefined;
+}
+
+// Before Claude starts on a plan: what the repo already has that it should know. Never a block.
+export function beforePlan(notes: string[]): HookReply {
+  if (!notes.length) return SILENT;
+  const message = ["Attentry read the plan. Before you start:", ...notes.map((n) => `- ${n}`)].join("\n");
+  return json({ hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: message } });
 }
 
 // Before an edit that adds functions the repo already has: say so, once per pair. Block mode
