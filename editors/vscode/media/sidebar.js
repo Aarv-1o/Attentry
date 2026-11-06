@@ -53,6 +53,8 @@ function findings() {
       ? `<p class="headline"><b>${plural(total, "problem")}</b> ${where}${older}</p>
          <div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" style="flex:${of(part).length}"></i>`).join("")}</div>`
       : `<p class="headline"><i class="glyph ok"></i>No problems ${where}${older}</p>`;
+  // The four parts, always: what was checked, and how many of each (a click opens that group).
+  const tally = data ? `<div class="tallies">${PARTS.map(([part, name, tone]) => `<button class="tally ${of(part).length ? "" : "zero"}" data-jump="${part}"><i class="glyph ${tone}"></i><b>${of(part).length}</b> ${esc(name)}</button>`).join("")}</div>` : "";
   const groups = found.map(([part, name, tone]) => `<details id="${part}" ${part !== "cleanup" || found.length === 1 ? "open" : ""}><summary><i class="glyph ${tone}"></i>${esc(name)}<span class="n">${of(part).length}</span></summary>${of(part).map(item).join("")}</details>`).join("");
   return `<section class="findings">
     <div class="tabs" role="tablist" aria-label="What to show">
@@ -60,6 +62,7 @@ function findings() {
       <button role="tab" data-act="toggleShow" aria-selected="${show === "all"}" ${show === "all" ? "disabled" : ""}>Whole repo</button>
     </div>
     ${headline}
+    ${tally}
     ${data?.noChanges && show === "changes" ? `<p class="quiet">Can't tell what changed (${esc(data.noChanges)}), so this is everything.</p>` : ""}
     ${groups}
     ${hotspots.length ? `<details id="hotspots"><summary><i class="glyph hint"></i>Hotspots<span class="n">${hotspots.length}</span></summary><p class="quiet">Files that change often and are complex: change them in small steps and test after each.</p>${hotspots.map((h) => `<div class="row" tabindex="0" data-open="${esc(h.file)}" data-line="1"><i class="glyph hint"></i><span class="title">${esc(h.file)}</span><span class="does">${esc(h.title)}</span></div>`).join("")}</details>` : ""}
@@ -149,6 +152,12 @@ document.addEventListener("click", (e) => {
   if (fix) return vscode.postMessage({ type: "copyFix", id: fix.dataset.fix });
   const mode = e.target.closest("[data-mode]");
   if (mode) return vscode.postMessage({ type: "setMode", mode: mode.dataset.mode });
+  const jump = e.target.closest("[data-jump]");
+  if (jump) {
+    const group = document.getElementById(jump.dataset.jump);
+    if (group) (group.open = true), group.scrollIntoView({ block: "start", behavior: "smooth" });
+    return;
+  }
   const act = e.target.closest("[data-act]");
   if (act) return vscode.postMessage({ type: act.dataset.act });
   const open = e.target.closest("[data-open]");
