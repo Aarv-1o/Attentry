@@ -1,4 +1,5 @@
 import type { FileUsage } from "../../index/usage.ts";
+import type { DoorKind } from "./doors.ts";
 
 // Packages that open doors to the outside (socket events, GraphQL queries, RPC calls, routes in a
 // framework Attentry doesn't read) whose handlers the endpoint checks (login, owner, rate limit)
@@ -7,11 +8,16 @@ import type { FileUsage } from "../../index/usage.ts";
 
 export const CHECKED_BACKENDS = "Express, Koa, Hono, Fastify, NestJS, Next.js, FastAPI, Flask and Django";
 
-const UNCHECKED: [RegExp, string][] = [
-  [/^socket\.io$/, "Socket.io event handlers"],
-  [/^(ws|uWebSockets\.js)$|^channels(\.|$)|^websockets(\.|$)/, "WebSocket handlers"],
-  [/^(graphql|@apollo\/server|apollo-server(-[\w-]+)?|graphql-yoga|type-graphql|@nestjs\/graphql|mercurius|@pothos\/core)$|^(graphene|strawberry|ariadne)(\.|$)/, "GraphQL resolvers"],
-  [/^@trpc\/server(\/|$)/, "tRPC procedures"],
+// With the kind of door Attentry reads for it (doors.ts): listed only when none of that kind was
+// found, so a style it can't read still says "not checked".
+const UNCHECKED: [RegExp, string, DoorKind?][] = [
+  [/^socket\.io$/, "Socket.io event handlers", "socket"],
+  [/^(ws|uWebSockets\.js)$/, "WebSocket handlers", "websocket"],
+  [/^@trpc\/server(\/|$)/, "tRPC procedures", "trpc"],
+  [/^(graphql|@apollo\/server|apollo-server(-[\w-]+)?|graphql-yoga|mercurius|@graphql-tools\/schema)$/, "GraphQL resolvers", "graphql"],
+  [/^(type-graphql|@nestjs\/graphql|@pothos\/core)$/, "GraphQL resolvers written as classes or builders (type-graphql, NestJS, Pothos)"],
+  [/^(graphene|strawberry|ariadne)(\.|$)/, "Python GraphQL resolvers"],
+  [/^channels(\.|$)|^websockets(\.|$)/, "Python WebSocket handlers"],
   [/^@hapi\/hapi$/, "hapi routes"],
   [/^restify$/, "restify routes"],
   [/^@adonisjs\/core(\/|$)/, "AdonisJS routes"],
@@ -26,11 +32,11 @@ export interface UncheckedDoors {
   files: string[];
 }
 
-export function uncheckedDoors(usage: Map<string, FileUsage>): UncheckedDoors[] {
+export function uncheckedDoors(usage: Map<string, FileUsage>, read: Set<DoorKind> = new Set()): UncheckedDoors[] {
   const found = new Map<string, Set<string>>();
   for (const [file, { imports }] of usage) {
     for (const i of imports) {
-      const label = UNCHECKED.find(([source]) => source.test(i.source))?.[1];
+      const label = UNCHECKED.find(([source, , kind]) => source.test(i.source) && !(kind && read.has(kind)))?.[1];
       if (label) found.set(label, (found.get(label) ?? new Set()).add(file));
     }
   }

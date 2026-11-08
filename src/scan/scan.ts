@@ -14,6 +14,7 @@ import { htmlCallsIn } from "../rules/crossStack/htmlCalls.ts";
 import type { FileApi } from "../rules/crossStack/types.ts";
 import { uncheckedDoors, type UncheckedDoors } from "../rules/security/unchecked.ts";
 import { DATABASE_RULES, moneyInSchemaText, usesDatabase } from "../rules/database/index.ts";
+import { findDoors } from "../rules/security/doors.ts";
 import { findEndpointIssues } from "../rules/security/endpoints.ts";
 import { committedEnvFiles, CRASH_RULES, SECURITY_RULES } from "../rules/security/index.ts";
 import type { LineFinding } from "../rules/line/index.ts";
@@ -94,7 +95,10 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   // library is there, a route without one is only a hint.
   const rateLimitLibrary = [...imports.values()].some((list) => list.some((i) => RATE_LIMIT_LIBRARY.test(i.source)));
   const texts = await readTexts(root, index.files);
-  const endpointIssues = findEndpointIssues({ routes: crossStack.allRoutes, functions: index.functions, texts, rateLimitLibrary, allFiles: index.allFiles });
+  // Socket events, tRPC procedures, GraphQL resolvers, server actions: checked like routes, kept
+  // apart from them (they aren't URLs a frontend calls).
+  const doors = await findDoors(texts, index.usage, index.allFiles);
+  const endpointIssues = findEndpointIssues({ routes: [...crossStack.allRoutes, ...doors], functions: index.functions, texts, rateLimitLibrary, allFiles: index.allFiles });
   // Findings that depend on the whole repo: Express 5 (or express-async-errors) catches async
   // errors; a hashing library anywhere means passwords may be hashed in a model hook.
   const manifest = await readTexts(root, index.allFiles.filter((f) => /(^|\/)package\.json$/.test(f)));
@@ -116,7 +120,7 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
     database: serious(DATABASE_RULES).filter(keep),
     hasDatabase: usesDatabase(imports.values(), index.allFiles),
     security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...serious(SECURITY_RULES)].filter(keep),
-    unchecked: uncheckedDoors(index.usage),
+    unchecked: uncheckedDoors(index.usage, new Set(doors.map((d) => d.kind))),
     crashes: serious(CRASH_RULES).filter(keep),
     history, hotspots: history.ok ? findHotspots(history.changes, sizes, history.commits) : [],
     seconds: (Date.now() - started) / 1000,

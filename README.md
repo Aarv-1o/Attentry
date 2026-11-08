@@ -145,9 +145,12 @@ It finds:
   records loaded by id with no owner check (IDOR), login with no rate limit. In the code: SQL /
   NoSQL / command injection, eval, SSRF, open redirects, file paths, mass assignment, hardcoded
   and leaked secrets, `.env` in the repo, XSS, CORS with credentials, leaked stack traces, weak
-  password storage, unverified JWTs, `Math.random()` tokens. What it can't check yet (Socket.io,
-  WebSockets, GraphQL, tRPC, hapi and other backends) it names, so "no security issues" never
-  means "not looked at"
+  password storage, unverified JWTs, `Math.random()` tokens. The same endpoint checks run on the
+  other doors into an app: Socket.io events, WebSocket messages, tRPC procedures, GraphQL
+  resolvers and Next.js server actions (`socket event "ride:cancel" loads a record by an id the
+  caller sends without checking it belongs to the caller`). What it can't check yet (hapi,
+  Elysia, Python WebSockets and GraphQL, and more) it names, so "no security issues" never means
+  "not looked at"
 - **Crash risks:** async Express 4 handlers with no try/catch, `JSON.parse` on outside data,
   exiting the process in a handler
 - **Database:** money stored as floats, queries inside loops (N+1), trees walked one query

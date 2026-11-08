@@ -6,7 +6,8 @@ import { scanRepo } from "../src/scan/scan.ts";
 import { makeRepo } from "./helpers.ts";
 
 const REPO = {
-  "server/index.js": `import { Server } from "socket.io";\nconst io = new Server(3000);\nio.on("connection", (socket) => socket.on("ride:cancel", ({ id }) => cancel(id)));\n`,
+  // Events registered from a map: no door Attentry can read, so still "not checked".
+  "server/index.js": `import { Server } from "socket.io";\nconst io = new Server(3000);\nio.on("connection", (socket) => { for (const [name, fn] of Object.entries(handlers)) socket.on(name, fn); });\n`,
   "server/graphql.js": `import { ApolloServer } from "@apollo/server";\nexport const server = new ApolloServer({});\n`,
   "server/api.py": `from aiohttp import web\napp = web.Application()\n`,
   "client/src/socket.js": `import { io } from "socket.io-client";\nexport const socket = io();\n`,
