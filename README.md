@@ -59,6 +59,10 @@ Claude Code session:
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
 - **At the start** one line, so the agent knows Attentry is on for this project
+- **With each request you send**, the code the repo already has that it's about ("the repo
+  already has `timeAgo` in src/utils/time.js and GET /api/rides/:id in server.js"), so the agent
+  plans with it instead of writing it again. Only close matches, each said once, nothing for a
+  short request
 - **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
   a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
   route that's already there, files that change all the time, a plan too big for one go. Only
@@ -141,7 +145,9 @@ It finds:
   records loaded by id with no owner check (IDOR), login with no rate limit. In the code: SQL /
   NoSQL / command injection, eval, SSRF, open redirects, file paths, mass assignment, hardcoded
   and leaked secrets, `.env` in the repo, XSS, CORS with credentials, leaked stack traces, weak
-  password storage, unverified JWTs, `Math.random()` tokens
+  password storage, unverified JWTs, `Math.random()` tokens. What it can't check yet (Socket.io,
+  WebSockets, GraphQL, tRPC, hapi and other backends) it names, so "no security issues" never
+  means "not looked at"
 - **Crash risks:** async Express 4 handlers with no try/catch, `JSON.parse` on outside data,
   exiting the process in a handler
 - **Database:** money stored as floats, queries inside loops (N+1), trees walked one query

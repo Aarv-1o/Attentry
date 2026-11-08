@@ -12,6 +12,7 @@ import { findUnusedPackages } from "../rules/codebase/unusedPackages.ts";
 import { findCrossStack, type CrossStack } from "../rules/crossStack/check.ts";
 import { htmlCallsIn } from "../rules/crossStack/htmlCalls.ts";
 import type { FileApi } from "../rules/crossStack/types.ts";
+import { uncheckedDoors, type UncheckedDoors } from "../rules/security/unchecked.ts";
 import { DATABASE_RULES, moneyInSchemaText, usesDatabase } from "../rules/database/index.ts";
 import { findEndpointIssues } from "../rules/security/endpoints.ts";
 import { committedEnvFiles, CRASH_RULES, SECURITY_RULES } from "../rules/security/index.ts";
@@ -36,6 +37,7 @@ export interface ScanResult {
   hygiene: LineFinding[]; // without findings in dead files: the fix there is deleting the file
   database: LineFinding[]; // these three include dead files: a new file is dead until it's wired in
   security: LineFinding[];
+  unchecked: UncheckedDoors[]; // doors to the outside the security checks don't read yet
   crashes: LineFinding[];
   hasDatabase: boolean; // a database library or schema file was found
   history: History;
@@ -114,6 +116,7 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
     database: serious(DATABASE_RULES).filter(keep),
     hasDatabase: usesDatabase(imports.values(), index.allFiles),
     security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...serious(SECURITY_RULES)].filter(keep),
+    unchecked: uncheckedDoors(index.usage),
     crashes: serious(CRASH_RULES).filter(keep),
     history, hotspots: history.ok ? findHotspots(history.changes, sizes, history.commits) : [],
     seconds: (Date.now() - started) / 1000,

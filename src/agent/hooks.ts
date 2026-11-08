@@ -26,6 +26,7 @@ export interface HookInput {
     plan?: string; // ExitPlanMode: Claude Code puts the plan's text here
   };
   stop_hook_active?: boolean;
+  prompt?: string; // UserPromptSubmit: what the person asked
 }
 
 export interface HookReply {

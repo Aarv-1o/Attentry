@@ -16,7 +16,7 @@ const RUN = ["${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs"];
 
 test("plugin hooks: every event Attentry answers, on every edit tool and the plan, running the build inside the plugin", async () => {
   const { hooks } = await read("hooks/hooks.json");
-  assert.deepEqual(Object.keys(hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "Stop"]);
+  assert.deepEqual(Object.keys(hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"]);
   for (const [event, groups] of Object.entries(hooks) as [string, { matcher?: string; hooks: { command: string; args: string[] }[] }[]][]) {
     for (const group of groups) {
       for (const h of group.hooks) assert.deepEqual([h.command, ...h.args], ["node", ...RUN, "hook", "claude"], event);

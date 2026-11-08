@@ -11,6 +11,7 @@ import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, isEdit, isPlanFile, noteEdit, outsideProject, type HookInput, type HookReply } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
+import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
 import { testsAllowed } from "./trust.ts";
@@ -212,8 +213,19 @@ export class Sessions {
     return reviewPlan(plan, scan, await collectFindings(scan));
   }
 
+  // A request from the person: the related code Claude hasn't heard about yet this session, so it
+  // plans with it. Not held up for the first read, and a scan of a read repo takes no time.
+  private async relatedTo(session: string, prompt: string | undefined): Promise<HookReply> {
+    if (!prompt || !(await this.ready())) return SILENT;
+    const { told } = await this.taskOf(session);
+    const items = relatedCode(prompt, await scanRepo(this.root, this.cache)).filter((item) => !told.has(`related:${item}`));
+    for (const item of items) told.add(`related:${item}`);
+    return items.length ? tell("UserPromptSubmit", relatedMessage(items)) : SILENT;
+  }
+
   async handle(input: HookInput): Promise<HookReply> {
     const event = input.hook_event_name;
+    if (event === "UserPromptSubmit") return this.relatedTo(input.session_id, input.prompt);
     if (event === "SessionStart") {
       this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
       const ready = await this.ready();

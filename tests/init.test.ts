@@ -13,7 +13,7 @@ test("init adds Attentry's hooks, keeps the person's own, and doesn't add them t
   const twice = withAttentryHooks(once, CMD);
   assert.deepEqual(twice, once);
   assert.equal(twice.model, "opus");
-  assert.deepEqual(Object.keys(twice.hooks!), ["PostToolUse", "SessionStart", "PreToolUse", "Stop"]);
+  assert.deepEqual(Object.keys(twice.hooks!), ["PostToolUse", "SessionStart", "UserPromptSubmit", "PreToolUse", "Stop"]);
   assert.deepEqual(twice.hooks!.PostToolUse!.map((g) => g.hooks[0]!.command), ["prettier --write", CMD]);
   assert.equal(twice.hooks!.PreToolUse![0]!.matcher, "Write|Edit|MultiEdit|NotebookEdit");
 });
