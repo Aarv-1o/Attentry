@@ -105,7 +105,11 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 
 /* 1 · Hero: the world codes with agents */
 .hero { padding-block: clamp(var(--space-8), 8vw, var(--space-9)) 0; }
-.hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: var(--space-8); align-items: center; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); gap: var(--space-8); align-items: center; }
+/* The second row: what Attentry is, beside a developer asking and the agent editing. */
+.hero-row { display: grid; grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.78fr); gap: var(--space-7); align-items: center; margin-top: var(--space-8); }
+.hero-more { display: grid; gap: var(--space-5); }
+.hero-more .stats { margin-top: 0; }
 .hero-copy { display: grid; gap: var(--space-5); }
 .pill { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: start; padding: var(--space-1) var(--space-3); border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); font-size: 13px; color: var(--body); }
 .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); animation: blink 2.4s ease-in-out infinite; }
@@ -146,7 +150,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 
 /* Developers at work, typing */
 /* You ask, the agent edits: one box, the developer on the left, the agent's VS Code on the right. */
-.duo { display: grid; grid-template-columns: minmax(0, 0.75fr) auto minmax(0, 1.55fr); gap: var(--space-5); align-items: center; margin: var(--space-8) 0 0; padding: var(--space-6); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); }
+.duo { display: grid; grid-template-columns: minmax(0, 0.5fr) auto minmax(0, 1.5fr); gap: var(--space-4); align-items: center; margin: 0; padding: var(--space-5); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); }
 .duo-dev, .duo-agent { display: grid; gap: var(--space-4); min-width: 0; }
 .duo-arrow { opacity: 0.8; }
 .duo-cap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--mute); }
@@ -162,11 +166,11 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 /* The agent at work: a small VS Code, the file in the middle, the chat beside it. */
 .mini { border: 1px solid var(--hairline); border-radius: var(--radius-md); overflow: hidden; background: var(--canvas); }
 .mini-bar { display: flex; align-items: center; gap: 6px; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--hairline); background: var(--surface-2); font: 11px/1.4 var(--mono); color: var(--mute); }
-.mini-bar b { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline-strong); }
-.mini-bar span { margin-left: var(--space-2); }
-.mini-body { display: grid; grid-template-columns: 32px minmax(0, 1fr) 210px; height: 268px; }
+.mini-bar .win { display: flex; gap: var(--space-4); margin-left: auto; }
+.mini-activity .agent { opacity: 0.95; }
+.mini-body { display: grid; grid-template-columns: 30px minmax(0, 1fr) 156px; height: 268px; }
 .mini-activity { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding-top: var(--space-3); border-right: 1px solid var(--hairline); background: var(--surface-2); }
-.mini-code { padding: var(--space-3) 0; font: 11.5px/1.75 var(--mono); color: var(--body); overflow: hidden; counter-reset: mline; }
+.mini-code { padding: var(--space-3) 0; font: 11px/1.75 var(--mono); color: var(--body); overflow: hidden; counter-reset: mline; }
 .mini-code .ln { display: flex; gap: var(--space-3); padding-inline: var(--space-3); white-space: pre; transition: background 0.5s var(--ease); }
 .mini-code .ln::before { counter-increment: mline; content: counter(mline); width: 1.6ch; flex: none; text-align: right; color: #4a515c; }
 .mini-code .ln.added { background: rgba(31, 200, 164, 0.1); }
@@ -292,7 +296,12 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 @keyframes chip { 0% { opacity: 0; transform: translateY(10px) scale(0.94); } 6%, 52% { opacity: 1; transform: none; } 60%, 100% { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 @keyframes steam { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px); } }
 
+@media (max-width: 1200px) {
+  .hero-row { grid-template-columns: minmax(0, 1fr); }
+  .duo { grid-template-columns: minmax(0, 0.6fr) auto minmax(0, 1.5fr); }
+}
 @media (max-width: 960px) {
+  .globe-stage { order: 2; }
   .duo { grid-template-columns: minmax(0, 1fr); }
   .duo-arrow { justify-self: center; transform: rotate(90deg); }
   .duo-dev { max-width: 420px; justify-self: center; width: 100%; }

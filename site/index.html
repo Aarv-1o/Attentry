@@ -42,23 +42,7 @@
   <section class="hero" aria-labelledby="hero-title">
     <div class="wrap">
       <div class="hero-grid">
-        <div class="hero-copy">
-          <p class="pill reveal"><i></i>For Claude Code, in VS Code</p>
-          <h1 id="hero-title" class="reveal" data-delay="1">The world codes with AI now. Attentry watches the code.</h1>
-          <p class="prompt reveal" data-delay="2" aria-label="Things people ask their coding agent"><span id="typed">build me an Uber clone</span><span class="caret" aria-hidden="true"></span></p>
-          <p class="lead reveal" data-delay="2">Millions of people ask an agent for an app and get thousands of lines back. Attentry is the sentinel beside it: it checks every edit for security holes, copies and dead code, and tells the agent before the mess ships.</p>
-          <div class="actions reveal" data-delay="3">
-            <a class="btn btn-primary" href="#get">Get it for VS Code</a>
-            <a class="btn btn-quiet" href="#watch">See it work</a>
-          </div>
-          <div class="stats reveal" data-delay="3">
-            <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
-            <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
-          </div>
-          <p class="source reveal" data-delay="3">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
-        </div>
-
-        <div class="globe-stage reveal" data-delay="1" aria-hidden="true">
+        <div class="globe-stage reveal" aria-hidden="true">
           <canvas id="globe" width="520" height="520"></canvas>
           <div class="face face-a"><img src="assets/figure-a.png" alt="" width="320" height="312"></div>
           <div class="face face-b"><img src="assets/figure-b.png" alt="" width="320" height="292"></div>
@@ -67,9 +51,28 @@
           <span class="bubble bubble-b">fix the checkout bug</span>
           <span class="bubble bubble-c">make it realtime</span>
         </div>
+        <div class="hero-copy">
+          <p class="pill reveal"><i></i>For Claude Code, in VS Code</p>
+          <h1 id="hero-title" class="reveal" data-delay="1">The world codes with AI now. Attentry watches the code.</h1>
+          <p class="prompt reveal" data-delay="2" aria-label="Things people ask their coding agent"><span id="typed">build me an Uber clone</span><span class="caret" aria-hidden="true"></span></p>
+        </div>
       </div>
 
-      <figure class="duo reveal">
+      <div class="hero-row">
+        <div class="hero-more">
+          <p class="lead reveal">Millions of people ask an agent for an app and get thousands of lines back. Attentry is the sentinel beside it: it checks every edit for security holes, copies and dead code, and tells the agent before the mess ships.</p>
+          <div class="actions reveal" data-delay="1">
+            <a class="btn btn-primary" href="#get">Get it for VS Code</a>
+            <a class="btn btn-quiet" href="#watch">See it work</a>
+          </div>
+          <div class="stats reveal" data-delay="2">
+            <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
+            <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
+          </div>
+          <p class="source reveal" data-delay="2">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
+        </div>
+
+      <figure class="duo reveal" data-delay="1">
         <div class="duo-dev">
           <div class="sprite" data-sprite>
             <img src="assets/b3-man.png" alt="A developer typing a request to an AI agent" width="560" height="380">
@@ -86,11 +89,18 @@
         <svg class="duo-arrow" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="#1fc8a4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div class="duo-agent">
           <div class="mini" id="mini" aria-hidden="true">
-            <div class="mini-bar"><b></b><b></b><b></b><span>checkout.ts · Claude Code</span></div>
+            <div class="mini-bar">
+              <span>checkout.ts · Visual Studio Code</span>
+              <span class="win">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="#959ba5" stroke-width="1.2"/></svg>
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="#959ba5" stroke-width="1.2"/></svg>
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="#959ba5" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </span>
+            </div>
             <div class="mini-body">
               <div class="mini-activity">
-                <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z M14 4v5h5" fill="none" stroke="#c5cbd4" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                <svg width="14" height="14" viewBox="0 0 64 64"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z M14 4v5h5" fill="none" stroke="#c5cbd4" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                <svg class="agent" width="15" height="15" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" fill="none" stroke="#d97757" stroke-width="1.9" stroke-linecap="round"/></svg>
               </div>
               <div class="mini-code" id="mini-code"></div>
               <div class="mini-chat" id="mini-chat"></div>
@@ -99,6 +109,7 @@
           <p class="duo-cap"><span>The agent edits <b>checkout.ts</b></span><span id="mini-status">reading…</span></p>
         </div>
       </figure>
+      </div>
     </div>
   </section>
 

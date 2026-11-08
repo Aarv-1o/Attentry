@@ -248,10 +248,13 @@ if (miniCode && miniChat) {
     "}",
   ];
   const COUPON = '  <span class="k">const</span> coupon = <span class="f">findCoupon</span>(cart.code);';
-  const RETURN = '  <span class="k">return</span> <span class="f">charge</span>(cart.user, <span class="f">applyCoupon</span>(total, coupon));';
+  // Short lines, so the whole file fits beside the chat.
+  const DUE = '  <span class="k">const</span> due = <span class="f">applyCoupon</span>(total, coupon);';
+  const RETURN = '  <span class="k">return</span> <span class="f">charge</span>(cart.user, due);';
   const HELPER = [
     '<span class="k">function</span> <span class="f">applyCoupon</span>(total, coupon) {',
-    '  <span class="k">return</span> coupon ? total * (1 - coupon.off) : total;',
+    '  <span class="k">if</span> (!coupon) <span class="k">return</span> total;',
+    '  <span class="k">return</span> total * (1 - coupon.off);',
     "}",
   ];
   const say = async (text, cls) => {
@@ -266,7 +269,7 @@ if (miniCode && miniChat) {
   };
 
   if (still) {
-    miniCode.replaceChildren(codeLine(BEFORE[0]), codeLine(COUPON, "added"), codeLine(BEFORE[1]), codeLine(RETURN, "changed"), codeLine(BEFORE[3]), codeLine(""), ...HELPER.map((h) => codeLine(h, "added")));
+    miniCode.replaceChildren(codeLine(BEFORE[0]), codeLine(COUPON, "added"), codeLine(BEFORE[1]), codeLine(DUE, "added"), codeLine(RETURN, "changed"), codeLine(BEFORE[3]), codeLine(""), ...HELPER.map((h) => codeLine(h, "added")));
     status.textContent = "1 file changed";
   } else {
     miniCode.replaceChildren(...BEFORE.map((h) => codeLine(h)));
@@ -284,7 +287,11 @@ if (miniCode && miniChat) {
       miniCode.children[0].after(coupon);
       await typeLine(coupon, 26);
       await wait(300);
-      const ret = miniCode.children[3];
+      const due = codeLine(DUE, "added");
+      miniCode.children[2].after(due);
+      await typeLine(due, 24);
+      await wait(250);
+      const ret = miniCode.children[4];
       ret.className = "ln changed";
       setCode(ret, RETURN);
       await typeLine(ret);
@@ -292,7 +299,7 @@ if (miniCode && miniChat) {
       const helper = HELPER.map((h) => codeLine(h, "added"));
       miniCode.append(codeLine(""), ...helper);
       for (const el of helper) await typeLine(el, 24);
-      await say("Done: 1 file changed, 5 lines added", "agent done");
+      await say("Done: checkout.ts updated", "agent done");
       status.textContent = "1 file changed";
       await wait(3600);
       await fadeRound(miniCode);
