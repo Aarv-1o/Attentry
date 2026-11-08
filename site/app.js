@@ -336,57 +336,193 @@ if (scene && code) {
   const state = document.getElementById("panel-state");
   const findings = Object.fromEntries([...scene.querySelectorAll("[data-finding]")].map((el) => [el.dataset.finding, el]));
   const captions = [...scene.querySelectorAll("[data-cap]")];
-  const step = (name, label) => {
+  const ORDER = ["write", "watch", "fix", "done"];
+  const LABEL = { write: "watching", watch: "3 problems", fix: "fixing", done: "clean" };
+  const step = (name) => {
     scene.dataset.step = name;
-    state.textContent = label;
+    state.textContent = LABEL[name];
     captions.forEach((c) => c.classList.toggle("on", c.dataset.cap === name));
   };
 
-  if (still) {
-    code.replaceChildren(...LINES.filter((l) => !l.drop).map((l) => codeLine(l.fix ?? l.html, l.fix ? "fixed" : "")));
-    Object.values(findings).forEach((f) => f.classList.add("show", "done"));
-    step("done", "clean");
-  } else {
-    code.replaceChildren(...LINES.map((l) => codeLine(l.html)));
-    loopWhileVisible(scene, async (visible) => {
-      const els = LINES.map((l) => codeLine(l.html));
-      code.replaceChildren(...els);
+  // A click on a step starts a new run; the old one stops at its next pause.
+  class Stopped extends Error {}
+  let run = 0;
+  let visible = false;
+  const check = (id) => { if (id !== run) throw new Stopped(); };
+  const pause = async (ms, id) => { await wait(ms); check(id); };
+
+  // Each step's end state, set at once: for jumping straight to a later step.
+  const written = () => {
+    const els = LINES.map((l) => codeLine(l.html));
+    code.replaceChildren(...els);
+    return els;
+  };
+  const flag = (els) => LINES.forEach((l, i) => l.role && els[i].classList.add(l.role));
+  const fixLineNow = (els, i) => { els[i].className = "ln fixed"; setCode(els[i], LINES[i].fix); };
+  const dropLines = (els) => els.forEach((el, i) => LINES[i].drop && (el.style.display = "none"));
+
+  // Each step, animated, from the state the previous one left.
+  const animate = {
+    async write(id) {
+      const els = written();
       els.forEach((el) => (el.querySelector(".t").style.clipPath = "inset(0 100% 0 0)"));
       Object.values(findings).forEach((f) => f.classList.remove("show", "done"));
-      step("write", "watching");
-      // Claude writes.
-      for (const el of els) {
-        if (!visible()) return;
-        await typeLine(el);
-      }
-      await wait(500);
-      // Attentry spots.
-      step("watch", "3 problems");
-      LINES.forEach((l, i) => l.role && els[i].classList.add(l.role));
-      for (const key of ["secret", "copy", "dead"]) { findings[key].classList.add("show"); await wait(650); }
-      await wait(1400);
-      // Claude fixes: the secret, then the copy (an import instead), then the dead code goes.
-      step("fix", "fixing");
-      const fix = async (i) => {
-        els[i].className = "ln fixed";
-        setCode(els[i], LINES[i].fix);
-        await typeLine(els[i]);
-      };
-      await fix(2);
+      step("write");
+      for (const el of els) { await typeLine(el); check(id); }
+      await pause(500, id);
+      return els;
+    },
+    async watch(id, els) {
+      step("watch");
+      flag(els);
+      for (const key of ["secret", "copy", "dead"]) { findings[key].classList.add("show"); await pause(650, id); }
+      await pause(1400, id);
+      return els;
+    },
+    async fix(id, els) {
+      step("fix");
+      fixLineNow(els, 2);
+      await typeLine(els[2]);
+      check(id);
       findings.secret.classList.add("done");
-      await wait(400);
-      await fix(4);
+      await pause(400, id);
+      fixLineNow(els, 4);
+      await typeLine(els[4]);
+      check(id);
       for (const i of [5, 6, 7]) els[i].classList.add("gone");
       findings.copy.classList.add("done");
-      await wait(700);
+      await pause(700, id);
       for (const i of [9, 10, 11, 12]) els[i].classList.add("gone");
       findings.dead.classList.add("done");
-      await wait(600);
-      els.forEach((el) => el.classList.contains("gone") && (el.style.display = "none"));
-      // The change card.
-      step("done", "clean");
-      await wait(4200);
+      await pause(600, id);
+      dropLines(els);
+      return els;
+    },
+    async done(id, els) {
+      step("done");
+      await pause(4200, id);
       await fadeRound(code);
+      check(id);
+      return els;
+    },
+  };
+
+  // Plays from a step: the steps before it are set at once, the rest animate, then it loops from
+  // the start while the scene is on screen.
+  let playing = false;
+  const play = async (from) => {
+    const id = ++run;
+    playing = true;
+    try {
+      let start = ORDER.indexOf(from);
+      for (;;) {
+        let els;
+        if (start > 0) {
+          els = written();
+          Object.values(findings).forEach((f) => f.classList.remove("show", "done"));
+          if (start > 1) { flag(els); Object.values(findings).forEach((f) => f.classList.add("show")); }
+          if (start > 2) { fixLineNow(els, 2); fixLineNow(els, 4); dropLines(els); Object.values(findings).forEach((f) => f.classList.add("done")); }
+        }
+        for (const name of ORDER.slice(start)) els = await animate[name](id, els);
+        if (!visible) return;
+        start = 0;
+      }
+    } catch (error) {
+      if (!(error instanceof Stopped)) throw error;
+    } finally {
+      if (id === run) playing = false; // a newer run (a click) is still playing otherwise
+    }
+  };
+
+  if (still) {
+    const els = written();
+    fixLineNow(els, 2);
+    fixLineNow(els, 4);
+    dropLines(els);
+    Object.values(findings).forEach((f) => f.classList.add("show", "done"));
+    step("done");
+    // Without motion, a step button still shows that step's state.
+    for (const c of captions) {
+      c.addEventListener("click", () => {
+        const at = ORDER.indexOf(c.dataset.cap);
+        const now = written();
+        Object.values(findings).forEach((f) => f.classList.toggle("show", at >= 1));
+        Object.values(findings).forEach((f) => f.classList.toggle("done", at >= 2));
+        if (at >= 1) flag(now);
+        if (at >= 2) { fixLineNow(now, 2); fixLineNow(now, 4); dropLines(now); }
+        step(c.dataset.cap);
+      });
+    }
+  } else {
+    written();
+    step("write");
+    for (const c of captions) c.addEventListener("click", () => play(c.dataset.cap));
+    whenVisible(scene, (seen) => {
+      visible = seen;
+      if (seen && !playing) play("write");
     }, 0.35);
   }
+}
+
+// ---- Ask it what it catches: press send, the answer pops up; "Ask again" replays it ----
+const chat = document.getElementById("chat");
+if (chat) {
+  const log = document.getElementById("chat-log");
+  const form = document.getElementById("chat-form");
+  const input = document.getElementById("chat-q");
+  const send = form.querySelector(".send");
+  const replay = document.getElementById("chat-replay");
+  const answer = document.getElementById("chat-answer");
+  const hint = document.getElementById("chat-hint");
+  const QUESTION = "What does Attentry catch?";
+  let busy = false;
+
+  const reset = () => {
+    log.replaceChildren(hint);
+    input.value = QUESTION;
+    send.disabled = false;
+    replay.hidden = true;
+    chat.classList.add("ready");
+  };
+  const ask = async () => {
+    if (busy) return;
+    busy = true;
+    chat.classList.remove("ready");
+    send.disabled = true;
+    const you = document.createElement("p");
+    you.className = "msg-you";
+    you.textContent = input.value;
+    input.value = "";
+    log.replaceChildren(you);
+    if (!still) {
+      const thinking = document.createElement("span");
+      thinking.className = "thinking";
+      thinking.setAttribute("aria-label", "Attentry is answering");
+      thinking.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+      log.append(thinking);
+      await wait(900);
+      thinking.remove();
+    }
+    // The answer is a <template> in the page; each card pops in a beat after the last.
+    const copy = answer.content.cloneNode(true);
+    copy.querySelectorAll(".answer").forEach((el, i) => el.style.setProperty("--n", String(i)));
+    log.append(copy);
+    replay.hidden = false;
+    busy = false;
+  };
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    void ask();
+  });
+  replay.addEventListener("click", async () => {
+    if (!still) {
+      log.style.transition = "opacity 0.3s";
+      log.style.opacity = "0";
+      await wait(320);
+      log.style.opacity = "1";
+    }
+    reset();
+    send.focus();
+  });
+  reset();
 }
