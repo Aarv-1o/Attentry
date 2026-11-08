@@ -73,26 +73,24 @@
         <figure class="dev reveal">
           <div class="sprite" data-sprite>
             <img src="assets/b3-man.png" alt="A developer typing a request to an AI agent" width="560" height="380">
-            <img class="frame" src="assets/b3-f-a.png" alt="" width="560" height="380">
-            <img class="frame" src="assets/b3-f-b.png" alt="" width="560" height="380">
-            <img class="frame" src="assets/b3-f-c.png" alt="" width="560" height="380">
-            <img class="frame" src="assets/b3-f-d.png" alt="" width="560" height="380">
-            <img class="frame" src="assets/b3-f-e.png" alt="" width="560" height="380">
+            <span class="typing-bubble" aria-hidden="true"><i></i><i></i><i></i></span>
             <img class="steam" src="assets/b3-f-steam.png" alt="" width="30" height="35" style="left: 18.8%; top: 61.8%">
           </div>
-          <figcaption><span>Asks: <b>"add payments"</b></span><span>412 lines back</span></figcaption>
+          <figcaption><span>Asks: <b>"add a coupon code"</b></span><span>typing…</span></figcaption>
         </figure>
         <figure class="dev reveal" data-delay="1">
-          <div class="sprite" data-sprite>
-            <img src="assets/b3-girl.png" alt="Another developer working with an agent" width="560" height="351">
-            <img class="frame" src="assets/b3-g-a.png" alt="" width="560" height="351">
-            <img class="frame" src="assets/b3-g-b.png" alt="" width="560" height="351">
-            <img class="frame" src="assets/b3-g-c.png" alt="" width="560" height="351">
-            <img class="frame" src="assets/b3-g-d.png" alt="" width="560" height="351">
-            <img class="frame" src="assets/b3-g-e.png" alt="" width="560" height="351">
-            <img class="steam" src="assets/b3-g-steam.png" alt="" width="28" height="30" style="left: 76%; top: 56%; width: 5%">
+          <div class="mini" id="mini" aria-hidden="true">
+            <div class="mini-bar"><b></b><b></b><b></b><span>checkout.ts · Claude Code</span></div>
+            <div class="mini-body">
+              <div class="mini-activity">
+                <svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z M14 4v5h5" fill="none" stroke="#c5cbd4" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                <svg width="14" height="14" viewBox="0 0 64 64"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg>
+              </div>
+              <div class="mini-code" id="mini-code"></div>
+              <div class="mini-chat" id="mini-chat"></div>
+            </div>
           </div>
-          <figcaption><span>Asks: <b>"make it realtime"</b></span><span>9 files changed</span></figcaption>
+          <figcaption><span>The agent: <b>edits checkout.ts</b></span><span id="mini-status">reading…</span></figcaption>
         </figure>
       </div>
     </div>
@@ -107,9 +105,14 @@
         <p class="lead">The agent writes it in seconds. Nobody reads every line, and the agent never looks back: it doesn't know the repo already had that helper, or that the route it just added lets anyone in.</p>
       </div>
       <div class="cost">
-        <div class="cost-art reveal" aria-hidden="true">
+        <div class="cost-art reveal" id="cost-art" aria-hidden="true">
           <img class="desk" src="assets/desk.png" alt="" width="760" height="769">
-          <img class="spill" src="assets/err-spill.png" alt="" width="820" height="394">
+          <span class="chip chip-red" style="--x: 4%; --y: 6%; --d: 0s">JWT secret in code</span>
+          <span class="chip chip-amber" style="--x: 52%; --y: 2%; --d: 1.4s">copy of timeAgo()</span>
+          <span class="chip chip-info" style="--x: 0%; --y: 30%; --d: 2.8s">unused file: oldCart.ts</span>
+          <span class="chip chip-red" style="--x: 56%; --y: 22%; --d: 4.2s">no rate limit on /login</span>
+          <span class="chip chip-amber" style="--x: 2%; --y: 62%; --d: 5.6s">query inside a loop</span>
+          <span class="chip chip-info" style="--x: 54%; --y: 70%; --d: 7s">nothing calls sendLegacyMail()</span>
         </div>
         <div class="cost-cards">
           <div class="cost-card reveal"><b class="red" data-count="45" data-suffix="%">45%</b><p>of AI-generated code samples had a security flaw in Veracode's tests of over 100 models.</p><p class="source"><a href="https://www.veracode.com/2025-genai-code-security-report">Veracode GenAI Code Security Report, 2025</a></p></div>
