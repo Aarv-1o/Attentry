@@ -1,8 +1,9 @@
 {
   "name": "attentry",
   "displayName": "Attentry",
-  "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.24",
+  "description": "A sentinel for Claude Code: catches the security holes, crash risks, copied and dead code your AI agent writes, and tells it right after each edit.",
+  "version": "0.1.0",
+  "preview": true,
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
   "homepage": "https://attentry.js.org",
@@ -20,7 +21,19 @@
     "vscode": "^1.91.0"
   },
   "categories": [
+    "AI",
     "Linters"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "ai agent",
+    "security",
+    "dead code",
+    "duplicate code",
+    "code review",
+    "mcp",
+    "vibe coding"
   ],
   "activationEvents": [
     "onStartupFinished"

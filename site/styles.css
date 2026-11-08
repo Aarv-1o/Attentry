@@ -340,6 +340,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .install li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: var(--space-3); align-items: start; font-size: 15px; }
 .install li::before { counter-increment: n; content: counter(n); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--hairline-strong); color: var(--ink); font-size: 13px; }
 .install b { color: var(--ink); font-weight: 500; }
+.install a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hairline-strong); }
+.install a:hover { text-decoration-color: #39ff9f; }
 
 /* Footer */
 .foot { margin-top: var(--section); border-top: 1px solid var(--hairline); padding-block: var(--space-6) var(--space-7); font-size: 14px; color: var(--mute); }
