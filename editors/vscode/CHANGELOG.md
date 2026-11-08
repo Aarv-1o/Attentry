@@ -4,7 +4,7 @@
 
 - **Connect Claude Code** installs Attentry's Claude Code plugin for all your projects, kept up to date with the extension, and lets Claude call Attentry's read-only tools without asking each time.
 - With each request, Claude hears the code your repo already has for it. Plans are checked too: when Claude finishes one, writes its plan file, or when you type `/attentry:plan`.
-- Security checks for Socket.io events, WebSocket messages, tRPC procedures, GraphQL resolvers and Next.js server actions, as well as routes. Backends it can't read yet are named, never passed over in silence.
+- Security checks for Socket.io events, WebSocket messages, tRPC procedures, GraphQL resolvers and Next.js server actions, as well as routes. If your project uses a backend Attentry can't check yet, it says so.
 - A simpler panel: findings by category, one Claude Code status, one line on the last check. Hints and automatic checks are settings.
 - The new Watchtower A logo, links to attentry.js.org, and Share with a friend.
 - Fewer false alarms, found by testing on real projects and real Claude sessions.

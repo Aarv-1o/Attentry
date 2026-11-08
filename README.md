@@ -1,171 +1,173 @@
 # Attentry
 
-Attentry stops AI coding agents from making a mess of your codebase.
+Attentry checks the code your AI agent writes. It works with Claude Code: after each edit, it
+tells Claude about any security hole, crash risk, copied function or dead code that the edit added,
+so Claude can fix it straight away. When the task is done, you get a short summary of what changed.
 
-It watches what your agent writes, catches duplicate code, dead code and bloat,
-gets the agent to clean it up, proves nothing broke, and explains what changed.
+Website: [attentry.js.org](https://attentry.js.org)
 
-Site: [attentry.js.org](https://attentry.js.org)
+Attentry is in preview. It reads JavaScript, TypeScript (including JSX and TSX), Python and Astro.
 
-> Status: early build. Not on npm yet. Works today: copied code, dead code, frontend/backend
-> mismatches, security, crash risks, database checks, code hygiene and hotspots, in the
-> terminal and in your editor.
+## Install
 
-## Try it
+Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=attentry.attentry),
+or from [Open VSX](https://open-vsx.org/extension/attentry/attentry) if you use Cursor, Windsurf or
+another VS Code fork. Then open the Attentry panel in the sidebar and click **Connect Claude
+Code**. That's all the setup there is. It adds Attentry to Claude Code for every project, and the
+extension keeps it up to date.
 
-Needs Node 22+. From a clone of this repo:
+## What Claude hears, and when
+
+Attentry speaks up at a few moments during a Claude Code session, and stays quiet the rest of the
+time. A clean edit gets no message at all.
+
+- When a session starts, Claude gets one line saying Attentry is on.
+- When you send a request, Claude is told about code in the repo that matches it, for example
+  "the repo already has `timeAgo` in src/utils/time.js". That way it builds on what exists.
+- When Claude finishes a plan, Attentry reads it and points out anything the repo already has: a
+  helper the plan would write again, a route that already exists, a file that changes all the time,
+  or a plan too big to do in one go. You can also ask for this check by typing `/attentry:plan`.
+- Before an edit, if Claude is about to write a function the repo already has, it's told where the
+  existing one is and how often it's used.
+- After an edit, Claude hears about the problems that edit added, each one once. Problems that
+  were in the repo before the task started are left out.
+- Every 10 edits there's a short check-in, and your tests run in the background.
+- At the end of the task you get a change card: the files Claude changed, the problems it added
+  or fixed, and whether the tests passed.
+
+By default Attentry only makes suggestions. In block mode it also refuses exact copies, and won't
+let a task finish while it has added a security or crash problem. Switch modes in the panel.
+
+### Tests
+
+Attentry looks for your test command (`npm test`, `pnpm test`, pytest and so on, in each app of
+the repo). You can set your own in `.attentry/config.json` with `"tests": "make check"`, or turn
+tests off with `"tests": "off"`. A run is stopped after 300 seconds unless you change
+`"testTimeoutSeconds"`.
+
+Because a test command can run anything, Attentry only runs commands you've allowed. Connecting
+Claude Code allows the current ones, and Attentry asks again if they change. `attentry doctor`
+shows what's allowed.
+
+### Tools Claude can call
+
+Besides speaking up on its own, Attentry gives Claude four tools it can call when it wants to:
+
+- `find_existing` looks for a function that already does a job, from a short description or from
+  the code Claude is about to write.
+- `check` lists the problems in Claude's changes, or in the files it names, and marks the ones this
+  task added.
+- `explain` gives the full story of the findings on one line: what the code does, why it matters,
+  how to fix it and how to check the fix.
+- `check_plan` runs the plan check on demand.
+
+All four only read. They're built on the official MCP SDK and validate every call, so a bad call
+comes back as an error Claude can read and correct.
+
+## What it finds
+
+**Security.** Routes with no login check, admin routes that don't check the role, records loaded
+by id without checking who owns them, and logins with no rate limit. The same checks cover
+Socket.io events, WebSocket messages, tRPC procedures, GraphQL resolvers and Next.js server
+actions. In the code itself it looks for SQL, NoSQL and command injection, `eval`, SSRF, open
+redirects, unsafe file paths, mass assignment, secrets written in the code, `.env` files in the
+repo, XSS, CORS with credentials, leaked stack traces, weak password hashing, unverified JWTs and
+`Math.random()` tokens. If your project uses a backend Attentry can't read yet (hapi or Elysia,
+for example), it says so instead of reporting "no issues".
+
+**Crash risks.** Async Express 4 handlers with no error handling, `JSON.parse` on data from
+outside, and handlers that exit the process.
+
+**Frontend and backend.** Calls to API routes that don't exist (with the route you probably
+meant), calls with the wrong HTTP method, and routes nothing calls any more. It understands
+Express, Koa, Hono, Fastify, NestJS, Next.js, FastAPI, Flask and Django on the backend, and fetch,
+axios, apisauce, superagent, generated clients and Vite's proxy on the frontend.
+
+**Database.** Money stored as floats, queries inside loops, trees fetched one level at a time, and
+INSERTs without column names. It also flags `SELECT *`, `ORDER BY RAND()` and `LIKE '%x%'` as
+hints. It works with Mongoose, Sequelize, TypeORM, Prisma, Knex, Django, SQLAlchemy, SQLModel and
+raw SQL.
+
+**Copies and dead code.** Exact and near copies of functions (showing what differs), including the
+same logic written in both JavaScript and Python. Unused packages (with their size), unused files,
+and functions nothing calls.
+
+**Hotspots.** Complex files that change often, worked out from the git history, so you know where
+a change is most likely to break something. This needs a git clone, not a downloaded zip.
+
+**Code hygiene.** Errors that are ignored or only logged, commented-out code, comments that just
+repeat the code, unused parameters and deep nesting.
+
+To silence a finding, add a comment with a reason on its line or the line above:
+`// attentry-ignore empty-catch: the cache is optional` (use `#` in Python). A comment without a
+reason doesn't count.
+
+## In the editor
+
+The extension underlines problems in your changes, or in the whole repo if you click the status
+bar. Hover over one to see what the code does, what can go wrong, and how to fix it. These
+explanations come from the code itself, so they don't use any AI credits.
+
+Security and crash problems show as errors, things that will break as warnings, and clean-up as
+info. The light bulb can delete unused code (the only automatic fix), copy the fix so you can paste
+it to your agent, or ignore the finding with a reason. If you mark more than 10% of a rule's
+findings as not useful, that rule drops to a hint.
+
+The Attentry panel shows what's wrong by category, whether Claude Code is connected, how its
+current task is going, and when the repo was last checked.
+
+The extension works in VS Code, Cursor, Windsurf and Antigravity. Other editors, such as JetBrains,
+Zed and Neovim, can run `attentry lsp` as a language server.
+
+## Command line
+
+You need Node 22 or newer. From a clone of this repo:
 
 ```
 npm install
 npm run attentry -- scan path/to/your/repo
 ```
 
-- `--changed` shows only what your changes added: this branch since it left main, or your
-  uncommitted work on main. Grouped as Security, Will break, Database, Clean-up, with the code
-  explained in plain words
-- `--brief` prints one line per error or warning, at most 10: what an agent should get (a few
-  hundred tokens, not thousands)
-- `--all` also shows hints (less certain findings)
-- `--agent` prints findings as steps an AI agent can follow: what, why, how to fix, whether
-  it's safe to do alone, and how to check
-- `--markdown` writes a report to read in a Markdown preview (VS Code, GitHub, a PR comment):
-  a summary table, then every finding linked to its line, with the fix folded under it.
-  `--out attentry-report.md` saves it to a file (as UTF-8, even from PowerShell)
-- `--json` prints the same findings, machine-readable
-- `attentry explain src/app.ts:42` gives everything about the findings on one line
-- `attentry doctor` says whether Attentry is set up and working here: which folder it checks, git,
-  whether Claude Code is connected, and what to do about anything missing
+Useful options:
 
-To silence one finding, write why: `// attentry-ignore empty-catch: the cache is optional`
-(`#` in Python) on its line or the line above. Without a reason, it doesn't count.
+- `--changed` shows only what your branch or uncommitted work added.
+- `--brief` prints at most ten lines, one per error or warning. This is the short version an agent
+  needs.
+- `--all` includes hints, the findings Attentry is less sure about.
+- `--agent` prints each finding as steps an agent can follow.
+- `--markdown` writes a report for a Markdown preview or a pull request comment. Add
+  `--out attentry-report.md` to save it.
+- `--json` prints the findings as JSON.
 
-## With Claude Code
+`attentry explain src/app.ts:42` explains the findings on one line, and `attentry doctor` checks
+that Attentry is set up correctly and tells you how to fix anything that isn't.
 
-The easy way: install the VS Code extension (below) and click **Connect Claude Code** in the
-Attentry panel. That installs Attentry's Claude Code plugin for every project: the hooks, the MCP
-tools, and `/attentry:check`, `/attentry:explain` and `/attentry:plan`. When the extension updates, so does the plugin.
-
-From a clone of this repo instead:
+To use Attentry with Claude Code without the extension, build it and set up the hooks in a repo:
 
 ```
-npm run build                      # once: Attentry as one file, dist/attentry.mjs
+npm run build
 node dist/attentry.mjs init path/to/your/repo
 ```
 
-That sets up Claude Code's hooks in that repo (`.claude/settings.local.json`). Then, in every
-Claude Code session:
+## How it runs
 
-- **Before it writes a function the repo already has**, the agent hears where the existing one is
-  ("`timeAgo` in utils/time.js:1, used in 9 places, has the same code: import it"), so it reuses
-  instead of adding a copy
-- **After each edit** the agent hears only problems this task added, once each, in a few lines,
-  and nothing when the edit is clean. Old issues in the repo never nag
-- **At the start** one line, so the agent knows Attentry is on for this project
-- **With each request you send**, the code the repo already has that it's about ("the repo
-  already has `timeAgo` in src/utils/time.js and GET /api/rides/:id in server.js"), so the agent
-  plans with it instead of writing it again. Only close matches, each said once, nothing for a
-  short request
-- **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
-  a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
-  route that's already there, files that change all the time, a plan too big for one go. Only
-  matches it's sure of, never a block, nothing it already says itself, and nothing when there's
-  nothing to say. It hears the plan when Claude finishes it, or as soon as Claude writes the plan
-  file; any other time, type `/attentry:plan` and Claude sends its plan to Attentry
-- **Every 10 edits** a check-in: what to focus on
-- **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
-  end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,
-  `pnpm test`, pytest, in each app of the repo), or set `"tests": "make check"` (or `"off"`) in
-  `.attentry/config.json`; `"testTimeoutSeconds"` limits a run (default 300, then the whole process
-  tree is stopped). A repo's test command runs whatever the repo says, so Attentry runs only the
-  commands you allowed by connecting it (`init`, or Connect in the sidebar), and asks again when
-  they change. `attentry doctor` shows which ones are allowed
-- **At the end** a change card for you: the files it changed, the problems it added and fixed,
-  and whether the tests passed
-- **Suggest mode** (default) only tells the agent. `init --mode block` also refuses exact copies,
-  sends new security or crash problems back as errors, and won't let the task finish while
-  they're there
+Attentry runs on your machine and only reads your repo. Your code never leaves it.
 
-### Tools the agent can call (MCP)
+A background process keeps the repo in memory, never on disk, so a check after an edit only
+rereads what changed. That takes about 0.1 seconds on a 150-file repo and about 2 seconds on a
+2,000-file one. The first read takes roughly 10 seconds per 1,000 files, and Claude doesn't wait
+for it: edits made in the meantime are checked once it's done. The process stops after half an
+hour without use.
 
-Hooks speak up on their own. With Attentry's MCP server, the agent can also ask:
+The hooks, the tools and the editor all talk to the same process, so they always agree. If two
+agents work in the same repo, each one only hears about its own edits. Every answer is signed with
+a key stored in `~/.attentry` that only you can read, so nothing else can pretend to be Attentry.
 
-- **find_existing**: "is there already a function that formats a date?" (`query`), or the code
-  it's about to write (`code` and `file`). Answers with what exists, where, how often it's used,
-  and whether to import it
-- **check**: problems in its changes, or in the `files` it lists, with what this task added marked
-  "(new in this task)", then clean-up (copies and unused code) apart
-- **explain**: everything about the findings on one `file:line`: what the code does, why it
-  matters, the fix in steps, and how to check. On a line without findings, it says which lines
-  of that file have them
-- **check_plan**: the same notes as the plan check, whenever the agent (or `/attentry:plan`) asks
+## More
 
-Built on the official MCP SDK: it speaks both the handshake protocol (2025 revisions) and
-2026-07-28, and checks every call's arguments, so a wrong call comes back as an error the agent
-can read and fix. All four tools only read.
+- [SPEC.md](SPEC.md): what version 1 will do
+- [AGENTS.md](AGENTS.md): rules for anyone, person or agent, working on this repo
+- [docs/research.md](docs/research.md): the research behind the decisions
+- [docs/TESTING.md](docs/TESTING.md): how to test Attentry by hand
 
-The plugin adds them. Without it, `init` prints the `claude mcp add` command.
-
-A background Attentry keeps the repo in memory (never on disk), so a check after an edit rereads
-only what changed: about 0.1s of work on a 150-file repo, 2s on a 2,000-file one (plus ~0.2s to
-start the hook). It starts on first use and stops after a quiet half hour. Its first read of the
-repo takes about 10 s per 1,000 files; the agent doesn't wait for it. Attentry says it's still
-reading, and checks the edits made meanwhile once it's done. Hooks, MCP tools and the editor ask
-the same one, so the repo is read once and they agree on what's there and what this task added; with two agents in one repo, each hears only
-about the files it edited. It proves it's Attentry on every answer (a key in `~/.attentry` only you
-can read), so nothing else holding its address can talk to your agent.
-
-## In your editor
-
-`editors/vscode` is an extension for VS Code, Cursor, Windsurf and Antigravity. Build it with
-`npm install && npm run package` in that folder, then install the `.vsix` (Extensions →
-"..." → Install from VSIX). Other editors (JetBrains, Zed, Neovim) can run `attentry lsp` as a
-language server. Its findings come from the repo's background Attentry, so the editor shows exactly
-what your agent hears.
-
-- Squiggles on **your changes** by default; click the status bar for the whole repo
-- Hover a squiggle: what the code does in plain words, what can go wrong, how to fix and check.
-  Built from the code itself, so it costs no AI credits
-- Security and crash risks are errors, things that will break are warnings, clean-up is info
-  (faded for unused code). Editors' agents read errors and warnings, so they see real problems
-  while they work, and nothing is spent on clean-up
-- Light bulb: delete unused code (the only automatic fix), copy the fix for your agent, ignore
-  with a reason, or "not useful" (a rule marked on more than 10% of its findings becomes a hint)
-- A line at the top of hotspot files: make small changes there, and test after each
-- The Attentry panel, top to bottom: what's wrong in your changes (or the whole repo), Claude Code
-  (connect it in one click; then suggest or block, and how its task is going), and one line on the
-  last check. Hints and automatic checks are in Settings
-
-It finds:
-
-- **Copies:** exact and drifted copies of functions (with what differs), including the same logic in JS and Python
-- **Dead code:** unused packages (with sizes), unused files, functions nothing calls
-- **Frontend and backend:** calls to API routes that don't exist (and the route it likely meant),
-  calls with the wrong method, routes nothing calls. Backends: Express, Koa, Hono, Fastify,
-  NestJS, Next.js, FastAPI, Flask, Django/DRF. Frontends: fetch, axios (with base URLs),
-  apisauce (React Native), superagent, generated clients, Vite's proxy
-- **Security, endpoint by endpoint:** routes with no auth, admin routes without a role check,
-  records loaded by id with no owner check (IDOR), login with no rate limit. In the code: SQL /
-  NoSQL / command injection, eval, SSRF, open redirects, file paths, mass assignment, hardcoded
-  and leaked secrets, `.env` in the repo, XSS, CORS with credentials, leaked stack traces, weak
-  password storage, unverified JWTs, `Math.random()` tokens. The same endpoint checks run on the
-  other doors into an app: Socket.io events, WebSocket messages, tRPC procedures, GraphQL
-  resolvers and Next.js server actions (`socket event "ride:cancel" loads a record by an id the
-  caller sends without checking it belongs to the caller`). What it can't check yet (hapi,
-  Elysia, Python WebSockets and GraphQL, and more) it names, so "no security issues" never means
-  "not looked at"
-- **Crash risks:** async Express 4 handlers with no try/catch, `JSON.parse` on outside data,
-  exiting the process in a handler
-- **Database:** money stored as floats, queries inside loops (N+1), trees walked one query
-  per level, INSERT without columns; hints for SELECT *, ORDER BY RAND() and `LIKE '%x%'`
-  search. Mongoose, Sequelize, TypeORM, Prisma, Knex, Django, SQLAlchemy, SQLModel, raw SQL
-- **Hotspots:** complex files that change often (from git history), so you know where to
-  clean first. Needs a git clone, not a downloaded zip
-- **Code hygiene:** errors that are ignored or only logged, commented-out code, comments that
-  repeat the code, unused parameters, deep nesting
-
-Supports JavaScript, TypeScript (incl. JSX/TSX), Python and Astro.
-
-- What V1 will do: [SPEC.md](SPEC.md)
-- Rules for anyone (human or agent) working on this repo: [AGENTS.md](AGENTS.md)
-- Research behind the decisions: [docs/research.md](docs/research.md)
-- How to test Attentry by hand (features, security, load): [docs/TESTING.md](docs/TESTING.md)
+Attentry is open source under the MIT licence. Made by [Aarv Singh Chauhan](https://aarv.is-a.dev/).
