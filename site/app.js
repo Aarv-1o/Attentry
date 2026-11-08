@@ -464,7 +464,7 @@ if (scene && code) {
   }
 }
 
-// ---- Ask it what it catches: press send, the answer pops up; then "Explain again" is typed in ----
+// ---- Ask it what it catches: press send, the answer pops up; "Ask again" replays it ----
 const chat = document.getElementById("chat");
 if (chat) {
   const log = document.getElementById("chat-log");
@@ -472,9 +472,9 @@ if (chat) {
   const form = document.getElementById("chat-form");
   const input = document.getElementById("chat-q");
   const send = form.querySelector(".send");
+  const replay = document.getElementById("chat-replay");
   const answer = document.getElementById("chat-answer");
-  const FIRST = "What does Attentry catch?";
-  const AGAIN = "Explain again";
+  const QUESTION = "What does Attentry catch?";
   let busy = false;
 
   const fromYou = (text) => {
@@ -494,11 +494,12 @@ if (chat) {
     row.append(avatar, body);
     return row;
   };
-  // Types the next question into the box, then invites a press.
-  const offer = async (text) => {
-    if (still) input.value = text;
-    else for (let n = 1; n <= text.length; n++) { input.value = text.slice(0, n); await wait(60); }
+  // Back to the start: the welcome, the question in the box, the send button glowing.
+  const reset = () => {
+    log.replaceChildren(welcome);
+    input.value = QUESTION;
     send.disabled = false;
+    replay.hidden = true;
     chat.classList.add("ready");
   };
 
@@ -509,13 +510,6 @@ if (chat) {
     send.disabled = true;
     const question = input.value;
     input.value = "";
-    // A new round starts from the welcome, so the replay animates like the first time.
-    if (question === AGAIN && !still) {
-      log.style.transition = "opacity 0.3s";
-      log.style.opacity = "0";
-      await wait(320);
-      log.style.opacity = "1";
-    }
     log.replaceChildren(welcome, fromYou(question));
     if (!still) {
       const thinking = document.createElement("span");
@@ -530,15 +524,24 @@ if (chat) {
     const copy = answer.content.cloneNode(true);
     copy.querySelectorAll(".answer").forEach((el, i) => el.style.setProperty("--n", String(i)));
     log.append(copy);
-    await wait(still ? 0 : 6 * 120 + 500);
+    replay.hidden = false;
     busy = false;
-    await offer(AGAIN);
   };
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     void ask();
   });
-  input.value = FIRST;
-  chat.classList.add("ready");
+  replay.addEventListener("click", async () => {
+    if (busy) return;
+    if (!still) {
+      log.style.transition = "opacity 0.3s";
+      log.style.opacity = "0";
+      await wait(320);
+      log.style.opacity = "1";
+    }
+    reset();
+    send.focus();
+  });
+  reset();
 }
