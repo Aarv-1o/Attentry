@@ -92,7 +92,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Run your own Attentry instead of the bundled one, e.g. [\"node\", \"--import\", \"tsx\", \"D:/detron/De-Tron/src/cli/bin.ts\", \"lsp\"]. Empty: the bundled one."
+          "description": "Run your own Attentry instead of the bundled one, e.g. [\"node\", \"--import\", \"tsx\", \"/path/to/attentry/src/cli/bin.ts\", \"lsp\"]. Empty: the bundled one."
         },
         "attentry.autoScan": {
           "type": "boolean",

@@ -108,7 +108,7 @@ In a session where Attentry's MCP server is added (from the sidebar, or the `cla
 | 4 | find_existing with the code of a copy of timeAgo, and a file | "the same code, only the names differ. Import it." |
 | 5 | "Use check" after an edit | Problems and clean-up in your changes, "(new in this task)" on what this task added, the other copy's location for copies |
 | 6 | "Use explain on <file:line>" | Full steps for that finding |
-| 7 | Cursor / Windsurf / Cline: add the JSON from the README | The same three tools work |
+| 7 | "Use check_plan" with a plan that adds `formatTimeAgo` and an existing route | Notes on `timeAgo` and the route; "go ahead" for a plan with nothing to say |
 
 ### 1.6 Accuracy (false alarms)
 

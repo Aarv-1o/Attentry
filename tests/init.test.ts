@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { init, withAttentryHooks } from "../src/agent/init.ts";
 import { makeRepo } from "./helpers.ts";
 
-const CMD = 'node "D:/detron/De-Tron/dist/attentry.mjs" hook claude';
+const CMD = 'node "/home/me/attentry/dist/attentry.mjs" hook claude';
 
 test("init adds Attentry's hooks, keeps the person's own, and doesn't add them twice", () => {
   const mine = { hooks: { PostToolUse: [{ matcher: "Edit", hooks: [{ type: "command", command: "prettier --write" }] }] }, model: "opus" };

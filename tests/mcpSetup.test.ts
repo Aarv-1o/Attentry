@@ -52,6 +52,6 @@ test("mcpState: found under any spelling of the folder Claude Code keeps (d:/rep
   const server = join(project, "attentry.mjs");
   await writeFile(server, "");
   const other = project.replace(/^./, (c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()));
-  const projects = { [other]: { mcpServers: { detron: { command: "node", args: ["old.mjs", "mcp"] } } }, [project]: { mcpServers: { attentry: { command: "node", args: [server, "mcp"] } } } };
+  const projects = { [other]: { mcpServers: { "other-tool": { command: "node", args: ["old.mjs", "mcp"] } } }, [project]: { mcpServers: { attentry: { command: "node", args: [server, "mcp"] } } } };
   await withClaudeSettings({ projects }, async () => assert.equal(await mcpState(project), "added"));
 });

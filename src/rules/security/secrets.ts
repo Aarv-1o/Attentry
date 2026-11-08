@@ -1,4 +1,5 @@
 import type { Node } from "web-tree-sitter";
+import { assignedName } from "../../index/facts.ts";
 import { isTestFile } from "../../index/files.ts";
 import type { Confidence } from "../confidence.ts";
 import { collector, walk, type FileContext, type LineFinding } from "../line/types.ts";
@@ -33,17 +34,6 @@ function jwtRole(token: string): string | undefined {
   } catch {
     return undefined; // not a JWT we can read: no role to report
   }
-}
-
-// The name a value is assigned to: const API_KEY = "...", { apiKey: "..." }, SECRET_KEY = "...".
-function assignedName(node: Node): string | undefined {
-  const p = node.parent;
-  if (!p) return undefined;
-  if (p.type === "variable_declarator") return p.childForFieldName("name")?.text;
-  if (p.type === "pair") return p.childForFieldName("key")?.text.replace(/['"]/g, "");
-  if (p.type === "assignment" || p.type === "assignment_expression") return p.childForFieldName("left")?.text.split(".").at(-1);
-  if (p.type === "keyword_argument") return p.childForFieldName("name")?.text;
-  return undefined;
 }
 
 const looksRandom = (value: string) => value.length >= 16 && /[A-Za-z]/.test(value) && /\d/.test(value) && !/\s/.test(value);
