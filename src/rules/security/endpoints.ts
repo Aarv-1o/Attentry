@@ -62,6 +62,9 @@ function handlerCode(route: FullRoute, functions: FunctionInfo[], texts: Map<str
   return "";
 }
 
+// A limit written in the handler itself: `if (isRateLimited(req.ip)) return res.status(429)...`.
+const limitedInside = (body: string) => /\b(is_?)?rate_?limit\w*\(|\blimiter\b|throttl\w*\(|\bstatus\(\s*429\b|\b429\b/i.test(body);
+
 const hasParam = (route: Endpoint) => route.path.segments.includes("*") || !!route.takesInput;
 
 export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary, allFiles }: EndpointInput): LineFinding[] {
@@ -103,7 +106,7 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
       add(route, "missing-ownership-check", confidence, `${label(route)} loads a record by ${route.takesInput ? "an id the caller sends" : "the id in the URL"} without checking it belongs to the caller`);
     }
     // Only what anyone can call: a logged-in route can't be brute-forced by strangers.
-    if (route.method !== "GET" && !isAuthed && (signUp || LOGIN_PATH.test(route.path.text)) && !route.guards.some((g) => RATE_LIMIT.test(g))) {
+    if (route.method !== "GET" && !isAuthed && (signUp || LOGIN_PATH.test(route.path.text)) && !route.guards.some((g) => RATE_LIMIT.test(g)) && !limitedInside(body)) {
       add(route, "auth-without-rate-limit", rateLimitLibrary ? "maybe" : "likely", `${label(route)} has no rate limit: passwords and codes can be guessed by brute force`);
     }
   }
