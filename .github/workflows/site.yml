@@ -1,0 +1,34 @@
+# Publishes site/ to GitHub Pages, with the favicon from brand/ (one source for the logo).
+# Needs Pages turned on for the repo, with "GitHub Actions" as the source.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "brand/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp brand/favicon.svg site/favicon.svg
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -117,6 +117,9 @@ summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 footer { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.92em; }
 footer span { flex: 1; min-width: 0; }
 footer .bad { color: var(--vscode-errorForeground); }
+.links { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 4px 14px 0; font-size: 0.92em; }
+.links button { color: var(--vscode-textLink-foreground); }
+.links button:hover { text-decoration: underline; }
 footer.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 35% 100%; background-repeat: no-repeat; animation: sweep 1.3s ease-in-out infinite; }
 @keyframes sweep { from { background-position: -35% 0; } to { background-position: 135% 0; } }
 

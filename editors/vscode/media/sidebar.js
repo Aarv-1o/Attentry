@@ -133,10 +133,17 @@ function footer() {
   return `<footer class="${busy ? "busy" : ""}"><i class="glyph ${status?.error ? "error" : busy ? "busy" : "ok"}"></i><span>${project}${line}</span><a data-act="settings" title="Hints, automatic checks">Settings</a></footer>`;
 }
 
+// Attentry's site, passing it on, and the code.
+const links = () => `<nav class="links" aria-label="Attentry">
+  <button data-act="openSite">View the site</button>
+  <button data-act="share">Share with a friend</button>
+  <button data-act="openGithub">GitHub</button>
+</nav>`;
+
 function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
-  app.innerHTML = findings() + claudeCode() + footer();
+  app.innerHTML = findings() + claudeCode() + footer() + links();
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;
