@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { chmod, readFile, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "node:test";
 import { isEdit } from "../src/agent/hooks.ts";
-import { installPlugin, pluginHome, refreshPlugin } from "../src/agent/plugin.ts";
+import { allowTools, installPlugin, pluginHome, refreshPlugin, TOOLS_RULE } from "../src/agent/plugin.ts";
 import { makeRepo } from "./helpers.ts";
 
 // The Claude Code plugin the extension carries: its files name the build and the events, so they
@@ -16,7 +16,7 @@ const RUN = ["${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs"];
 
 test("plugin hooks: every event Attentry answers, on every edit tool and the plan, running the build inside the plugin", async () => {
   const { hooks } = await read("hooks/hooks.json");
-  assert.deepEqual(Object.keys(hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "Stop"]);
+  assert.deepEqual(Object.keys(hooks).sort(), ["PostToolUse", "PreToolUse", "SessionStart", "Stop", "UserPromptSubmit"]);
   for (const [event, groups] of Object.entries(hooks) as [string, { matcher?: string; hooks: { command: string; args: string[] }[] }[]][]) {
     for (const group of groups) {
       for (const h of group.hooks) assert.deepEqual([h.command, ...h.args], ["node", ...RUN, "hook", "claude"], event);
@@ -35,7 +35,9 @@ test("plugin MCP server: the same build, as `attentry`", async () => {
 });
 
 // A stand-in for Claude Code's `claude` command (a .cmd on Windows): writes down each call, and
-// answers `plugin list --json` with `listed`.
+// answers `plugin list --json` with `listed`. Named by ATTENTRY_CLAUDE, so the real claude.exe on
+// PATH is never the one run; and with its own CLAUDE_CONFIG_DIR, so even that couldn't touch the
+// person's real Claude Code.
 async function fakeClaude(listed: object[]) {
   const dir = await makeRepo({ "listed.json": JSON.stringify(listed) });
   const log = join(dir, "calls.log");
@@ -48,11 +50,17 @@ async function fakeClaude(listed: object[]) {
   await writeFile(join(dir, "claude"), `#!/bin/sh\nexec node "${join(dir, "fake.mjs")}" "$@"\n`);
   await chmod(join(dir, "claude"), 0o755);
   await writeFile(join(dir, "claude.cmd"), `@node "%~dp0fake.mjs" %*\r\n`);
-  const path = process.env.PATH;
-  process.env.PATH = `${dir}${delimiter}${path}`;
+  const before = { ATTENTRY_CLAUDE: process.env.ATTENTRY_CLAUDE, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR };
+  process.env.ATTENTRY_CLAUDE = join(dir, process.platform === "win32" ? "claude.cmd" : "claude");
+  process.env.CLAUDE_CONFIG_DIR = join(dir, "config");
   return {
     calls: async () => (existsSync(log) ? (await readFile(log, "utf8")).trim().split("\n").filter(Boolean) : []),
-    [Symbol.dispose]: () => void (process.env.PATH = path),
+    [Symbol.dispose]: () => {
+      for (const [key, value] of Object.entries(before)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    },
   };
 }
 
@@ -83,6 +91,22 @@ test("Connect installs the plugin for every project and takes out the hooks and 
   ]);
   const settings = JSON.parse(await readFile(join(folder, ".claude/settings.local.json"), "utf8"));
   assert.deepEqual(settings, { model: "opus", hooks: { PostToolUse: [{ matcher: "Edit", hooks: [mine] }] } }, "the person's own hook stays");
+  // Attentry's read-only tools are allowed in the person's Claude Code settings, once.
+  const user = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
+  assert.deepEqual(JSON.parse(await readFile(user, "utf8")), { permissions: { allow: [TOOLS_RULE] } });
+});
+
+test("allowing Attentry's tools keeps the person's settings, adds the rule once, and leaves a file it can't read alone", async () => {
+  using _claude = await fakeClaude([]);
+  const user = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
+  await mkdir(process.env.CLAUDE_CONFIG_DIR!, { recursive: true });
+  await writeFile(user, JSON.stringify({ theme: "dark", permissions: { allow: ["Bash(npm test)"], deny: ["Read(.env)"] } }));
+  assert.equal(await allowTools(), true);
+  assert.equal(await allowTools(), true);
+  assert.deepEqual(JSON.parse(await readFile(user, "utf8")), { theme: "dark", permissions: { allow: ["Bash(npm test)", TOOLS_RULE], deny: ["Read(.env)"] } });
+  await writeFile(user, "{ // a comment\n}");
+  assert.equal(await allowTools(), false);
+  assert.equal(await readFile(user, "utf8"), "{ // a comment\n}");
 });
 
 test("when the editor starts, an installed plugin older than the extension's is updated; nothing else is touched", async () => {

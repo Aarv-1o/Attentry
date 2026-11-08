@@ -130,6 +130,11 @@ const ENDED = ["cancelled", "expired"];
 // listener on window never hears it scroll.
 window.addEventListener("scroll", measure, true);
 `, "comment-repeats-code"), []);
+  // Quoted output is an example of what the code gives, not a repeat of it.
+  assert.deepEqual(await check("f.ts", `
+// "about 40 s", "about 3 min".
+const about = (ms: number) => (ms < 90_000 ? "s" : "min");
+`, "comment-repeats-code"), []);
 });
 
 async function shapeIssues(files: Record<string, string>): Promise<string[]> {

@@ -17,7 +17,7 @@ test("doctor: the project, git, hooks, mode and MCP, with what to do", async () 
     assert.match(report, /^✓ Project: shop, inside the folder you're in \(1 file Attentry reads\)\n! Git: no/);
     assert.match(report, /! Tests: none found/);
     assert.match(report, /✗ Claude Code: not connected\n {2}→ Click Connect Claude Code in the Attentry sidebar/);
-    assert.match(report, /! MCP tools \(find_existing, check, explain\): not added/);
+    assert.match(report, /! MCP tools \(find_existing, check, explain, check_plan\): not added/);
   });
   // `claude mcp add --scope local` from the project's folder, pointing at an Attentry that exists.
   const attentry = join(await makeRepo({}), "attentry.mjs");

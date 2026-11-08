@@ -53,7 +53,7 @@ test("attentry mcp: both protocol eras, and wrong calls come back as errors the 
     assert.equal(init.result.serverInfo.name, "attentry");
     assert.match(init.result.instructions, /find_existing/);
     const tools = (await server.ask("tools/list")).result.tools;
-    assert.deepEqual(tools.map((t: any) => t.name), ["find_existing", "check", "explain"]);
+    assert.deepEqual(tools.map((t: any) => t.name), ["find_existing", "check", "explain", "check_plan"]);
     assert.ok(tools.every((t: any) => t.annotations.readOnlyHint), "agents may call them without asking: they change nothing");
 
     // Malformed lines don't stop the server: the next request is still answered.

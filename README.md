@@ -41,7 +41,7 @@ To silence one finding, write why: `// attentry-ignore empty-catch: the cache is
 
 The easy way: install the VS Code extension (below) and click **Connect Claude Code** in the
 Attentry panel. That installs Attentry's Claude Code plugin for every project: the hooks, the MCP
-tools, and `/attentry:check` and `/attentry:explain`. When the extension updates, so does the plugin.
+tools, and `/attentry:check`, `/attentry:explain` and `/attentry:plan`. When the extension updates, so does the plugin.
 
 From a clone of this repo instead:
 
@@ -59,10 +59,16 @@ Claude Code session:
 - **After each edit** the agent hears only problems this task added, once each, in a few lines,
   and nothing when the edit is clean. Old issues in the repo never nag
 - **At the start** one line, so the agent knows Attentry is on for this project
+- **With each request you send**, the code the repo already has that it's about ("the repo
+  already has `timeAgo` in src/utils/time.js and GET /api/rides/:id in server.js"), so the agent
+  plans with it instead of writing it again. Only close matches, each said once, nothing for a
+  short request
 - **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
   a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
   route that's already there, files that change all the time, a plan too big for one go. Only
-  matches it's sure of, never a block, and nothing when there's nothing to say
+  matches it's sure of, never a block, nothing it already says itself, and nothing when there's
+  nothing to say. It hears the plan when Claude finishes it, or as soon as Claude writes the plan
+  file; any other time, type `/attentry:plan` and Claude sends its plan to Attentry
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,
@@ -89,10 +95,11 @@ Hooks speak up on their own. With Attentry's MCP server, the agent can also ask:
 - **explain**: everything about the findings on one `file:line`: what the code does, why it
   matters, the fix in steps, and how to check. On a line without findings, it says which lines
   of that file have them
+- **check_plan**: the same notes as the plan check, whenever the agent (or `/attentry:plan`) asks
 
 Built on the official MCP SDK: it speaks both the handshake protocol (2025 revisions) and
 2026-07-28, and checks every call's arguments, so a wrong call comes back as an error the agent
-can read and fix. All three tools only read.
+can read and fix. All four tools only read.
 
 The plugin adds them. Without it, `init` prints the `claude mcp add` command.
 
@@ -138,7 +145,12 @@ It finds:
   records loaded by id with no owner check (IDOR), login with no rate limit. In the code: SQL /
   NoSQL / command injection, eval, SSRF, open redirects, file paths, mass assignment, hardcoded
   and leaked secrets, `.env` in the repo, XSS, CORS with credentials, leaked stack traces, weak
-  password storage, unverified JWTs, `Math.random()` tokens
+  password storage, unverified JWTs, `Math.random()` tokens. The same endpoint checks run on the
+  other doors into an app: Socket.io events, WebSocket messages, tRPC procedures, GraphQL
+  resolvers and Next.js server actions (`socket event "ride:cancel" loads a record by an id the
+  caller sends without checking it belongs to the caller`). What it can't check yet (hapi,
+  Elysia, Python WebSockets and GraphQL, and more) it names, so "no security issues" never means
+  "not looked at"
 - **Crash risks:** async Express 4 handlers with no try/catch, `JSON.parse` on outside data,
   exiting the process in a handler
 - **Database:** money stored as floats, queries inside loops (N+1), trees walked one query

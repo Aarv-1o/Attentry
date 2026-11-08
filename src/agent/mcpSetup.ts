@@ -51,12 +51,21 @@ export async function mcpState(folder: string): Promise<"added" | "missing" | "s
 
 export const mcpAddCommand = (entry: string) => `claude mcp add attentry --scope local -- ${hookCommand(entry).replace(/ hook claude$/, " mcp")}`;
 
-// Claude Code's own command, run in `folder`. It's a .cmd on Windows, which only a shell can start:
-// there, arguments with spaces or shell characters are quoted.
-export const claude = (args: string[], folder: string) => {
-  const windows = process.platform === "win32";
-  const quoted = windows ? args.map((a) => (/[\s&()^|<>"]/.test(a) ? `"${a}"` : a)) : args;
-  return run("claude", quoted, { cwd: folder, timeout: 60_000, shell: windows, windowsHide: true });
+// Claude Code's own command, run in `folder`: `claude`, or ATTENTRY_CLAUDE when it's somewhere else.
+// Usually claude.exe (the native installer), started directly. An npm install on Windows gives
+// claude.cmd, which only a shell can start (Node refuses it without one: ENOENT by name, EINVAL by
+// path): then one command line, with what has spaces or shell characters quoted.
+export const claude = async (args: string[], folder: string) => {
+  const command = process.env.ATTENTRY_CLAUDE || "claude";
+  const options = { cwd: folder, timeout: 60_000, windowsHide: true };
+  try {
+    return await run(command, args, options);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (process.platform !== "win32" || (code !== "ENOENT" && code !== "EINVAL")) throw error;
+    const line = [command, ...args].map((a) => (/[\s&()^|<>"]/.test(a) ? `"${a}"` : a)).join(" ");
+    return run(line, [], { ...options, shell: true });
+  }
 };
 
 export type Setup = { ok: true } | { ok: false; reason: string; command: string };

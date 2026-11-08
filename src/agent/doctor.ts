@@ -68,7 +68,7 @@ async function withoutPlugin(folder: string, root: string, checks: Check[]): Pro
   const mcp = await attentryMcp(root === folder ? [folder] : [folder, root]);
   const mcpPath = mcp && attentryPath(mcp.server);
   checks.push(!mcp
-    ? { ok: "warn", text: "MCP tools (find_existing, check, explain): not added for Claude Code here", fix: "Run the `claude mcp add` line that `attentry init` prints." }
+    ? { ok: "warn", text: "MCP tools (find_existing, check, explain, check_plan): not added for Claude Code here", fix: "Run the `claude mcp add` line that `attentry init` prints." }
     : mcpPath && !existsSync(mcpPath)
       ? { ok: false, text: `MCP tools: added (${mcp.where}), but ${mcpPath} isn't there`, fix: "Add it again with the path to your Attentry." }
       : { ok: true, text: `MCP tools: added (${mcp.where}). A Claude Code session started before that needs a restart to see them` });

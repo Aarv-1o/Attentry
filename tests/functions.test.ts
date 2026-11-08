@@ -52,6 +52,26 @@ exports.e = e;
   assert.equal(fns.hidden?.exported, false);
 });
 
+test("JS: a function inside an exported one isn't exported (a component's own handler)", async () => {
+  const all = await extract(`
+export default function RiderApp() {
+  function cancelRide() {}
+  const pick = () => {};
+  return null;
+}
+export const DriverApp = () => {
+  function cancelRide() {}
+  return null;
+};
+export const arrow = () => 1;
+`, "javascript");
+  const exported = (name: string) => all.filter((f) => f.name === name).map((f) => f.exported);
+  assert.deepEqual(exported("RiderApp"), [true]);
+  assert.deepEqual(exported("arrow"), [true]);
+  assert.deepEqual(exported("pick"), [false]);
+  assert.deepEqual(exported("cancelRide"), [false, false]);
+});
+
 test("JS: module.exports object counts as exported", async () => {
   const fns = byName(await extract("function a() {}\nconst b = () => 1;\nmodule.exports = { a, b: b };", "javascript"));
   assert.equal(fns.a?.exported, true);

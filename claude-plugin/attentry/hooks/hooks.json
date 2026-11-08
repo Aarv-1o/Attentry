@@ -1,7 +1,10 @@
 {
-  "description": "Attentry: a greeting at the start, notes on a plan before it starts, a reuse check before each edit, new problems after it, and the change card at the end.",
+  "description": "Attentry: a greeting at the start, the related code it already has with each request, notes on a plan before it starts, a reuse check before each edit, new problems after it, and the change card at the end.",
   "hooks": {
     "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs", "hook", "claude"], "timeout": 60 }] }
+    ],
+    "UserPromptSubmit": [
       { "hooks": [{ "type": "command", "command": "node", "args": ["${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs", "hook", "claude"], "timeout": 60 }] }
     ],
     "PreToolUse": [

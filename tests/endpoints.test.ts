@@ -78,3 +78,18 @@ def create(item: ItemIn):
 `,
   }), [], "FastAPI routes are guarded; with no other handler scoping by user, an IDOR would only be a hint");
 });
+
+test("Express: a rate limit written inside the login handler counts (what Claude wrote in the final test)", async () => {
+  const found = await security({
+    "package.json": PKG,
+    "server.js": `import express from "express";
+const app = express();
+app.post("/login", (req, res) => {
+  if (isRateLimited(req.ip)) return res.status(429).json({ error: "Too many attempts" });
+  res.json({ token: sign(req.body) });
+});
+app.post("/signup", (req, res) => res.json(createUser(req.body)));
+`,
+  });
+  assert.deepEqual(found.filter((f) => f.startsWith("auth-without-rate-limit")), ["auth-without-rate-limit likely server.js:7"]);
+});

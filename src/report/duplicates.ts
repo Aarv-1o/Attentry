@@ -79,6 +79,7 @@ export function formatDuplicates(
   showHints: boolean,
   differences: Map<DuplicateGroup, CopyDifferences> = new Map(),
   unusedFiles: Set<string> = new Set(),
+  appOf: (file: string) => string = () => "",
 ): string {
   const lines: string[] = [];
   let hidden = 0;
@@ -106,7 +107,10 @@ export function formatDuplicates(
       }
       const diff = differences.get(group);
       if (diff) lines.push(...differencesSection(diff));
-      lines.push(`     → ${ADVICE[group.kind][level] ?? ""}`, "");
+      // A browser app and its server (each with its own package.json) can't import from each other.
+      const apps = new Set(group.functions.map((f) => appOf(f.file)));
+      const advice = group.kind === "exact" && apps.size > 1 ? `They're in different apps (${[...apps].map((a) => a.replace(/\/$/, "") || "the root").join(", ")}), which can't import from each other: move it to a package they share, or keep both and change them together.` : ADVICE[group.kind][level] ?? "";
+      lines.push(`     → ${advice}`, "");
     });
   }
   if (!lines.length) return nothingFound("copies", hidden);

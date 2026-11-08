@@ -26,15 +26,18 @@ test("complexity: text inside multi-line strings (prompts, templates) isn't code
   }
 });
 
-test("hotspots: complex AND often changed ranks first; files changed once are left out", () => {
+test("hotspots: complex AND often changed ranks first; files that rarely change are left out", () => {
   const sizes = new Map([
     ["big-stable.ts", { lines: 900, complexity: 3000 }],
     ["big-busy.ts", { lines: 800, complexity: 2500 }],
     ["small-busy.ts", { lines: 40, complexity: 30 }],
     ["once.ts", { lines: 2000, complexity: 9000 }],
   ]);
-  const changes = new Map([["big-stable.ts", 2], ["big-busy.ts", 12], ["small-busy.ts", 15], ["once.ts", 1]]);
-  assert.deepEqual(findHotspots(changes, sizes).map((h) => h.file), ["big-busy.ts", "big-stable.ts", "small-busy.ts"]);
+  const changes = new Map([["big-stable.ts", 3], ["big-busy.ts", 12], ["small-busy.ts", 15], ["once.ts", 1]]);
+  assert.deepEqual(findHotspots(changes, sizes, 40).map((h) => h.file), ["big-busy.ts", "big-stable.ts", "small-busy.ts"]);
+  // 2 changes in 55 commits isn't "often"; 3 of 100 isn't either (under 5%).
+  assert.deepEqual(findHotspots(new Map([["a.ts", 2]]), new Map([["a.ts", { lines: 600, complexity: 900 }]]), 55), []);
+  assert.deepEqual(findHotspots(new Map([["a.ts", 3]]), new Map([["a.ts", { lines: 600, complexity: 900 }]]), 100), []);
 });
 
 test("git history: counts changes per file, also when scanning a folder inside the repo", async () => {
@@ -63,11 +66,12 @@ test("hotspots report: ranked, with findings per file; or why it wasn't checked"
   const hotspots = findHotspots(
     new Map([["src/Inbox.tsx", 12], ["src/util.ts", 3]]),
     new Map([["src/Inbox.tsx", { lines: 2149, complexity: 14000 }], ["src/util.ts", { lines: 180, complexity: 90 }]]),
+    47,
   );
   const text = formatHotspots({ ok: true, commits: 47, changes: new Map() }, hotspots, new Map([["src/Inbox.tsx", 19]]), false);
   assert.match(text, /^Hotspots: complex files that change often, where changes break things most \(from 47 commits\)/);
   assert.match(text, /1\. src\/Inbox\.tsx {2}12 changes {2}2,149 lines {2}19 findings above\n {2}2\. src\/util\.ts {5}3 changes {4}180 lines\n/);
   assert.equal(formatHotspots({ ok: false, reason: "only 3 commits of history" }, [], new Map(), false), "Hotspots: not checked (only 3 commits of history).\n");
-  const small = findHotspots(new Map([["a.ts", 9]]), new Map([["a.ts", { lines: 60, complexity: 80 }]]));
+  const small = findHotspots(new Map([["a.ts", 9]]), new Map([["a.ts", { lines: 60, complexity: 80 }]]), 20);
   assert.equal(formatHotspots({ ok: true, commits: 20, changes: new Map() }, small, new Map(), true), "No hotspots found (the files that change most are small and have no findings).\n");
 });

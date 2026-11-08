@@ -37,6 +37,7 @@ export function withAttentryHooks(settings: Settings, command: string): Settings
   const handler = { type: "command", command, timeout: TIMEOUT_S };
   const add = (event: string, group: Group) => (hooks[event] = [...(hooks[event] ?? []), group]);
   add("SessionStart", { hooks: [handler] });
+  add("UserPromptSubmit", { hooks: [handler] }); // the related code the repo has, with each request
   add("PreToolUse", { matcher: EDITS, hooks: [handler] });
   add("PreToolUse", { matcher: "ExitPlanMode", hooks: [handler] }); // notes on a plan before Claude starts it
   add("PostToolUse", { matcher: EDITS, hooks: [handler] });

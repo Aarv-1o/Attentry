@@ -22,6 +22,13 @@ test("text report: sure copies with locations, evidence and advice; hints hidden
   assert.doesNotMatch(text, /fetchClients/);
 });
 
+test("text report: a copy in a browser app and its server can't be imported across: say what to do instead", () => {
+  const apart: DuplicateGroup = { kind: "exact", confidence: "sure", sharedValues: [], functions: [fn("haversineKm", "client/src/DriverApp.jsx", 10), fn("haversineKm", "server/index.js", 24)] };
+  const app = (file: string) => (file.startsWith("client/") ? "client/" : "server/");
+  assert.match(formatDuplicates([apart], false, new Map(), new Set(), app), /→ They're in different apps \(client, server\), which can't import from each other: move it to a package they share/);
+  assert.match(formatDuplicates([apart], false), /→ Keep one, import it everywhere else\./, "one app: import it");
+});
+
 test("text report: --all shows hints", () => {
   assert.match(formatDuplicates(groups, true), /Hints \(1\)[\s\S]*fetchClients/);
 });

@@ -90,10 +90,15 @@ export function indentComplexity(text: string, skipRows: Set<number> = new Set()
 const MIN_LINES = 150;
 export const worthFlagging = (h: Hotspot, hasFindings: boolean) => h.lines >= MIN_LINES || hasFindings;
 
-export function findHotspots(changes: Map<string, number>, sizes: Map<string, FileSize>): Hotspot[] {
+// "Changes often": at least 3 times, and in at least 5% of commits. Two changes in 55 commits isn't often.
+const MIN_CHANGES = 3;
+const MIN_SHARE = 0.05;
+
+export function findHotspots(changes: Map<string, number>, sizes: Map<string, FileSize>, commits: number): Hotspot[] {
+  const often = Math.max(MIN_CHANGES, Math.ceil(commits * MIN_SHARE));
   const rows = [...sizes].flatMap(([file, size]) => {
     const n = changes.get(file) ?? 0;
-    return n > 1 ? [{ file, changes: n, ...size }] : [];
+    return n >= often ? [{ file, changes: n, ...size }] : [];
   });
   if (!rows.length) return [];
   const maxChanges = Math.max(...rows.map((r) => r.changes));

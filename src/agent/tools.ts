@@ -11,6 +11,8 @@ import { briefLine } from "../report/brief.ts";
 import { explainFindings, findingsOn } from "../report/explain.ts";
 import { nameWords } from "../rules/codebase/duplicates.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
+import { uncheckedDoors } from "../rules/security/unchecked.ts";
+import { planMessage } from "./hooks.ts";
 import { keyOf, newSince, type Task } from "./ledger.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { plural } from "../report/common.ts";
@@ -23,6 +25,7 @@ export interface ToolContext {
   index: () => Promise<RepoIndex>;
   findings: () => Promise<Finding[]>;
   task: () => Task | undefined; // the agent task running now, if hooks are connected
+  reviewPlan: (plan: string) => Promise<string[]>;
 }
 
 export interface ToolResult {
@@ -37,11 +40,11 @@ const STOPWORDS = new Set("a an the to of for and or in on with from by into as 
 const stem = (word: string) => word.replace(/(ing|ed|es|s)$/, "");
 // "map" and "mapper", "format" and "formatted": one word plus a short ending. Not "time" and
 // "timeline": a longer ending is another word.
-const sameWord = (a: string, b: string) => {
+export const sameWord = (a: string, b: string) => {
   const [short, long] = a.length <= b.length ? [a, b] : [b, a];
   return short === long || (short.length >= 3 && long.startsWith(short) && long.length - short.length <= 3);
 };
-const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
+export const words = (text: string) => (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((w) => !STOPWORDS.has(w)).map(stem);
 // Repo-relative, with every ./ and ../ worked out: "src/../../x" is outside, and says so ("../x").
 const relativeFile = (root: string, file: string) => relative(root, resolve(root, file)).replace(/\\/g, "/");
 const LANGUAGE_FILE: Record<string, string> = { js: "new.js", javascript: "new.js", ts: "new.ts", typescript: "new.ts", tsx: "new.tsx", jsx: "new.jsx", py: "new.py", python: "new.py" };
@@ -141,7 +144,10 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
   }
   const task = ctx.task();
   const added = new Set(task ? newSince(task, all).map(keyOf) : []);
-  if (!shown.length) return { text: `No problems in ${scope}.` };
+  // What the security checks can't see, so "no problems" isn't read as "checked and safe".
+  const doors = uncheckedDoors((await ctx.index()).usage);
+  const blind = doors.length ? [`Not checked for security yet: ${doors.map((d) => `${d.label} (${d.files.slice(0, 3).join(", ")})`).join("; ")}. Check who may call them (login, whose data) yourself.`] : [];
+  if (!shown.length) return { text: [`No problems in ${scope}.`, ...blind].join("\n") };
   const loud = shown.filter((f) => severityOf(f) !== "info");
   const cleanup = shown.filter((f) => severityOf(f) === "info");
   // The other copy or the caller is what the agent needs to act on, and it can't open a report.
@@ -158,6 +164,7 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
       `${plural(loud.length, "problem")} and ${plural(cleanup.length, "clean-up item")} in ${scope}.`,
       ...section("Problems:", loud),
       ...section("Clean-up (unused or copied code: do it in its own step, apart from the feature):", cleanup),
+      ...blind,
       "Full steps for one: the explain tool with its file:line.",
     ].join("\n"),
   };
@@ -175,10 +182,20 @@ export async function explainTool(args: Args, ctx: ToolContext): Promise<ToolRes
   return { text: `No findings on ${file}:${m[2]}.${lines.length ? ` Findings in ${file} are on line ${lines.slice(0, 10).join(", ")}.` : ""}` };
 }
 
+// A plan, before building it: the same notes the plan hook gives, for when Claude (or the person,
+// with /attentry:plan) asks.
+export async function checkPlanTool(args: Args, ctx: ToolContext): Promise<ToolResult> {
+  const plan = text(args.plan);
+  if (!plan) return { text: "Give `plan`: the plan's full text.", isError: true };
+  const notes = await ctx.reviewPlan(plan);
+  return { text: notes.length ? planMessage(notes) : "Nothing in the plan clashes with what the repo has: go ahead." };
+}
+
 export const TOOLS = {
   find_existing: findExistingTool,
   check: checkTool,
   explain: explainTool,
+  check_plan: checkPlanTool,
 } as const;
 export type ToolName = keyof typeof TOOLS;
 export const isToolName = (name: string): name is ToolName => name in TOOLS;

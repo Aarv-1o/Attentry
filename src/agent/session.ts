@@ -9,8 +9,9 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, isEdit, noteEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, isEdit, isPlanFile, noteEdit, outsideProject, type HookInput, type HookReply } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
+import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
 import { testsAllowed } from "./trust.ts";
@@ -160,6 +161,7 @@ export class Sessions {
       index: () => buildIndex(this.root, this.cache),
       findings: () => this.findings(),
       task: () => task,
+      reviewPlan: (plan) => this.reviewPlan(plan),
     });
   }
 
@@ -196,8 +198,34 @@ export class Sessions {
     return beforeEdit(matches, told, await loadConfig(this.root));
   }
 
+  // A plan, from ExitPlanMode or its file: notes it hasn't heard yet this session (writing the
+  // plan file and then finishing the plan shouldn't say the same thing twice).
+  private async planCheck(session: string, plan: string | undefined, event: "PreToolUse" | "PostToolUse"): Promise<HookReply> {
+    if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
+    const { told } = await this.taskOf(session);
+    const notes = (await this.reviewPlan(plan)).filter((note) => !told.has(`plan:${note}`));
+    for (const note of notes) told.add(`plan:${note}`);
+    return beforePlan(notes, event);
+  }
+
+  private async reviewPlan(plan: string): Promise<string[]> {
+    const scan = await scanRepo(this.root, this.cache);
+    return reviewPlan(plan, scan, await collectFindings(scan));
+  }
+
+  // A request from the person: the related code Claude hasn't heard about yet this session, so it
+  // plans with it. Not held up for the first read, and a scan of a read repo takes no time.
+  private async relatedTo(session: string, prompt: string | undefined): Promise<HookReply> {
+    if (!prompt || !(await this.ready())) return SILENT;
+    const { told } = await this.taskOf(session);
+    const items = relatedCode(prompt, await scanRepo(this.root, this.cache)).filter((item) => !told.has(`related:${item}`));
+    for (const item of items) told.add(`related:${item}`);
+    return items.length ? tell("UserPromptSubmit", relatedMessage(items)) : SILENT;
+  }
+
   async handle(input: HookInput): Promise<HookReply> {
     const event = input.hook_event_name;
+    if (event === "UserPromptSubmit") return this.relatedTo(input.session_id, input.prompt);
     if (event === "SessionStart") {
       this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
       const ready = await this.ready();
@@ -207,11 +235,12 @@ export class Sessions {
       if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
       return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
     }
-    if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") {
-      const plan = input.tool_input?.plan;
-      if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
-      const scan = await scanRepo(this.root, this.cache);
-      return beforePlan(reviewPlan(plan, scan, await collectFindings(scan)));
+    if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") return this.planCheck(input.session_id, input.tool_input?.plan, event);
+    // Outside the project: not this task's edit. A plan file is checked as a plan.
+    const path = input.tool_input?.file_path;
+    if (isEdit(input) && path && outsideProject(this.root, path)) {
+      if (event !== "PostToolUse" || !isPlanFile(path)) return SILENT;
+      return this.planCheck(input.session_id, await readFile(path, "utf8").catch(() => undefined), event);
     }
     if (event === "PreToolUse" && isEdit(input)) {
       if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
