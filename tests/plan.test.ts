@@ -54,6 +54,14 @@ test("plan check: nothing the plan already says, and a route named twice is one 
   // Claude's own plan, which found them itself.
   const aware = "Reuse `timeAgo` instead of adding `formatTimeAgo`.\nGET /api/users/:id already exists in server.js: no change there.";
   assert.deepEqual(reviewPlan(aware, scan, []), []);
+  // As Claude writes them: the route as context, as a heading, and "already exists" by one mention.
+  const claudes = [
+    "The page fetches one user, and the only read endpoint is `GET /api/users/:id`. We're adding a profile page.",
+    "- `server.js`: `GET /api/users/:id` (already exists,",
+    "  returns the user).",
+    "### 3. `GET /api/users/:id` for the profile",
+  ].join("\n");
+  assert.deepEqual(reviewPlan(claudes, scan, []), []);
   const twice = "1. Add GET /api/users/:id for the profile.\n2. Call GET /api/users/:id from the page.";
   assert.deepEqual(reviewPlan(twice, scan, []), ["GET /api/users/:id already exists (server.js:3): extend it rather than adding another."]);
 });

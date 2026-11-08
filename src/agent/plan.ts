@@ -18,8 +18,25 @@ const ROUTE = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`'",)]*)/g;
 
 // Two words or more: `id` or `data` could be anything.
 const twoWords = (name: string) => nameWords(name).includes(" ");
-// A line that already says the route is there ("GET /api/rides/:id already exists").
-const ALREADY = /\balready\b/i;
+// A route the plan adds ("Add GET /api/rides/:id"), not one it names as context ("the only read
+// endpoint is GET /api/rides/:id"); and one it knows is there ("already exists", on that line or next to it).
+const ADDS = /\b(add|adds|adding|new|create|creates|creating|implement|introduce)\b/i;
+const KNOWN = /\balready\b|\bexist(s|ing)?\b/i;
+
+// Each route the plan names, once: whether a line naming it adds it, and whether it knows it's there.
+function plannedRoutes(plan: string) {
+  const lines = plan.split("\n");
+  const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean }>();
+  lines.forEach((line, i) => {
+    for (const [, method, raw] of line.matchAll(ROUTE)) {
+      const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false };
+      seen.adds ||= ADDS.test(line);
+      seen.known ||= KNOWN.test(lines.slice(Math.max(0, i - 1), i + 2).join("\n"));
+      routes.set(`${method} ${raw}`, seen);
+    }
+  });
+  return [...routes.values()].filter((r) => r.adds && !r.known);
+}
 
 export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]): string[] {
   const { index } = scan;
@@ -46,13 +63,12 @@ export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]):
   }
 
   // Routes it adds that are already there.
-  const routes = plan.split("\n").filter((line) => !ALREADY.test(line)).flatMap((line) => [...line.matchAll(ROUTE)]);
-  for (const [, method, raw] of routes) {
-    const path = parsePath(raw!);
+  for (const { method, raw } of plannedRoutes(plan)) {
+    const path = parsePath(raw);
     const route = path && scan.crossStack.allRoutes.find((r) => (r.method === method || r.method === "ALL") && reaches(path, r.path, "strict"));
     if (route) notes.push(`${method} ${path.text} already exists (${route.file}:${route.line}): extend it rather than adding another.`);
   }
 
   if (files.size >= BIG_PLAN) notes.push(`The plan touches ${files.size} files: do it in smaller steps, and check each one (Attentry's \`check\` tool) before the next.`);
-  return [...new Set(notes)].slice(0, MAX_NOTES); // a route the plan names twice is one note
+  return notes.slice(0, MAX_NOTES);
 }
