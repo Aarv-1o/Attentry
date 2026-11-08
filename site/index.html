@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attentry: a sentinel for your AI coding agent</title>
+<meta name="description" content="Attentry watches what Claude Code writes: security holes, crash risks, copied and dead code. It tells the agent right after each edit, and shows you a change card at the end.">
+<meta property="og:title" content="Attentry: a sentinel for your AI coding agent">
+<meta property="og:description" content="Your AI agent writes the code. Attentry watches it.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* Dark, product-first: the page shows Attentry at work. One accent (signal teal) for what Attentry
+     sees; everything else is ink on a near-black canvas, hairlines instead of shadows. */
+  :root {
+    --canvas: #08090b;
+    --surface: #0e1116;
+    --surface-2: #13171d;
+    --surface-3: #191e25;
+    --hairline: #232830;
+    --hairline-strong: rgba(255, 255, 255, 0.14);
+    --ink: #f2f4f7;
+    --body: #c9ced6;
+    --mute: #969ca6;
+    --teal: #1fc8a4;
+    --teal-soft: rgba(31, 200, 164, 0.14);
+    --red: #ff6b6b;
+    --amber: #ffc24b;
+    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    --display: "Space Grotesk", Inter, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--canvas); }
+  body {
+    margin: 0; background: var(--canvas); color: var(--body);
+    font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-feature-settings: "calt", "kern", "liga", "ss03";
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--ink); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 6px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+  h1, h2, h3 { color: var(--ink); font-family: var(--display); margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: clamp(40px, 6.4vw, 68px); font-weight: 600; line-height: 1.05; }
+  h2 { font-size: clamp(30px, 4vw, 44px); font-weight: 500; line-height: 1.15; }
+  h3 { font-size: 18px; font-weight: 500; line-height: 1.4; font-family: Inter, sans-serif; letter-spacing: 0.01em; }
+  p { margin: 0; }
+  .eyebrow { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); font-weight: 500; }
+  section { padding: 96px 0 0; }
+  .lead { font-size: 18px; color: var(--body); max-width: 620px; }
+
+  /* Top bar */
+  header { position: sticky; top: 0; z-index: 10; background: rgba(8, 9, 11, 0.82); backdrop-filter: blur(12px); border-bottom: 1px solid var(--hairline); }
+  header .wrap { display: flex; align-items: center; gap: 24px; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 600; font-size: 21px; color: var(--ink); }
+  .brand:hover { text-decoration: none; }
+  nav { display: flex; gap: 24px; margin-left: auto; font-size: 14px; font-weight: 500; }
+  nav a { color: var(--mute); }
+  nav a:hover { color: var(--ink); text-decoration: none; }
+
+  /* Buttons: one white pill per view; the rest are quiet. */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 500; letter-spacing: 0.01em; border: 1px solid transparent; }
+  .btn:hover { text-decoration: none; }
+  .btn-primary { background: #fff; color: #000; }
+  .btn-primary:hover { background: #e6e7ea; }
+  .btn-quiet { background: var(--surface-2); color: var(--ink); border-color: var(--hairline); }
+  .btn-quiet:hover { background: var(--surface-3); }
+  header .btn { min-height: 36px; padding: 0 16px; }
+
+  /* Hero */
+  .hero { padding: 88px 0 0; text-align: center; }
+  .hero .lead { margin: 22px auto 0; }
+  .hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
+  .note { margin-top: 14px; font-size: 13px; color: var(--mute); }
+  .watch { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: 999px; font-size: 13px; color: var(--body); margin-bottom: 28px; background: var(--surface); }
+  .watch i { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
+
+  /* The product, at marketing size: a Claude Code session with Attentry in it. */
+  .session { margin: 64px auto 0; max-width: 980px; text-align: left; background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
+  .session-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); background: var(--surface-2); font-size: 13px; color: var(--mute); }
+  .session-bar b { width: 11px; height: 11px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline-strong); }
+  .session-bar span { margin-left: 8px; font-family: var(--mono); font-size: 12px; }
+  .term { padding: 24px 28px 28px; font: 14px/1.75 var(--mono); color: var(--body); overflow-x: auto; }
+  .term p { white-space: pre-wrap; }
+  .you { color: var(--ink); }
+  .you::before { content: "> "; color: var(--mute); }
+  .tool { color: var(--ink); margin-top: 14px; }
+  .tool::before { content: "● "; color: var(--mute); }
+  .att { margin: 10px 0 0 18px; padding: 12px 16px; border: 1px solid var(--hairline); border-left: 2px solid var(--teal); border-radius: 8px; background: var(--surface-2); }
+  .att .who { color: var(--teal); font-weight: 500; }
+  .err { color: var(--red); }
+  .ok { color: var(--teal); }
+  .dim { color: var(--mute); }
+
+  /* Cards */
+  .grid { display: grid; gap: 16px; margin-top: 40px; }
+  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 24px; }
+  .card p { font-size: 15px; margin-top: 8px; }
+  .card code, .lead code { font-family: var(--mono); font-size: 0.88em; color: var(--ink); background: var(--surface-3); padding: 1px 6px; border-radius: 5px; }
+  .icon { width: 36px; height: 36px; border-radius: 9px; background: var(--surface-3); border: 1px solid var(--hairline); display: grid; place-items: center; margin-bottom: 16px; }
+
+  /* How it works: four moments in a task */
+  .steps { margin-top: 40px; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
+  .step { display: grid; grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; padding: 24px; border-top: 1px solid var(--hairline); background: var(--surface); align-items: start; }
+  .step:first-child { border-top: 0; }
+  .when { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); font-weight: 500; padding-top: 2px; }
+  .step p { font-size: 15px; margin-top: 6px; }
+  .said { font: 13px/1.65 var(--mono); color: var(--body); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; }
+  .said .who { color: var(--teal); }
+
+  /* Numbers that are true */
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
+  .fact { padding: 24px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); }
+  .fact b { display: block; font-family: var(--display); font-size: 40px; font-weight: 500; color: var(--ink); line-height: 1.1; }
+  .fact span { font-size: 15px; }
+
+  /* Install */
+  .install { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; counter-reset: n; }
+  .install .card::before { counter-increment: n; content: counter(n); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline); color: var(--ink); font-size: 14px; font-weight: 500; margin-bottom: 16px; }
+  .cta { margin-top: 96px; padding: 56px 32px; text-align: center; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); }
+  .cta .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
+
+  footer { margin-top: 96px; border-top: 1px solid var(--hairline); padding: 32px 0 48px; font-size: 14px; color: var(--mute); }
+  footer .wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+  footer nav { margin-left: auto; }
+
+  @media (max-width: 900px) {
+    .g3, .facts, .install { grid-template-columns: minmax(0, 1fr); }
+    .g2 { grid-template-columns: minmax(0, 1fr); }
+    .step { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  }
+  @media (max-width: 640px) {
+    header nav a:not(.btn) { display: none; }
+    .term { padding: 18px 16px 20px; font-size: 12.5px; }
+    .att { margin-left: 0; }
+    .hero { padding-top: 56px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Attentry home">
+      <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#F2F4F7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 40 Q32 28 47.5 40 Q32 52 16.5 40 Z" fill="#F2F4F7"/><circle cx="32" cy="40" r="4.8" fill="#1FC8A4"/></svg>
+      attentry
+    </a>
+    <nav aria-label="Main">
+      <a href="#how">How it works</a>
+      <a href="#catches">What it catches</a>
+      <a href="https://github.com/Aarv-1o/Attentry">GitHub</a>
+      <a class="btn btn-primary" href="#install">Get it free</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <p class="watch"><i></i>For Claude Code, in VS Code</p>
+    <h1>Your AI agent writes the code.<br>Attentry watches it.</h1>
+    <p class="lead">A sentinel beside Claude Code. It checks every edit for security holes, crash risks, and copied or dead code, tells Claude right away so it fixes them, and hands you a change card when the task is done.</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="#install">Get it for VS Code</a>
+      <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">View on GitHub</a>
+    </div>
+    <p class="note">Free and open source (MIT). Runs on your machine: your code never leaves it.</p>
+
+    <figure class="session" aria-label="A Claude Code session with Attentry">
+      <div class="session-bar"><b></b><b></b><b></b><span>claude · chat-app</span></div>
+      <div class="term">
+        <p class="you">Build a small realtime chat with login and rooms</p>
+        <p class="tool">Write(server.js)</p>
+        <div class="att">
+          <p><span class="who">Attentry:</span> this edit added 2 problems:</p>
+          <p><span class="err">server.js:6</span>  JWT_SECRET falls back to a value written in the code</p>
+          <p><span class="err">server.js:19</span> POST /login has no rate limit: passwords can be guessed</p>
+        </div>
+        <p class="tool">Edit(server.js) <span class="dim">· a random secret per run, and a limit on login</span></p>
+        <p class="tool">Write(public/app.js)</p>
+        <div class="att">
+          <p><span class="who">Attentry change card</span></p>
+          <p>Changed: 5 files</p>
+          <p>Problems: <span class="ok">none added</span></p>
+        </div>
+      </div>
+    </figure>
+  </div>
+
+  <section class="wrap" aria-labelledby="problem">
+    <p class="eyebrow">The problem</p>
+    <h2 id="problem" style="margin-top: 12px">Agents write fast. They don't look back.</h2>
+    <div class="grid g3">
+      <div class="card">
+        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></div>
+        <h3>Copies of what's already there</h3>
+        <p>It writes a new <code>formatTimeAgo</code> when the repo already has <code>timeAgo</code>, because it never saw it.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0"/></svg></div>
+        <h3>Holes it can't see</h3>
+        <p>A hard-coded secret, a route with no login check, a socket event that lets anyone delete anyone's message.</p>
+      </div>
+      <div class="card">
+        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></div>
+        <h3>Code nobody calls</h3>
+        <p>Old helpers, unused files and packages pile up, until nobody knows what's safe to change.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="how" aria-labelledby="how-h">
+    <p class="eyebrow">How it works</p>
+    <h2 id="how-h" style="margin-top: 12px">It speaks up at four moments. Otherwise, it's quiet.</h2>
+    <div class="steps">
+      <div class="step">
+        <p class="when">When you ask</p>
+        <div><h3>The code you already have</h3><p>Attentry tells Claude which helpers and routes in the repo match your request, so it plans with them.</p></div>
+        <p class="said"><span class="who">Attentry:</span> the repo already has code related to this request:
+- `timeAgo` in src/utils/time.js:1
+- GET /api/rides/:id in server.js:11</p>
+      </div>
+      <div class="step">
+        <p class="when">Before an edit</p>
+        <div><h3>No second copy</h3><p>If Claude is about to write a function the repo already has, it hears where the existing one is.</p></div>
+        <p class="said"><span class="who">Attentry:</span> `formatRidePrice`: the repo already has `formatPrice` (src/utils/money.js:2, used in 4 places). Import it.</p>
+      </div>
+      <div class="step">
+        <p class="when">After an edit</p>
+        <div><h3>Only what this edit added</h3><p>New problems, once each, in a few lines. A clean edit gets nothing at all, and old issues never nag.</p></div>
+        <p class="said"><span class="who">Attentry:</span> this edit added 1 problem:
+server.js:7 socket event "message:delete" loads a record by an id the caller sends without checking it belongs to the caller</p>
+      </div>
+      <div class="step">
+        <p class="when">At the end</p>
+        <div><h3>A change card for you</h3><p>What changed, what it added or fixed, and whether the tests passed. Read it in ten seconds.</p></div>
+        <p class="said"><span class="who">Attentry change card</span>
+- Changed: 3 files
+- Problems: none added
+- Tests: passed</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="catches" aria-labelledby="catches-h">
+    <p class="eyebrow">What it catches</p>
+    <h2 id="catches-h" style="margin-top: 12px">The mistakes AI-built apps make most.</h2>
+    <div class="grid g3">
+      <div class="card"><h3>Security, door by door</h3><p>Routes, socket events, tRPC, GraphQL and server actions with no login check, no owner check, or no rate limit. Secrets in code, injection, XSS.</p></div>
+      <div class="card"><h3>Crash risks</h3><p>Async handlers with no error handling, <code>JSON.parse</code> on outside data, exiting the process from a request.</p></div>
+      <div class="card"><h3>Frontend and backend</h3><p>Calls to routes that don't exist, the wrong method, and routes nothing calls any more.</p></div>
+      <div class="card"><h3>Database</h3><p>Money stored as floats, queries inside loops, trees fetched one level at a time.</p></div>
+      <div class="card"><h3>Copies and dead code</h3><p>Exact and drifted copies, unused files, packages and functions, with what replaced them.</p></div>
+      <div class="card"><h3>Hotspots</h3><p>Complex files that change all the time: where a change is most likely to break something.</p></div>
+    </div>
+    <p class="note" style="margin-top: 20px">JavaScript, TypeScript and Python. What it can't check yet, it says so, so "no issues" never means "not looked at".</p>
+  </section>
+
+  <section class="wrap" aria-labelledby="quiet-h">
+    <p class="eyebrow">Built to stay out of the way</p>
+    <h2 id="quiet-h" style="margin-top: 12px">Cheap for the agent. Clear for you.</h2>
+    <div class="facts">
+      <div class="fact"><b>0 tokens</b><span>for a clean edit. Attentry only speaks when there's something new to say.</span></div>
+      <div class="fact"><b>~0.1 s</b><span>to recheck after an edit on a 150-file repo. It keeps the repo in memory and rereads only what changed.</span></div>
+      <div class="fact"><b>Your choice</b><span>Suggest mode only tells Claude. Block mode won't let a task finish while it added a security or crash problem.</span></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="install" aria-labelledby="install-h">
+    <p class="eyebrow">Get started</p>
+    <h2 id="install-h" style="margin-top: 12px">Three steps, one minute.</h2>
+    <div class="install">
+      <div class="card"><h3>Install the extension</h3><p>Attentry for VS Code (also Cursor and Windsurf). Coming to the Marketplace soon; until then, from GitHub.</p></div>
+      <div class="card"><h3>Click Connect Claude Code</h3><p>In the Attentry panel. It adds Attentry to Claude Code for all your projects, and keeps it updated.</p></div>
+      <div class="card"><h3>Start a Claude Code session</h3><p>Ask for anything. Attentry watches every edit, and the panel shows what it found.</p></div>
+    </div>
+    <div class="cta">
+      <h2>Let your agent build. Let Attentry watch.</h2>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://github.com/Aarv-1o/Attentry#in-your-editor">Get it for VS Code</a>
+        <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">Star on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#top" style="font-size: 17px">
+      <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#F2F4F7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#F2F4F7"/><circle cx="32" cy="41" r="6" fill="#1FC8A4"/></svg>
+      attentry
+    </a>
+    <span>Open source, MIT licensed.</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/Aarv-1o/Attentry">GitHub</a>
+      <a href="https://github.com/Aarv-1o/Attentry/issues">Report an issue</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>

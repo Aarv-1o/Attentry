@@ -2,7 +2,10 @@
   "name": "attentry",
   "displayName": "Attentry",
   "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.21",
+  "version": "0.0.23",
+  "icon": "dist/icon.png",
+  "galleryBanner": { "color": "#0E1116", "theme": "dark" },
+  "homepage": "https://aarv-1o.github.io/Attentry/",
   "publisher": "attentry",
   "license": "MIT",
   "author": {
@@ -128,6 +131,7 @@
     "package": "node build.mjs && vsce package --no-dependencies"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "@types/node": "22.20.5",
     "@types/vscode": "1.91.0",
     "@vscode/vsce": "3.9.2",

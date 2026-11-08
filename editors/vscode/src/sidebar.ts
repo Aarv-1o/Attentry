@@ -19,10 +19,13 @@ export interface Status {
 
 type McpResult = { ok: true } | { ok: false; reason: string; command: string };
 
+// Attentry's site (GitHub Pages until the domain is chosen: change it here) and its code.
+const SITE = "https://aarv-1o.github.io/Attentry/";
+const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "copyReport" | "openReport" | "settings" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -95,6 +98,14 @@ export class Sidebar implements vscode.WebviewViewProvider {
       await this.agent();
     }
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
+    if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));
+    if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse(REPO));
+    if (m.type === "share") {
+      // A message ready to paste into a chat, with the link: the friend lands on the site.
+      await vscode.env.clipboard.writeText(`Attentry watches what your AI coding agent writes (security holes, copied and dead code) and tells it right away. Free for VS Code + Claude Code: ${SITE}`);
+      const open = "Open the site";
+      if ((await vscode.window.showInformationMessage("Attentry: a message with the link is copied. Paste it to a friend.", open)) === open) await vscode.env.openExternal(vscode.Uri.parse(SITE));
+    }
     if (m.type === "open") {
       const folder = vscode.workspace.workspaceFolders?.[0];
       if (!folder) return;
