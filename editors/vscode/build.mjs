@@ -1,6 +1,7 @@
 // Builds the extension: the extension itself, and the Claude Code plugin with Attentry built into it
 // (one file, the tree-sitter grammars next to it). The language server runs that same file, so the
 // editor and the agent always run one build, and the extension needs nothing else installed.
+import { Resvg } from "@resvg/resvg-js";
 import { build } from "esbuild";
 import { copyFile, cp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -20,3 +21,6 @@ const manifest = join(plugin, "attentry/.claude-plugin/plugin.json");
 const { version } = JSON.parse(await readFile(join(here, "package.json"), "utf8"));
 await writeFile(manifest, `${JSON.stringify({ ...JSON.parse(await readFile(manifest, "utf8")), version }, null, 2)}\n`);
 await copyFile(join(here, "../../LICENSE"), join(here, "LICENSE")); // the extension package needs its own copy
+// The Marketplace wants a PNG icon: drawn from the brand's app tile, so the two never differ.
+const tile = await readFile(join(here, "../../brand/attentry-tile.svg"), "utf8");
+await writeFile(join(here, "dist/icon.png"), new Resvg(tile, { fitTo: { mode: "width", value: 128 } }).render().asPng());
