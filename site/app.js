@@ -104,10 +104,24 @@ if (bubbles.length && !still) {
   }, 2200);
 }
 
-// ---- The developer types while on screen; the problems pop up around the frustrated one ----
-for (const el of document.querySelectorAll("[data-sprite]")) {
-  if (!still) whenVisible(el, (seen) => el.classList.toggle("typing", seen));
+// ---- The developer types: the finger goes down to the key and back up, while on screen ----
+for (const sprite of document.querySelectorAll("[data-sprite]")) {
+  const frames = [...sprite.querySelectorAll(".frame:not(.hold)")];
+  if (still || !frames.length) continue;
+  const order = [0, 1, 2, 3, 4, 3, 2, 1]; // lifted → pressing → lifted
+  let k = 0;
+  let timer;
+  whenVisible(sprite, (seen) => {
+    clearInterval(timer);
+    if (!seen) return;
+    timer = setInterval(() => {
+      k = (k + 1) % order.length;
+      frames.forEach((f, i) => f.classList.toggle("on", i === order[k]));
+    }, 85);
+  });
 }
+
+// ---- The problems pop up around the frustrated developer while she's on screen ----
 const costArt = document.getElementById("cost-art");
 if (costArt && !still) whenVisible(costArt, (seen) => costArt.classList.toggle("live", seen));
 

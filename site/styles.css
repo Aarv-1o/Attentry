@@ -144,27 +144,25 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .stat span { font-size: 14px; }
 
 /* Developers at work, typing */
-.devs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); margin-top: var(--space-8); }
+.devs { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.45fr); gap: var(--space-5); margin-top: var(--space-8); align-items: stretch; }
+.dev-wide { display: flex; flex-direction: column; justify-content: center; padding: var(--space-5) var(--space-5) 0; }
 .dev { position: relative; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-6) var(--space-6) 0; overflow: hidden; }
 .dev figcaption { display: flex; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-4) var(--space-5); font-size: 14px; color: var(--mute); }
 .dev figcaption b { color: var(--ink); font-weight: 500; }
 .sprite { position: relative; width: 100%; }
 .sprite img { width: 100%; filter: invert(0.94); }
 .sprite .steam { position: absolute; width: 5.4%; opacity: 0; animation: steam 2.6s ease-in-out infinite; }
-/* "Typing…" over the laptop: three dots rising in turn. */
-.typing-bubble { position: absolute; left: 64%; top: 36%; display: flex; gap: 5px; padding: var(--space-2) var(--space-3); border-radius: 999px; background: var(--surface-3); border: 1px solid var(--hairline-strong); }
-.typing-bubble::after { content: ""; position: absolute; left: 22%; bottom: -6px; width: 10px; height: 10px; background: var(--surface-3); border-right: 1px solid var(--hairline-strong); border-bottom: 1px solid var(--hairline-strong); transform: rotate(45deg); }
-.typing-bubble i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); opacity: 0.35; }
-.sprite.typing .typing-bubble i { animation: dot 1.2s ease-in-out infinite; }
-.sprite.typing .typing-bubble i:nth-child(2) { animation-delay: 0.15s; }
-.sprite.typing .typing-bubble i:nth-child(3) { animation-delay: 0.3s; }
+/* The typing finger: the drawing's hand is open at the top; "hold" adds the fingertips on the
+   keys, and one of the other frames at a time is the finger, lifted to pressing (app.js). */
+.sprite .frame { position: absolute; top: 0; left: 0; opacity: 0; }
+.sprite .frame.hold, .sprite .frame.on { opacity: 1; }
 
 /* The agent at work: a small VS Code, the file in the middle, the chat beside it. */
 .mini { border: 1px solid var(--hairline); border-radius: var(--radius-md); overflow: hidden; background: var(--canvas); }
 .mini-bar { display: flex; align-items: center; gap: 6px; padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--hairline); background: var(--surface-2); font: 11px/1.4 var(--mono); color: var(--mute); }
 .mini-bar b { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline-strong); }
 .mini-bar span { margin-left: var(--space-2); }
-.mini-body { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 0.75fr); height: 236px; }
+.mini-body { display: grid; grid-template-columns: 32px minmax(0, 1fr) 210px; height: 268px; }
 .mini-activity { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding-top: var(--space-3); border-right: 1px solid var(--hairline); background: var(--surface-2); }
 .mini-code { padding: var(--space-3) 0; font: 11.5px/1.75 var(--mono); color: var(--body); overflow: hidden; counter-reset: mline; }
 .mini-code .ln { display: flex; gap: var(--space-3); padding-inline: var(--space-3); white-space: pre; transition: background 0.5s var(--ease); }
@@ -289,11 +287,11 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 
 @keyframes blink { 50% { opacity: 0.25; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-@keyframes dot { 0%, 60%, 100% { opacity: 0.35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
 @keyframes chip { 0% { opacity: 0; transform: translateY(10px) scale(0.94); } 6%, 52% { opacity: 1; transform: none; } 60%, 100% { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 @keyframes steam { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px); } }
 
 @media (max-width: 960px) {
+  .devs { grid-template-columns: minmax(0, 1fr); }
   .hero-grid, .cost, .end { grid-template-columns: minmax(0, 1fr); }
   .globe-stage { max-width: 420px; }
   .editor-body { grid-template-columns: 40px minmax(0, 1fr); }
