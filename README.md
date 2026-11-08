@@ -5,6 +5,8 @@ Attentry stops AI coding agents from making a mess of your codebase.
 It watches what your agent writes, catches duplicate code, dead code and bloat,
 gets the agent to clean it up, proves nothing broke, and explains what changed.
 
+Site: [attentry.js.org](https://attentry.js.org)
+
 > Status: early build. Not on npm yet. Works today: copied code, dead code, frontend/backend
 > mismatches, security, crash risks, database checks, code hygiene and hotspots, in the
 > terminal and in your editor.

@@ -2,10 +2,10 @@
   "name": "attentry",
   "displayName": "Attentry",
   "description": "Finds the mess AI coding agents leave: security holes, crash risks, broken frontend/backend calls, copied and dead code. Explained in plain words, right in the editor.",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
-  "homepage": "https://aarv-1o.github.io/Attentry/",
+  "homepage": "https://attentry.js.org",
   "publisher": "attentry",
   "license": "MIT",
   "author": {

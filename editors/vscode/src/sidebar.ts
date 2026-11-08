@@ -19,8 +19,8 @@ export interface Status {
 
 type McpResult = { ok: true } | { ok: false; reason: string; command: string };
 
-// Attentry's site (GitHub Pages until the domain is chosen: change it here) and its code.
-const SITE = "https://aarv-1o.github.io/Attentry/";
+// Attentry's site and its code.
+const SITE = "https://attentry.js.org";
 const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
