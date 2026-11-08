@@ -4,301 +4,286 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Attentry: a sentinel for your AI coding agent</title>
-<meta name="description" content="Attentry watches what Claude Code writes: security holes, crash risks, copied and dead code. It tells the agent right after each edit, and shows you a change card at the end.">
+<meta name="description" content="The world codes with AI agents now. Attentry watches what Claude Code writes: security holes, copied and dead code. It tells the agent right after each edit, and shows you a change card at the end.">
 <link rel="canonical" href="https://attentry.js.org/">
 <meta property="og:url" content="https://attentry.js.org/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Attentry: a sentinel for your AI coding agent">
 <meta property="og:description" content="Your AI agent writes the code. Attentry watches it.">
+<meta name="theme-color" content="#08090b">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
-<style>
-  /* Dark, product-first: the page shows Attentry at work. One accent (signal teal) for what Attentry
-     sees; everything else is ink on a near-black canvas, hairlines instead of shadows. */
-  :root {
-    --canvas: #08090b;
-    --surface: #0e1116;
-    --surface-2: #13171d;
-    --surface-3: #191e25;
-    --hairline: #232830;
-    --hairline-strong: rgba(255, 255, 255, 0.14);
-    --ink: #f2f4f7;
-    --body: #c9ced6;
-    --mute: #969ca6;
-    --teal: #1fc8a4;
-    --teal-soft: rgba(31, 200, 164, 0.14);
-    --red: #ff6b6b;
-    --amber: #ffc24b;
-    --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-    --display: "Space Grotesk", Inter, system-ui, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html { background: var(--canvas); }
-  body {
-    margin: 0; background: var(--canvas); color: var(--body);
-    font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-    font-feature-settings: "calt", "kern", "liga", "ss03";
-    -webkit-font-smoothing: antialiased;
-  }
-  a { color: var(--ink); text-decoration: none; }
-  a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  :focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; border-radius: 6px; }
-  .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-  h1, h2, h3 { color: var(--ink); font-family: var(--display); margin: 0; letter-spacing: -0.01em; }
-  h1 { font-size: clamp(40px, 6.4vw, 68px); font-weight: 600; line-height: 1.05; }
-  h2 { font-size: clamp(30px, 4vw, 44px); font-weight: 500; line-height: 1.15; }
-  h3 { font-size: 18px; font-weight: 500; line-height: 1.4; font-family: Inter, sans-serif; letter-spacing: 0.01em; }
-  p { margin: 0; }
-  .eyebrow { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); font-weight: 500; }
-  section { padding: 96px 0 0; }
-  .lead { font-size: 18px; color: var(--body); max-width: 620px; }
-
-  /* Top bar */
-  header { position: sticky; top: 0; z-index: 10; background: rgba(8, 9, 11, 0.82); backdrop-filter: blur(12px); border-bottom: 1px solid var(--hairline); }
-  header .wrap { display: flex; align-items: center; gap: 24px; height: 64px; }
-  .brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 600; font-size: 21px; color: var(--ink); }
-  .brand:hover { text-decoration: none; }
-  nav { display: flex; gap: 24px; margin-left: auto; font-size: 14px; font-weight: 500; }
-  nav a { color: var(--mute); }
-  nav a:hover { color: var(--ink); text-decoration: none; }
-
-  /* Buttons: one white pill per view; the rest are quiet. */
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px; border-radius: 999px; font-size: 14px; font-weight: 500; letter-spacing: 0.01em; border: 1px solid transparent; }
-  .btn:hover { text-decoration: none; }
-  .btn-primary { background: #fff; color: #000; }
-  .btn-primary:hover { background: #e6e7ea; }
-  .btn-quiet { background: var(--surface-2); color: var(--ink); border-color: var(--hairline); }
-  .btn-quiet:hover { background: var(--surface-3); }
-  header .btn { min-height: 36px; padding: 0 16px; }
-
-  /* Hero */
-  .hero { padding: 88px 0 0; text-align: center; }
-  .hero .lead { margin: 22px auto 0; }
-  .hero .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 32px; }
-  .note { margin-top: 14px; font-size: 13px; color: var(--mute); }
-  .watch { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--hairline); border-radius: 999px; font-size: 13px; color: var(--body); margin-bottom: 28px; background: var(--surface); }
-  .watch i { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
-
-  /* The product, at marketing size: a Claude Code session with Attentry in it. */
-  .session { margin: 64px auto 0; max-width: 980px; text-align: left; background: var(--surface); border: 1px solid var(--hairline); border-radius: 16px; overflow: hidden; }
-  .session-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); background: var(--surface-2); font-size: 13px; color: var(--mute); }
-  .session-bar b { width: 11px; height: 11px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline-strong); }
-  .session-bar span { margin-left: 8px; font-family: var(--mono); font-size: 12px; }
-  .term { padding: 24px 28px 28px; font: 14px/1.75 var(--mono); color: var(--body); overflow-x: auto; }
-  .term p { white-space: pre-wrap; }
-  .you { color: var(--ink); }
-  .you::before { content: "> "; color: var(--mute); }
-  .tool { color: var(--ink); margin-top: 14px; }
-  .tool::before { content: "● "; color: var(--mute); }
-  .att { margin: 10px 0 0 18px; padding: 12px 16px; border: 1px solid var(--hairline); border-left: 2px solid var(--teal); border-radius: 8px; background: var(--surface-2); }
-  .att .who { color: var(--teal); font-weight: 500; }
-  .err { color: var(--red); }
-  .ok { color: var(--teal); }
-  .dim { color: var(--mute); }
-
-  /* Cards */
-  .grid { display: grid; gap: 16px; margin-top: 40px; }
-  .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; padding: 24px; }
-  .card p { font-size: 15px; margin-top: 8px; }
-  .card code, .lead code { font-family: var(--mono); font-size: 0.88em; color: var(--ink); background: var(--surface-3); padding: 1px 6px; border-radius: 5px; }
-  .icon { width: 36px; height: 36px; border-radius: 9px; background: var(--surface-3); border: 1px solid var(--hairline); display: grid; place-items: center; margin-bottom: 16px; }
-
-  /* How it works: four moments in a task */
-  .steps { margin-top: 40px; border: 1px solid var(--hairline); border-radius: 12px; overflow: hidden; }
-  .step { display: grid; grid-template-columns: 200px minmax(0, 1fr) minmax(0, 1.1fr); gap: 24px; padding: 24px; border-top: 1px solid var(--hairline); background: var(--surface); align-items: start; }
-  .step:first-child { border-top: 0; }
-  .when { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); font-weight: 500; padding-top: 2px; }
-  .step p { font-size: 15px; margin-top: 6px; }
-  .said { font: 13px/1.65 var(--mono); color: var(--body); background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 8px; padding: 12px 14px; white-space: pre-wrap; }
-  .said .who { color: var(--teal); }
-
-  /* Numbers that are true */
-  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; }
-  .fact { padding: 24px; border: 1px solid var(--hairline); border-radius: 12px; background: var(--surface); }
-  .fact b { display: block; font-family: var(--display); font-size: 40px; font-weight: 500; color: var(--ink); line-height: 1.1; }
-  .fact span { font-size: 15px; }
-
-  /* Install */
-  .install { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 40px; counter-reset: n; }
-  .install .card::before { counter-increment: n; content: counter(n); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--hairline); color: var(--ink); font-size: 14px; font-weight: 500; margin-bottom: 16px; }
-  .cta { margin-top: 96px; padding: 56px 32px; text-align: center; border: 1px solid var(--hairline); border-radius: 16px; background: var(--surface); }
-  .cta .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 28px; }
-
-  footer { margin-top: 96px; border-top: 1px solid var(--hairline); padding: 32px 0 48px; font-size: 14px; color: var(--mute); }
-  footer .wrap { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
-  footer nav { margin-left: auto; }
-
-  @media (max-width: 900px) {
-    .g3, .facts, .install { grid-template-columns: minmax(0, 1fr); }
-    .g2 { grid-template-columns: minmax(0, 1fr); }
-    .step { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  }
-  @media (max-width: 640px) {
-    header nav a:not(.btn) { display: none; }
-    .term { padding: 18px 16px 20px; font-size: 12.5px; }
-    .att { margin-left: 0; }
-    .hero { padding-top: 56px; }
-  }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
 </head>
 <body>
 
-<header>
+<header class="top">
   <div class="wrap">
     <a class="brand" href="#top" aria-label="Attentry home">
       <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#F2F4F7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.5 40 Q32 28 47.5 40 Q32 52 16.5 40 Z" fill="#F2F4F7"/><circle cx="32" cy="40" r="4.8" fill="#1FC8A4"/></svg>
       attentry
     </a>
-    <nav aria-label="Main">
+    <nav class="nav" aria-label="Main">
+      <a href="#story">The problem</a>
+      <a href="#watch">See it work</a>
       <a href="#how">How it works</a>
-      <a href="#catches">What it catches</a>
       <a href="https://github.com/Aarv-1o/Attentry">GitHub</a>
-      <a class="btn btn-primary" href="#install">Get it free</a>
+      <a class="btn btn-primary" href="#get">Get it free</a>
     </nav>
   </div>
 </header>
 
 <main id="top">
-  <div class="wrap hero">
-    <p class="watch"><i></i>For Claude Code, in VS Code</p>
-    <h1>Your AI agent writes the code.<br>Attentry watches it.</h1>
-    <p class="lead">A sentinel beside Claude Code. It checks every edit for security holes, crash risks, and copied or dead code, tells Claude right away so it fixes them, and hands you a change card when the task is done.</p>
-    <div class="actions">
-      <a class="btn btn-primary" href="#install">Get it for VS Code</a>
-      <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">View on GitHub</a>
-    </div>
-    <p class="note">Free and open source (MIT). Runs on your machine: your code never leaves it.</p>
 
-    <figure class="session" aria-label="A Claude Code session with Attentry">
-      <div class="session-bar"><b></b><b></b><b></b><span>claude · chat-app</span></div>
-      <div class="term">
-        <p class="you">Build a small realtime chat with login and rooms</p>
-        <p class="tool">Write(server.js)</p>
-        <div class="att">
-          <p><span class="who">Attentry:</span> this edit added 2 problems:</p>
-          <p><span class="err">server.js:6</span>  JWT_SECRET falls back to a value written in the code</p>
-          <p><span class="err">server.js:19</span> POST /login has no rate limit: passwords can be guessed</p>
+  <!-- 1 · The world codes with agents -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <p class="pill reveal"><i></i>For Claude Code, in VS Code</p>
+          <h1 id="hero-title" class="reveal" data-delay="1">The world codes with AI now. Attentry watches the code.</h1>
+          <p class="prompt reveal" data-delay="2" aria-label="Things people ask their coding agent"><span id="typed">build me an Uber clone</span><span class="caret" aria-hidden="true"></span></p>
         </div>
-        <p class="tool">Edit(server.js) <span class="dim">· a random secret per run, and a limit on login</span></p>
-        <p class="tool">Write(public/app.js)</p>
-        <div class="att">
-          <p><span class="who">Attentry change card</span></p>
-          <p>Changed: 5 files</p>
-          <p>Problems: <span class="ok">none added</span></p>
+        <div class="globe-stage reveal" aria-hidden="true">
+          <canvas id="globe" width="520" height="520"></canvas>
+          <div class="face face-a"><img src="assets/figure-a.png" alt="" width="320" height="312"></div>
+          <div class="face face-b"><img src="assets/figure-b.png" alt="" width="320" height="292"></div>
+          <div class="face face-c"><img src="assets/figure-c.png" alt="" width="280" height="286"></div>
+          <span class="bubble bubble-a">add login with JWT</span>
+          <span class="bubble bubble-b">fix the checkout bug</span>
+          <span class="bubble bubble-c">make it realtime</span>
         </div>
       </div>
-    </figure>
-  </div>
 
-  <section class="wrap" aria-labelledby="problem">
-    <p class="eyebrow">The problem</p>
-    <h2 id="problem" style="margin-top: 12px">Agents write fast. They don't look back.</h2>
-    <div class="grid g3">
-      <div class="card">
-        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></div>
-        <h3>Copies of what's already there</h3>
-        <p>It writes a new <code>formatTimeAgo</code> when the repo already has <code>timeAgo</code>, because it never saw it.</p>
-      </div>
-      <div class="card">
-        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0"/></svg></div>
-        <h3>Holes it can't see</h3>
-        <p>A hard-coded secret, a route with no login check, a socket event that lets anyone delete anyone's message.</p>
-      </div>
-      <div class="card">
-        <div class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CED6" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></div>
-        <h3>Code nobody calls</h3>
-        <p>Old helpers, unused files and packages pile up, until nobody knows what's safe to change.</p>
+      <div class="hero-row">
+        <div class="hero-more">
+          <p class="lead reveal">Millions of people ask an agent for an app and get thousands of lines back. Attentry is the sentinel beside it: it checks every edit for security holes, copies and dead code, and tells the agent before the mess ships.</p>
+          <div class="actions reveal" data-delay="1">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get it for VS Code</a>
+            <a class="btn btn-quiet" href="#watch">See it work</a>
+          </div>
+          <div class="stats reveal" data-delay="2">
+            <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
+            <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
+          </div>
+          <p class="source reveal" data-delay="2">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
+        </div>
+
+      <figure class="duo reveal" data-delay="1">
+        <div class="duo-dev">
+          <div class="sprite" data-sprite>
+            <img src="assets/b3-man.png" alt="A developer typing a request to an AI agent" width="560" height="380">
+            <img class="frame hold" src="assets/b3-f-t.png" alt="" width="560" height="380">
+            <img class="frame on" src="assets/b3-f-a.png" alt="" width="560" height="380">
+            <img class="frame" src="assets/b3-f-b.png" alt="" width="560" height="380">
+            <img class="frame" src="assets/b3-f-c.png" alt="" width="560" height="380">
+            <img class="frame" src="assets/b3-f-d.png" alt="" width="560" height="380">
+            <img class="frame" src="assets/b3-f-e.png" alt="" width="560" height="380">
+            <img class="steam" src="assets/b3-f-steam.png" alt="" width="30" height="35" style="left: 18.8%; top: 61.8%">
+          </div>
+          <p class="duo-cap"><span>You ask: <b>"add a coupon code"</b></span></p>
+        </div>
+        <svg class="duo-arrow" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="#1fc8a4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="duo-agent">
+          <div class="mini" id="mini" aria-hidden="true">
+            <div class="mini-bar">
+              <span>checkout.ts · Visual Studio Code</span>
+              <span class="win">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 5h8" stroke="#959ba5" stroke-width="1.2"/></svg>
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="#959ba5" stroke-width="1.2"/></svg>
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="#959ba5" stroke-width="1.2" stroke-linecap="round"/></svg>
+              </span>
+            </div>
+            <div class="mini-body">
+              <div class="mini-activity">
+                <svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z M14 4v5h5" fill="none" stroke="#c5cbd4" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                <svg class="agent" width="15" height="15" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" fill="none" stroke="#d97757" stroke-width="1.9" stroke-linecap="round"/></svg>
+              </div>
+              <div class="mini-code" id="mini-code"></div>
+              <div class="mini-chat" id="mini-chat"></div>
+            </div>
+          </div>
+          <p class="duo-cap"><span>The agent edits <b>checkout.ts</b></span><span id="mini-status">reading…</span></p>
+        </div>
+      </figure>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="how" aria-labelledby="how-h">
-    <p class="eyebrow">How it works</p>
-    <h2 id="how-h" style="margin-top: 12px">It speaks up at four moments. Otherwise, it's quiet.</h2>
-    <div class="steps">
-      <div class="step">
-        <p class="when">When you ask</p>
-        <div><h3>The code you already have</h3><p>Attentry tells Claude which helpers and routes in the repo match your request, so it plans with them.</p></div>
-        <p class="said"><span class="who">Attentry:</span> the repo already has code related to this request:
+  <!-- 2 · The cost of speed -->
+  <section class="section" id="story" aria-labelledby="story-title">
+    <div class="wrap">
+      <div class="heading reveal">
+        <p class="eyebrow">The problem</p>
+        <h2 id="story-title">Fast code. Messy code.</h2>
+        <p class="lead">The agent writes it in seconds. Nobody reads every line, and the agent never looks back: it doesn't know the repo already had that helper, or that the route it just added lets anyone in.</p>
+      </div>
+      <div class="cost">
+        <div class="cost-art reveal" id="cost-art" aria-hidden="true">
+          <img class="desk" src="assets/desk-stressed.png" alt="" width="760" height="745">
+          <span class="chip chip-red" style="--x: 4%; --y: 6%; --d: 0s">JWT secret in code</span>
+          <span class="chip chip-amber" style="--x: 52%; --y: 2%; --d: 1.4s">copy of timeAgo()</span>
+          <span class="chip chip-info" style="--x: 0%; --y: 30%; --d: 2.8s">unused file: oldCart.ts</span>
+          <span class="chip chip-red" style="--x: 56%; --y: 22%; --d: 4.2s">no rate limit on /login</span>
+          <span class="chip chip-amber" style="--x: 2%; --y: 62%; --d: 5.6s">query inside a loop</span>
+          <span class="chip chip-info" style="--x: 54%; --y: 70%; --d: 7s">nothing calls sendLegacyMail()</span>
+        </div>
+        <div class="cost-cards">
+          <div class="cost-card reveal"><b class="red" data-count="45" data-suffix="%">45%</b><p>of AI-generated code samples had a security flaw in Veracode's tests of over 100 models.</p><p class="source"><a href="https://www.veracode.com/2025-genai-code-security-report">Veracode GenAI Code Security Report, 2025</a></p></div>
+          <div class="cost-card reveal" data-delay="1"><b class="amber" data-count="8" data-suffix="×">8×</b><p>more commits with large copy-pasted blocks in 2024. Copy-paste overtook reuse for the first time.</p><p class="source"><a href="https://www.gitclear.com/ai_assistant_code_quality_2025_research">GitClear AI Code Quality Research, 2025</a></p></div>
+          <div class="cost-card reveal" data-delay="2"><b data-count="46" data-suffix="%">46%</b><p>of developers distrust the accuracy of AI tools; only 33% trust it.</p><p class="source"><a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a></p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · The sentinel at work -->
+  <section class="section" id="watch" aria-labelledby="watch-title">
+    <div class="wrap">
+      <div class="heading reveal">
+        <p class="eyebrow">See it work</p>
+        <h2 id="watch-title">Claude writes. Attentry watches. Claude fixes.</h2>
+        <p class="lead">Attentry doesn't take the wheel. It points at what's wrong the moment it's written, and the agent cleans it up before you ever see it.</p>
+      </div>
+
+      <div class="scene reveal" id="scene" data-step="write">
+        <div class="editor" role="img" aria-label="An editor: Claude writes server.js, Attentry flags a hard-coded secret, a copied helper and dead code, Claude fixes all three, and the change card reads Problems: none added.">
+          <div class="editor-bar"><b></b><b></b><b></b><span>server.js · chat-app</span></div>
+          <div class="editor-body">
+            <div class="activity" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24"><path d="M5 4h9l5 5v11H5z M14 4v5h5" fill="none" stroke="#c5cbd4" stroke-width="1.6" stroke-linejoin="round"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="#c5cbd4" stroke-width="1.6"/><path d="M16 16l4 4" stroke="#c5cbd4" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <svg class="tower" width="22" height="22" viewBox="0 0 64 64"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg>
+            </div>
+            <div class="code" id="code" aria-hidden="true"></div>
+            <aside class="panel" aria-hidden="true">
+              <p class="panel-head">
+                <svg width="16" height="16" viewBox="0 0 64 64"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg>
+                Attentry <span class="panel-state" id="panel-state">watching</span>
+              </p>
+              <div class="finding sev-red" data-finding="secret"><p class="what"><i></i>Secret written in the code</p><p class="where">server.js:3 · JWT_SECRET falls back to "superSecret"</p></div>
+              <div class="finding sev-amber" data-finding="copy"><p class="what"><i></i>Copy of an existing helper</p><p class="where">server.js:5 · utils/time.js already has timeAgo</p></div>
+              <div class="finding sev-info" data-finding="dead"><p class="what"><i></i>Dead code</p><p class="where">server.js:10 · nothing calls oldPriceFormat</p></div>
+              <p class="card-done">Attentry change card<br>Changed: 1 file<br>Problems: none added</p>
+            </aside>
+          </div>
+        </div>
+        <div class="scene-caption" role="group" aria-label="Jump to a step"><button type="button" data-cap="write">Claude writes</button><button type="button" data-cap="watch">Attentry spots 3 problems</button><button type="button" data-cap="fix">Claude fixes them</button><button type="button" data-cap="done">The change card is clean</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · How it works -->
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="heading reveal">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-title">Four moments. Otherwise, quiet.</h2>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><p class="when">When you ask</p><div><h3>The code you already have</h3><p>Claude hears which helpers and routes in the repo match your request, so it plans with them.</p></div><p class="said"><span class="who">Attentry:</span> the repo already has code related to this request:
 - `timeAgo` in src/utils/time.js:1
-- GET /api/rides/:id in server.js:11</p>
-      </div>
-      <div class="step">
-        <p class="when">Before an edit</p>
-        <div><h3>No second copy</h3><p>If Claude is about to write a function the repo already has, it hears where the existing one is.</p></div>
-        <p class="said"><span class="who">Attentry:</span> `formatRidePrice`: the repo already has `formatPrice` (src/utils/money.js:2, used in 4 places). Import it.</p>
-      </div>
-      <div class="step">
-        <p class="when">After an edit</p>
-        <div><h3>Only what this edit added</h3><p>New problems, once each, in a few lines. A clean edit gets nothing at all, and old issues never nag.</p></div>
-        <p class="said"><span class="who">Attentry:</span> this edit added 1 problem:
-server.js:7 socket event "message:delete" loads a record by an id the caller sends without checking it belongs to the caller</p>
-      </div>
-      <div class="step">
-        <p class="when">At the end</p>
-        <div><h3>A change card for you</h3><p>What changed, what it added or fixed, and whether the tests passed. Read it in ten seconds.</p></div>
-        <p class="said"><span class="who">Attentry change card</span>
+- GET /api/rides/:id in server.js:11</p></div>
+        <div class="step reveal"><p class="when">Before an edit</p><div><h3>No second copy</h3><p>About to write a function the repo already has? Claude hears where the existing one is.</p></div><p class="said"><span class="who">Attentry:</span> `formatRidePrice`: the repo already has `formatPrice` (src/utils/money.js:2). Import it.</p></div>
+        <div class="step reveal"><p class="when">After an edit</p><div><h3>Only what this edit added</h3><p>New problems, once each, in a few lines. A clean edit gets nothing at all; old issues never nag.</p></div><p class="said"><span class="who">Attentry:</span> this edit added 1 problem:
+socket event "message:delete" loads a record by an id the caller sends without checking it belongs to the caller</p></div>
+        <div class="step reveal"><p class="when">At the end</p><div><h3>A change card for you</h3><p>What changed, what it added or fixed, and whether the tests passed. Ten seconds to read.</p></div><p class="said"><span class="who">Attentry change card</span>
 - Changed: 3 files
 - Problems: none added
-- Tests: passed</p>
+- Tests: passed</p></div>
       </div>
     </div>
   </section>
 
-  <section class="wrap" id="catches" aria-labelledby="catches-h">
-    <p class="eyebrow">What it catches</p>
-    <h2 id="catches-h" style="margin-top: 12px">The mistakes AI-built apps make most.</h2>
-    <div class="grid g3">
-      <div class="card"><h3>Security, door by door</h3><p>Routes, socket events, tRPC, GraphQL and server actions with no login check, no owner check, or no rate limit. Secrets in code, injection, XSS.</p></div>
-      <div class="card"><h3>Crash risks</h3><p>Async handlers with no error handling, <code>JSON.parse</code> on outside data, exiting the process from a request.</p></div>
-      <div class="card"><h3>Frontend and backend</h3><p>Calls to routes that don't exist, the wrong method, and routes nothing calls any more.</p></div>
-      <div class="card"><h3>Database</h3><p>Money stored as floats, queries inside loops, trees fetched one level at a time.</p></div>
-      <div class="card"><h3>Copies and dead code</h3><p>Exact and drifted copies, unused files, packages and functions, with what replaced them.</p></div>
-      <div class="card"><h3>Hotspots</h3><p>Complex files that change all the time: where a change is most likely to break something.</p></div>
+  <!-- 5 · What it catches -->
+  <section class="section" id="catches" aria-labelledby="catches-title">
+    <div class="wrap">
+      <div class="heading reveal">
+        <p class="eyebrow">What it catches</p>
+        <h2 id="catches-title">Ask it what it catches.</h2>
+      </div>
+
+      <div class="chat reveal" id="chat">
+        <div class="chat-head">
+          <span class="avatar avatar-attentry"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg></span>
+          <span class="chat-who"><b>Attentry</b><span class="online">watching your repo</span></span>
+          <span class="chat-tags"><span>runs locally</span><span>read-only</span></span>
+          <button type="button" class="replay" id="chat-replay" hidden><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ask again</button>
+        </div>
+        <div class="chat-log" id="chat-log" aria-live="polite">
+          <div class="msg from-attentry" id="chat-welcome">
+            <span class="avatar avatar-attentry"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg></span>
+            <div><p class="bubble-attentry">Hi, I'm Attentry. I sit beside your AI agent and check every edit it makes. Ask me what I catch.</p><p class="when-sent">just now</p></div>
+          </div>
+        </div>
+        <form class="chat-input" id="chat-form">
+          <label class="visually-hidden" for="chat-q">Your question</label>
+          <div class="field"><input id="chat-q" value="What does Attentry catch?" readonly><kbd>Enter ↵</kbd></div>
+          <button type="submit" class="send" aria-label="Send"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M12 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </form>
+        <p class="chat-foot">Attentry runs on your machine. Your code never leaves it.</p>
+      </div>
+
+      <!-- The answer, copied into the chat when someone presses send. -->
+      <template id="chat-answer">
+        <div class="msg from-attentry">
+          <span class="avatar avatar-attentry"><svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg></span>
+          <div class="answer-body">
+            <p class="bubble-attentry">In every edit your agent makes, I watch for these. JavaScript, TypeScript and Python; what I can't check yet, I say so.</p>
+            <div class="answer-grid">
+              <div class="answer"><i class="sev-red"></i><h3>Security, door by door</h3><p>Routes, socket events, tRPC, GraphQL and server actions with no login check, no owner check or no rate limit. Secrets in code, injection, XSS.</p></div>
+              <div class="answer"><i class="sev-red"></i><h3>Crash risks</h3><p>Async handlers with no error handling, <code>JSON.parse</code> on outside data, exiting the process mid-request.</p></div>
+              <div class="answer"><i class="sev-amber"></i><h3>Frontend and backend</h3><p>Calls to routes that don't exist, the wrong method, routes nothing calls any more.</p></div>
+              <div class="answer"><i class="sev-amber"></i><h3>Database</h3><p>Money stored as floats, queries inside loops, trees fetched one level at a time.</p></div>
+              <div class="answer"><i class="sev-info"></i><h3>Copies and dead code</h3><p>Exact and drifted copies, unused files, packages and functions, with what replaced them.</p></div>
+              <div class="answer"><i class="sev-hint"></i><h3>Hotspots</h3><p>Complex files that change all the time: where a change is most likely to break something.</p></div>
+            </div>
+            <p class="when-sent">just now</p>
+          </div>
+        </div>
+      </template>
     </div>
-    <p class="note" style="margin-top: 20px">JavaScript, TypeScript and Python. What it can't check yet, it says so, so "no issues" never means "not looked at".</p>
   </section>
 
-  <section class="wrap" aria-labelledby="quiet-h">
-    <p class="eyebrow">Built to stay out of the way</p>
-    <h2 id="quiet-h" style="margin-top: 12px">Cheap for the agent. Clear for you.</h2>
-    <div class="facts">
-      <div class="fact"><b>0 tokens</b><span>for a clean edit. Attentry only speaks when there's something new to say.</span></div>
-      <div class="fact"><b>~0.1 s</b><span>to recheck after an edit on a 150-file repo. It keeps the repo in memory and rereads only what changed.</span></div>
-      <div class="fact"><b>Your choice</b><span>Suggest mode only tells Claude. Block mode won't let a task finish while it added a security or crash problem.</span></div>
-    </div>
-  </section>
-
-  <section class="wrap" id="install" aria-labelledby="install-h">
-    <p class="eyebrow">Get started</p>
-    <h2 id="install-h" style="margin-top: 12px">Three steps, one minute.</h2>
-    <div class="install">
-      <div class="card"><h3>Install the extension</h3><p>Attentry for VS Code (also Cursor and Windsurf). Coming to the Marketplace soon; until then, from GitHub.</p></div>
-      <div class="card"><h3>Click Connect Claude Code</h3><p>In the Attentry panel. It adds Attentry to Claude Code for all your projects, and keeps it updated.</p></div>
-      <div class="card"><h3>Start a Claude Code session</h3><p>Ask for anything. Attentry watches every edit, and the panel shows what it found.</p></div>
-    </div>
-    <div class="cta">
-      <h2>Let your agent build. Let Attentry watch.</h2>
-      <div class="actions">
-        <a class="btn btn-primary" href="https://github.com/Aarv-1o/Attentry#in-your-editor">Get it for VS Code</a>
-        <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">Star on GitHub</a>
+  <!-- 6 · The ending -->
+  <section class="section" id="get" aria-labelledby="get-title">
+    <div class="wrap">
+      <div class="end reveal">
+        <div class="mascot" aria-hidden="true">
+          <img src="assets/err-monitor.png" alt="" width="700" height="663">
+          <p class="sign">Problems: none added<small>Changed: 5 files</small></p>
+        </div>
+        <div class="end-copy">
+          <p class="eyebrow">Get started</p>
+          <h2 id="get-title">Let your agent build. Attentry keeps watch.</h2>
+          <ol class="install">
+            <li><span><b>Install the extension</b> from the <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">VS Code Marketplace</a>. Cursor and Windsurf (Open VSX) coming soon.</span></li>
+            <li><span><b>Click Connect Claude Code</b> in the Attentry panel: it's added for all your projects.</span></li>
+            <li><span><b>Start a Claude Code session</b> and ask for anything.</span></li>
+          </ol>
+          <div class="actions">
+            <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get it for VS Code</a>
+            <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">Star on GitHub</a>
+          </div>
+          <p class="note">Free and open source (MIT). Runs on your machine: your code never leaves it.</p>
+        </div>
       </div>
     </div>
   </section>
 </main>
 
-<footer>
+<footer class="foot">
   <div class="wrap">
     <a class="brand" href="#top" style="font-size: 17px">
       <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#F2F4F7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#F2F4F7"/><circle cx="32" cy="41" r="6" fill="#1FC8A4"/></svg>
       attentry
     </a>
-    <span>Open source, MIT licensed.</span>
-    <nav aria-label="Footer">
+    <p class="made">Made by <a href="https://aarv.is-a.dev/">Aarv Singh Chauhan</a></p>
+    <p>Open source, MIT licensed.</p>
+    <nav class="nav" aria-label="Footer">
       <a href="https://github.com/Aarv-1o/Attentry">GitHub</a>
       <a href="https://github.com/Aarv-1o/Attentry/issues">Report an issue</a>
     </nav>
