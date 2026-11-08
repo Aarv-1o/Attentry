@@ -464,36 +464,59 @@ if (scene && code) {
   }
 }
 
-// ---- Ask it what it catches: press send, the answer pops up; "Ask again" replays it ----
+// ---- Ask it what it catches: press send, the answer pops up; then "Explain again" is typed in ----
 const chat = document.getElementById("chat");
 if (chat) {
   const log = document.getElementById("chat-log");
+  const welcome = document.getElementById("chat-welcome");
   const form = document.getElementById("chat-form");
   const input = document.getElementById("chat-q");
   const send = form.querySelector(".send");
-  const replay = document.getElementById("chat-replay");
   const answer = document.getElementById("chat-answer");
-  const hint = document.getElementById("chat-hint");
-  const QUESTION = "What does Attentry catch?";
+  const FIRST = "What does Attentry catch?";
+  const AGAIN = "Explain again";
   let busy = false;
 
-  const reset = () => {
-    log.replaceChildren(hint);
-    input.value = QUESTION;
+  const fromYou = (text) => {
+    const row = document.createElement("div");
+    row.className = "msg from-you";
+    const avatar = document.createElement("span");
+    avatar.className = "avatar avatar-you";
+    avatar.textContent = "You";
+    const body = document.createElement("div");
+    const bubble = document.createElement("p");
+    bubble.className = "bubble-you";
+    bubble.textContent = text;
+    const when = document.createElement("p");
+    when.className = "when-sent";
+    when.textContent = "just now";
+    body.append(bubble, when);
+    row.append(avatar, body);
+    return row;
+  };
+  // Types the next question into the box, then invites a press.
+  const offer = async (text) => {
+    if (still) input.value = text;
+    else for (let n = 1; n <= text.length; n++) { input.value = text.slice(0, n); await wait(60); }
     send.disabled = false;
-    replay.hidden = true;
     chat.classList.add("ready");
   };
+
   const ask = async () => {
-    if (busy) return;
+    if (busy || !input.value) return;
     busy = true;
     chat.classList.remove("ready");
     send.disabled = true;
-    const you = document.createElement("p");
-    you.className = "msg-you";
-    you.textContent = input.value;
+    const question = input.value;
     input.value = "";
-    log.replaceChildren(you);
+    // A new round starts from the welcome, so the replay animates like the first time.
+    if (question === AGAIN && !still) {
+      log.style.transition = "opacity 0.3s";
+      log.style.opacity = "0";
+      await wait(320);
+      log.style.opacity = "1";
+    }
+    log.replaceChildren(welcome, fromYou(question));
     if (!still) {
       const thinking = document.createElement("span");
       thinking.className = "thinking";
@@ -507,22 +530,15 @@ if (chat) {
     const copy = answer.content.cloneNode(true);
     copy.querySelectorAll(".answer").forEach((el, i) => el.style.setProperty("--n", String(i)));
     log.append(copy);
-    replay.hidden = false;
+    await wait(still ? 0 : 6 * 120 + 500);
     busy = false;
+    await offer(AGAIN);
   };
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     void ask();
   });
-  replay.addEventListener("click", async () => {
-    if (!still) {
-      log.style.transition = "opacity 0.3s";
-      log.style.opacity = "0";
-      await wait(320);
-      log.style.opacity = "1";
-    }
-    reset();
-    send.focus();
-  });
-  reset();
+  input.value = FIRST;
+  chat.classList.add("ready");
 }
