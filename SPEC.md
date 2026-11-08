@@ -33,7 +33,7 @@ One core engine. Thin adapters on top, so adding an agent means adding a small a
 | CLI (`attentry scan`, `--changed`, `--brief`, `explain`) | Any agent that can run a command can use it | Every agent |
 | Language server (`attentry lsp`) + extension | Squiggles, plain-word cards and safe fixes in the editor; editors' agents read the errors and warnings | VS Code, Cursor, Windsurf, Antigravity (extension); JetBrains, Zed, Neovim (LSP) |
 | MCP server | Tools like "find existing function" and "check my changes" | Claude Code, Cursor, Copilot, Codex, Gemini CLI, Windsurf, Cline… |
-| Hooks (`attentry init`, `attentry hook claude`) | Run automatically: session start, before and after each edit, at the end. Built for Claude Code's format | Claude Code (Cursor and Copilot CLI load it); Codex, Gemini CLI next |
+| Hooks (`attentry init`, `attentry hook claude`) | Run automatically: session start, before and after each edit, at the end. Built for Claude Code's format | Claude Code (installed as a plugin by the extension's Connect, or `attentry init`) |
 | Instruction files | `attentry init` adds a short block to AGENTS.md / CLAUDE.md / Cursor rules | Every agent that reads them |
 | Git hook + CI | Checks every commit, whoever wrote it | Everyone |
 

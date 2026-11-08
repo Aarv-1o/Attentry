@@ -58,15 +58,19 @@ function returned(node: Node): string {
   return clip(value.text);
 }
 
-function nameOf(fn: Node): string | undefined {
-  const own = fn.childForFieldName("name")?.text;
-  if (own) return own;
-  const p = fn.parent;
-  if (p?.type === "variable_declarator") return p.childForFieldName("name")?.text;
-  if (p?.type === "pair") return p.childForFieldName("key")?.text.replace(/['"]/g, "");
-  if (p?.type === "assignment_expression") return p.childForFieldName("left")?.text.split(".").at(-1);
+// The name a value is assigned to: const API_KEY = "...", { apiKey: "..." }, SECRET_KEY = "...",
+// this.handler = () => ..., f(name="...").
+export function assignedName(node: Node): string | undefined {
+  const p = node.parent;
+  if (!p) return undefined;
+  if (p.type === "variable_declarator") return p.childForFieldName("name")?.text;
+  if (p.type === "pair") return p.childForFieldName("key")?.text.replace(/['"]/g, "");
+  if (p.type === "assignment" || p.type === "assignment_expression") return p.childForFieldName("left")?.text.split(".").at(-1);
+  if (p.type === "keyword_argument") return p.childForFieldName("name")?.text;
   return undefined;
 }
+
+const nameOf = (fn: Node) => fn.childForFieldName("name")?.text || assignedName(fn);
 
 // Nodes inside a function, not inside the named functions it defines.
 function* inside(node: Node): Generator<Node> {
