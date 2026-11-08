@@ -545,3 +545,21 @@ if (chat) {
   });
   reset();
 }
+
+// ---- The top bar underlines the section being read ----
+const navLinks = [...document.querySelectorAll('.top .nav a[href^="#"]:not(.btn)')];
+const sections = navLinks.map((a) => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+if (sections.length) {
+  // A section counts as "being read" while it crosses a thin band 40% down the screen; above the
+  // first one (the hero), none is underlined.
+  const reading = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        navLinks.forEach((a) => a.classList.toggle("current", a.getAttribute("href") === `#${entry.target.id}`));
+      } else if (entry.target === sections[0] && entry.boundingClientRect.top > 0) {
+        navLinks.forEach((a) => a.classList.remove("current"));
+      }
+    }
+  }, { rootMargin: "-40% 0px -55% 0px" });
+  sections.forEach((s) => reading.observe(s));
+}

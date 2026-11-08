@@ -93,8 +93,20 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .brand { display: inline-flex; align-items: center; gap: var(--space-3); font-family: var(--display); font-size: 21px; font-weight: 600; color: var(--ink); }
 .brand:hover { text-decoration: none; }
 .nav { display: flex; align-items: center; gap: var(--space-5); margin-left: auto; font-size: 14px; font-weight: 500; }
-.nav a:not(.btn) { color: var(--mute); }
+.nav a:not(.btn) { color: var(--mute); transition: color 0.2s; }
 .nav a:not(.btn):hover { color: var(--ink); text-decoration: none; }
+/* Top bar links: a neon underline draws out from the centre on hover, and stays under the
+   section being read (app.js marks it .current). */
+.top .nav a:not(.btn) { position: relative; padding-block: var(--space-2); }
+.top .nav a:not(.btn)::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px;
+  background: #39ff9f; box-shadow: 0 0 8px rgba(57, 255, 159, 0.8), 0 0 16px rgba(57, 255, 159, 0.4);
+  transform: scaleX(0); transition: transform 0.3s var(--ease);
+}
+.top .nav a:not(.btn):hover::after, .top .nav a:not(.btn):focus-visible::after, .top .nav a.current::after { transform: scaleX(1); }
+.top .nav a.current { color: var(--ink); }
+.top .nav .btn-primary { transition: background 0.2s, box-shadow 0.2s; }
+.top .nav .btn-primary:hover { box-shadow: 0 0 16px rgba(57, 255, 159, 0.45); }
 .nav .btn { min-height: 36px; padding-inline: var(--space-4); }
 
 /* Reveal on scroll: in, and out again when it leaves. */
