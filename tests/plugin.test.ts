@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { chmod, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isEdit } from "../src/agent/hooks.ts";
-import { installPlugin, pluginHome, refreshPlugin } from "../src/agent/plugin.ts";
+import { allowTools, installPlugin, pluginHome, refreshPlugin, TOOLS_RULE } from "../src/agent/plugin.ts";
 import { makeRepo } from "./helpers.ts";
 
 // The Claude Code plugin the extension carries: its files name the build and the events, so they
@@ -91,6 +91,22 @@ test("Connect installs the plugin for every project and takes out the hooks and 
   ]);
   const settings = JSON.parse(await readFile(join(folder, ".claude/settings.local.json"), "utf8"));
   assert.deepEqual(settings, { model: "opus", hooks: { PostToolUse: [{ matcher: "Edit", hooks: [mine] }] } }, "the person's own hook stays");
+  // Attentry's read-only tools are allowed in the person's Claude Code settings, once.
+  const user = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
+  assert.deepEqual(JSON.parse(await readFile(user, "utf8")), { permissions: { allow: [TOOLS_RULE] } });
+});
+
+test("allowing Attentry's tools keeps the person's settings, adds the rule once, and leaves a file it can't read alone", async () => {
+  using _claude = await fakeClaude([]);
+  const user = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
+  await mkdir(process.env.CLAUDE_CONFIG_DIR!, { recursive: true });
+  await writeFile(user, JSON.stringify({ theme: "dark", permissions: { allow: ["Bash(npm test)"], deny: ["Read(.env)"] } }));
+  assert.equal(await allowTools(), true);
+  assert.equal(await allowTools(), true);
+  assert.deepEqual(JSON.parse(await readFile(user, "utf8")), { theme: "dark", permissions: { allow: ["Bash(npm test)", TOOLS_RULE], deny: ["Read(.env)"] } });
+  await writeFile(user, "{ // a comment\n}");
+  assert.equal(await allowTools(), false);
+  assert.equal(await readFile(user, "utf8"), "{ // a comment\n}");
 });
 
 test("when the editor starts, an installed plugin older than the extension's is updated; nothing else is touched", async () => {

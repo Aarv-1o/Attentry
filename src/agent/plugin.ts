@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { removeHooks } from "./init.ts";
 import { claude, setupFailed, type Setup } from "./mcpSetup.ts";
@@ -46,7 +47,27 @@ export async function installPlugin(home: string, folder: string): Promise<Setup
   }
   await removeHooks(folder);
   await claude(["mcp", "remove", "attentry", "--scope", "local"], folder).catch(() => undefined); // not there: fine
+  await allowTools();
   return { ok: true };
+}
+
+// Claude Code asks before an agent calls any MCP tool, and a plugin can't allow its own. Attentry's
+// tools only read the repo, so Connect allows them in the person's Claude Code settings: one rule
+// for the whole server. A settings file that isn't plain JSON is left alone (the tools then ask).
+export const TOOLS_RULE = "mcp__plugin_attentry_attentry";
+export async function allowTools(): Promise<boolean> {
+  const path = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "settings.json");
+  let settings: { permissions?: { allow?: string[] } & Record<string, unknown> } & Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(await readFile(path, "utf8"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") return false;
+  }
+  const allow = settings.permissions?.allow ?? [];
+  if (allow.includes(TOOLS_RULE)) return true;
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify({ ...settings, permissions: { ...settings.permissions, allow: [...allow, TOOLS_RULE] } }, null, 2)}\n`);
+  return true;
 }
 
 // When the editor starts: an installed plugin older than this extension's gets updated, so the

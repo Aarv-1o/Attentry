@@ -102,7 +102,7 @@ function claudeCode() {
   const head = `<div class="who"><h2>Claude Code</h2><span class="pill ${tone}"><i></i>${text}</span></div>`;
   if (state !== "connected") {
     return `<section class="agent">${head}
-      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect it, and Attentry tells Claude about problems right after each edit."}</p>
+      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time)."}</p>
       <button class="primary" data-act="connectAgent">${state === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>
     </section>`;
   }
