@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "node:test";
 import { reviewPlan } from "../src/agent/plan.ts";
 import { Sessions } from "../src/agent/session.ts";
@@ -45,6 +47,41 @@ test("plan check: nothing to say about a plan the repo has nothing for, or a big
   assert.deepEqual(reviewPlan("Add `readPluginVersion()` and `formatCount(n, word)`.", scan, []), []);
   const big = Array.from({ length: 12 }, (_, i) => `- edit src/part${i}.ts`).join("\n");
   assert.deepEqual(reviewPlan(big, scan, []), ["The plan touches 12 files: do it in smaller steps, and check each one (Attentry's `check` tool) before the next."]);
+});
+
+test("plan check: nothing the plan already says, and a route named twice is one note", async () => {
+  const scan = await scanRepo(await makeRepo(REPO));
+  // Claude's own plan, which found them itself.
+  const aware = "Reuse `timeAgo` instead of adding `formatTimeAgo`.\nGET /api/users/:id already exists in server.js: no change there.";
+  assert.deepEqual(reviewPlan(aware, scan, []), []);
+  const twice = "1. Add GET /api/users/:id for the profile.\n2. Call GET /api/users/:id from the page.";
+  assert.deepEqual(reviewPlan(twice, scan, []), ["GET /api/users/:id already exists (server.js:3): extend it rather than adding another."]);
+});
+
+test("plan check: a plan file Claude writes is checked as it's written, then not said again when the plan finishes", async () => {
+  const root = await makeRepo(REPO);
+  const plans = await makeRepo({ ".claude/plans/ride-history.md": PLAN });
+  const planFile = join(plans, ".claude/plans/ride-history.md");
+  const sessions = new Sessions(root);
+  const written = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: planFile, content: PLAN } });
+  const told = JSON.parse(written.stdout!).hookSpecificOutput;
+  assert.equal(told.hookEventName, "PostToolUse");
+  assert.match(told.additionalContext, /^Attentry read the plan\. Before you start:\n- `formatTimeAgo`: the repo already has `timeAgo`/);
+  const finished = await sessions.handle({ hook_event_name: "PreToolUse", session_id: "s1", tool_name: "ExitPlanMode", tool_input: { plan: PLAN } });
+  assert.ok(!finished.stdout, "already heard");
+  // Any other file outside the project: not this task's, and not on its change card.
+  const other = join(plans, "notes.md");
+  await writeFile(other, "x");
+  assert.ok(!(await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: other, content: "x" } })).stdout);
+  const card = (await sessions.handle({ hook_event_name: "Stop", session_id: "s1" })).stdout ?? "";
+  assert.doesNotMatch(card, /plans|notes\.md|\.\.\//);
+});
+
+test("plan check: the check_plan tool, for when Claude or the person asks", async () => {
+  const sessions = new Sessions(await makeRepo(REPO));
+  assert.match((await sessions.tool("check_plan", { plan: PLAN })).text, /^Attentry read the plan\. Before you start:\n- `formatTimeAgo`/);
+  assert.equal((await sessions.tool("check_plan", { plan: "Rename the README title." })).text, "Nothing in the plan clashes with what the repo has: go ahead.");
+  assert.equal((await sessions.tool("check_plan", {})).isError, true);
 });
 
 test("plan check: the hook tells Claude before it starts, and says nothing for a plan with no notes", async () => {

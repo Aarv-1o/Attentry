@@ -7,6 +7,8 @@ const DIRECTIVE = /^(eslint|@ts-|ts-|noqa|type:|pylint|prettier|istanbul|c8|fmt:
 // A comment that explains why isn't repeating the code, even if it shares its words.
 const EXPLAINS_WHY = /\b(because|why|note|hack|workaround|must|don't|do not|avoid|otherwise|ensure|since|so that|unless|careful|important|instead)\b|→|=>/i;
 // A comment above a function or class documents what it does: that's an interface comment, not noise.
+// A comment that quotes output ("about 40 s", "3 hours ago") shows what the code produces: an example, not a repeat.
+const QUOTES_EXAMPLE = /"[^"]+"/;
 const DEFINITION = /^(export\s+(default\s+)?)?(async\s+)?(function\b|def\b|class\b)/;
 
 // Section headers (// ─── Rate Limiting ───) are for finding your way in a long file.
@@ -73,7 +75,7 @@ export async function commentRules({ parsed, file, syntax }: FileContext): Promi
     if (commentRows.has(row - 1) && !codeRowSet.has(row - 1)) continue;
     const text = syntax.commentText(comment.text);
     const next = lines.slice(row + 1).find((l) => l.trim())?.trim() ?? "";
-    if (!next || next.startsWith(comment.text.slice(0, 1)) || DIRECTIVE.test(text) || EXPLAINS_WHY.test(text) || DIVIDER.test(comment.text) || DEFINITION.test(next)) continue;
+    if (!next || next.startsWith(comment.text.slice(0, 1)) || DIRECTIVE.test(text) || EXPLAINS_WHY.test(text) || QUOTES_EXAMPLE.test(text) || DIVIDER.test(comment.text) || DEFINITION.test(next)) continue;
     const said = words(text);
     if (said.length < 2 || text.split(/\s+/).length > 8) continue;
     const code = codeWords(next);

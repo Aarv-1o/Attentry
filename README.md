@@ -41,7 +41,7 @@ To silence one finding, write why: `// attentry-ignore empty-catch: the cache is
 
 The easy way: install the VS Code extension (below) and click **Connect Claude Code** in the
 Attentry panel. That installs Attentry's Claude Code plugin for every project: the hooks, the MCP
-tools, and `/attentry:check` and `/attentry:explain`. When the extension updates, so does the plugin.
+tools, and `/attentry:check`, `/attentry:explain` and `/attentry:plan`. When the extension updates, so does the plugin.
 
 From a clone of this repo instead:
 
@@ -62,7 +62,9 @@ Claude Code session:
 - **Before it starts on a plan** (Claude Code's plan mode), notes on what the repo already has:
   a helper the plan would write again ("`formatTimeAgo`: the repo already has `timeAgo`"), a
   route that's already there, files that change all the time, a plan too big for one go. Only
-  matches it's sure of, never a block, and nothing when there's nothing to say
+  matches it's sure of, never a block, nothing it already says itself, and nothing when there's
+  nothing to say. It hears the plan when Claude finishes it, or as soon as Claude writes the plan
+  file; any other time, type `/attentry:plan` and Claude sends its plan to Attentry
 - **Every 10 edits** a check-in: what to focus on
 - **Tests** run at each check-in, in the background (the agent doesn't wait), and again at the
   end. If they fail, the agent hears it on its next edit. Attentry finds the command (`npm test`,
@@ -89,10 +91,11 @@ Hooks speak up on their own. With Attentry's MCP server, the agent can also ask:
 - **explain**: everything about the findings on one `file:line`: what the code does, why it
   matters, the fix in steps, and how to check. On a line without findings, it says which lines
   of that file have them
+- **check_plan**: the same notes as the plan check, whenever the agent (or `/attentry:plan`) asks
 
 Built on the official MCP SDK: it speaks both the handshake protocol (2025 revisions) and
 2026-07-28, and checks every call's arguments, so a wrong call comes back as an error the agent
-can read and fix. All three tools only read.
+can read and fix. All four tools only read.
 
 The plugin adds them. Without it, `init` prints the `claude mcp add` command.
 

@@ -1,4 +1,4 @@
-import { relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 import { severityOf } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
@@ -125,10 +125,20 @@ export function contentAfter(input: HookInput, before: string): string | undefin
 }
 
 // Before Claude starts on a plan: what the repo already has that it should know. Never a block.
-export function beforePlan(notes: string[]): HookReply {
+export const planMessage = (notes: string[]) => ["Attentry read the plan. Before you start:", ...notes.map((n) => `- ${n}`)].join("\n");
+export function beforePlan(notes: string[], event: "PreToolUse" | "PostToolUse" = "PreToolUse"): HookReply {
   if (!notes.length) return SILENT;
-  const message = ["Attentry read the plan. Before you start:", ...notes.map((n) => `- ${n}`)].join("\n");
-  return json({ hookSpecificOutput: { hookEventName: "PreToolUse", additionalContext: message } });
+  return json({ hookSpecificOutput: { hookEventName: event, additionalContext: planMessage(notes) } });
+}
+
+// Claude Code keeps plans as Markdown in ~/.claude/plans. A plan written there is checked as it's
+// written, so it's heard also where it never goes through ExitPlanMode (a headless session).
+export const isPlanFile = (path: string) => /[\\/]\.claude[\\/]plans[\\/][^\\/]+\.md$/i.test(path);
+
+// A file outside the project (a plan, another repo) isn't this task's edit.
+export function outsideProject(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel.startsWith("..") || isAbsolute(rel);
 }
 
 // Before an edit that adds functions the repo already has: say so, once per pair. Block mode

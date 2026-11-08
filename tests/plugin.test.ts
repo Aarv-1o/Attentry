@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { chmod, readFile, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { join } from "node:path";
 import { test } from "node:test";
 import { isEdit } from "../src/agent/hooks.ts";
 import { installPlugin, pluginHome, refreshPlugin } from "../src/agent/plugin.ts";
@@ -35,7 +35,9 @@ test("plugin MCP server: the same build, as `attentry`", async () => {
 });
 
 // A stand-in for Claude Code's `claude` command (a .cmd on Windows): writes down each call, and
-// answers `plugin list --json` with `listed`.
+// answers `plugin list --json` with `listed`. Named by ATTENTRY_CLAUDE, so the real claude.exe on
+// PATH is never the one run; and with its own CLAUDE_CONFIG_DIR, so even that couldn't touch the
+// person's real Claude Code.
 async function fakeClaude(listed: object[]) {
   const dir = await makeRepo({ "listed.json": JSON.stringify(listed) });
   const log = join(dir, "calls.log");
@@ -48,11 +50,17 @@ async function fakeClaude(listed: object[]) {
   await writeFile(join(dir, "claude"), `#!/bin/sh\nexec node "${join(dir, "fake.mjs")}" "$@"\n`);
   await chmod(join(dir, "claude"), 0o755);
   await writeFile(join(dir, "claude.cmd"), `@node "%~dp0fake.mjs" %*\r\n`);
-  const path = process.env.PATH;
-  process.env.PATH = `${dir}${delimiter}${path}`;
+  const before = { ATTENTRY_CLAUDE: process.env.ATTENTRY_CLAUDE, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR };
+  process.env.ATTENTRY_CLAUDE = join(dir, process.platform === "win32" ? "claude.cmd" : "claude");
+  process.env.CLAUDE_CONFIG_DIR = join(dir, "config");
   return {
     calls: async () => (existsSync(log) ? (await readFile(log, "utf8")).trim().split("\n").filter(Boolean) : []),
-    [Symbol.dispose]: () => void (process.env.PATH = path),
+    [Symbol.dispose]: () => {
+      for (const [key, value] of Object.entries(before)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    },
   };
 }
 

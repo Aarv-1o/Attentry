@@ -11,6 +11,7 @@ import { briefLine } from "../report/brief.ts";
 import { explainFindings, findingsOn } from "../report/explain.ts";
 import { nameWords } from "../rules/codebase/duplicates.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
+import { planMessage } from "./hooks.ts";
 import { keyOf, newSince, type Task } from "./ledger.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { plural } from "../report/common.ts";
@@ -23,6 +24,7 @@ export interface ToolContext {
   index: () => Promise<RepoIndex>;
   findings: () => Promise<Finding[]>;
   task: () => Task | undefined; // the agent task running now, if hooks are connected
+  reviewPlan: (plan: string) => Promise<string[]>;
 }
 
 export interface ToolResult {
@@ -175,10 +177,20 @@ export async function explainTool(args: Args, ctx: ToolContext): Promise<ToolRes
   return { text: `No findings on ${file}:${m[2]}.${lines.length ? ` Findings in ${file} are on line ${lines.slice(0, 10).join(", ")}.` : ""}` };
 }
 
+// A plan, before building it: the same notes the plan hook gives, for when Claude (or the person,
+// with /attentry:plan) asks.
+export async function checkPlanTool(args: Args, ctx: ToolContext): Promise<ToolResult> {
+  const plan = text(args.plan);
+  if (!plan) return { text: "Give `plan`: the plan's full text.", isError: true };
+  const notes = await ctx.reviewPlan(plan);
+  return { text: notes.length ? planMessage(notes) : "Nothing in the plan clashes with what the repo has: go ahead." };
+}
+
 export const TOOLS = {
   find_existing: findExistingTool,
   check: checkTool,
   explain: explainTool,
+  check_plan: checkPlanTool,
 } as const;
 export type ToolName = keyof typeof TOOLS;
 export const isToolName = (name: string): name is ToolName => name in TOOLS;

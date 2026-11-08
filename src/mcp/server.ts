@@ -15,7 +15,8 @@ import { beginTask, toolReply } from "../daemon/client.ts";
 const INSTRUCTIONS = `Attentry knows this repo: every function, route and known problem.
 - Before writing a helper or utility: call find_existing. The repo may already have it; reuse it instead of adding a copy.
 - After changing code, before saying you're done: call check. It lists problems your changes added, marked "(new in this task)".
-- For the full fix of one finding: call explain with its file:line.`;
+- For the full fix of one finding: call explain with its file:line.
+- Before building from a plan you wrote: call check_plan with it.`;
 
 // Limits on what an agent sends. More isn't a question Attentry can help with, and it would sit in memory.
 const PATH = z.string().min(1).max(1_000);
@@ -51,6 +52,14 @@ const TOOLS = {
       location: z.string().max(1_000).regex(/^.+:\d+$/, "Give `location` as file:line, like src/app.ts:42.").describe("file:line, like src/app.ts:42."),
     }),
   },
+  check_plan: {
+    title: "Check a plan",
+    description:
+      "Call with a plan before building it. Says what the repo already has that the plan would write again (a helper under another name, a route that exists), files in it that change all the time, and whether it's too big for one go. Answers \"go ahead\" when nothing clashes.",
+    inputSchema: z.object({
+      plan: z.string().min(1).max(100_000).describe("The plan's full text, as Markdown: name functions in backticks and routes as GET /path."),
+    }),
+  },
 } as const;
 
 const asResult = ({ text, isError }: ToolResult) => ({ content: [{ type: "text" as const, text }], isError: !!isError });
@@ -75,6 +84,7 @@ export function runMcpServer(root: string): void {
     server.registerTool("find_existing", { ...TOOLS.find_existing, annotations }, (args) => call("find_existing", args));
     server.registerTool("check", { ...TOOLS.check, annotations }, (args) => call("check", args));
     server.registerTool("explain", { ...TOOLS.explain, annotations }, (args) => call("explain", args));
+    server.registerTool("check_plan", { ...TOOLS.check_plan, annotations }, (args) => call("check_plan", args));
     return server;
   }, { onerror: (error) => process.stderr.write(`attentry mcp: ${error.message.replace(/\s+/g, " ").slice(0, 300)}\n`) }); // a message that isn't MCP: noted, then ignored
 }

@@ -18,6 +18,8 @@ const ROUTE = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`'",)]*)/g;
 
 // Two words or more: `id` or `data` could be anything.
 const twoWords = (name: string) => nameWords(name).includes(" ");
+// A line that already says the route is there ("GET /api/rides/:id already exists").
+const ALREADY = /\balready\b/i;
 
 export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]): string[] {
   const { index } = scan;
@@ -25,13 +27,14 @@ export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]):
 
   // Functions the plan will write that the repo has under another name.
   const existing = new Set(index.functions.map((f) => f.name));
+  const named = new Set(plan.match(/[\w$]+/g)); // a plan that already says "reuse `formatPrice`" needs no note on it
   const proposed = new Set([...plan.matchAll(NAME)].map((m) => m[1]!).filter((name) => twoWords(name) && !existing.has(name)));
   for (const name of proposed) {
     // Only a function whose whole name is inside the planned one (timeAgo in formatTimeAgo): a
     // looser match is wrong too often to say unasked.
     const planned = new Set(nameWords(name).split(" "));
     const match = similarFunctions(nameWords(name), index).find((m) => twoWords(m.fn.name) && nameWords(m.fn.name).split(" ").every((w) => planned.has(w)));
-    if (match) notes.push(`\`${name}\`: the repo already has \`${match.fn.name}\` (${match.fn.file}:${match.fn.startLine}, used in ${plural(match.uses, "place")}). Reuse it instead of writing a new one.`);
+    if (match && !named.has(match.fn.name)) notes.push(`\`${name}\`: the repo already has \`${match.fn.name}\` (${match.fn.file}:${match.fn.startLine}, used in ${plural(match.uses, "place")}). Reuse it instead of writing a new one.`);
   }
 
   // Files it changes that change all the time.
@@ -43,12 +46,13 @@ export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]):
   }
 
   // Routes it adds that are already there.
-  for (const [, method, raw] of plan.matchAll(ROUTE)) {
+  const routes = plan.split("\n").filter((line) => !ALREADY.test(line)).flatMap((line) => [...line.matchAll(ROUTE)]);
+  for (const [, method, raw] of routes) {
     const path = parsePath(raw!);
     const route = path && scan.crossStack.allRoutes.find((r) => (r.method === method || r.method === "ALL") && reaches(path, r.path, "strict"));
     if (route) notes.push(`${method} ${path.text} already exists (${route.file}:${route.line}): extend it rather than adding another.`);
   }
 
   if (files.size >= BIG_PLAN) notes.push(`The plan touches ${files.size} files: do it in smaller steps, and check each one (Attentry's \`check\` tool) before the next.`);
-  return notes.slice(0, MAX_NOTES);
+  return [...new Set(notes)].slice(0, MAX_NOTES); // a route the plan names twice is one note
 }

@@ -115,7 +115,7 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
     hasDatabase: usesDatabase(imports.values(), index.allFiles),
     security: [...endpointIssues, ...committedEnvFiles(index.allFiles), ...serious(SECURITY_RULES)].filter(keep),
     crashes: serious(CRASH_RULES).filter(keep),
-    history, hotspots: history.ok ? findHotspots(history.changes, sizes) : [],
+    history, hotspots: history.ok ? findHotspots(history.changes, sizes, history.commits) : [],
     seconds: (Date.now() - started) / 1000,
   };
 }
