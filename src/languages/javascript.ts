@@ -56,9 +56,12 @@ function exportedNames(root: Node): Set<string> {
   return names;
 }
 
+// `export function f` or `export const f = () => …`. Not a function inside an exported one's body
+// (cancelRide inside `export default function RiderApp`): that one can't be imported.
 function exportAncestor(node: Node): Node | undefined {
   for (let p = node.parent, depth = 0; p && depth < 4; p = p.parent, depth++) {
     if (p.type === "export_statement") return p;
+    if (p.type === "statement_block" || p.type === "class_body" || FUNCTION_TYPES.has(p.type)) return undefined;
   }
   return undefined;
 }

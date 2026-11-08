@@ -2,6 +2,7 @@ import type { ScanResult } from "../scan/scan.ts";
 import type { Finding } from "../findings/types.ts";
 import { formatCrossStack } from "./crossStack.ts";
 import { formatDeadCode } from "./deadCode.ts";
+import { appOf } from "../index/files.ts";
 import { formatDuplicates } from "./duplicates.ts";
 import { formatHotspots } from "./hotspots.ts";
 import { formatLineFindings } from "./hygiene.ts";
@@ -30,7 +31,7 @@ export function formatScan(r: ScanResult, all: boolean): string {
   }
   parts.push(
     "\n",
-    formatDuplicates(r.groups, all, r.differences, r.deadFiles),
+    formatDuplicates(r.groups, all, r.differences, r.deadFiles, appOf(r.index.allFiles)),
     `\n${formatDeadCode(r.dead, all)}`,
     `\n${formatCrossStack(r.crossStack, all)}`,
     `\n${formatLineFindings("Security", r.security, all)}`,
