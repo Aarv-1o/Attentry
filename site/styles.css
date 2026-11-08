@@ -118,7 +118,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .caret { display: inline-block; width: 8px; height: 1.15em; margin-left: 2px; vertical-align: text-bottom; background: var(--teal); animation: blink 1s steps(1) infinite; }
 
 .globe-stage { position: relative; aspect-ratio: 1; width: 100%; max-width: 520px; justify-self: center; }
-.globe-stage canvas { width: 100%; height: 100%; display: block; }
+/* Laid over its square box, so the drawing size the script sets can never resize the layout. */
+.globe-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .face {
   position: absolute; width: 22%; aspect-ratio: 1; border-radius: 50%; overflow: hidden;
   border: 1px solid var(--hairline-strong); background: var(--surface);
@@ -144,11 +145,12 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .stat span { font-size: 14px; }
 
 /* Developers at work, typing */
-.devs { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.45fr); gap: var(--space-5); margin-top: var(--space-8); align-items: stretch; }
-.dev-wide { display: flex; flex-direction: column; justify-content: center; padding: var(--space-5) var(--space-5) 0; }
-.dev { position: relative; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); padding: var(--space-6) var(--space-6) 0; overflow: hidden; }
-.dev figcaption { display: flex; justify-content: space-between; gap: var(--space-4); padding-block: var(--space-4) var(--space-5); font-size: 14px; color: var(--mute); }
-.dev figcaption b { color: var(--ink); font-weight: 500; }
+/* You ask, the agent edits: one box, the developer on the left, the agent's VS Code on the right. */
+.duo { display: grid; grid-template-columns: minmax(0, 0.75fr) auto minmax(0, 1.55fr); gap: var(--space-5); align-items: center; margin: var(--space-8) 0 0; padding: var(--space-6); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); }
+.duo-dev, .duo-agent { display: grid; gap: var(--space-4); min-width: 0; }
+.duo-arrow { opacity: 0.8; }
+.duo-cap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-4); font-size: 14px; color: var(--mute); }
+.duo-cap b { color: var(--ink); font-weight: 500; }
 .sprite { position: relative; width: 100%; }
 .sprite img { width: 100%; filter: invert(0.94); }
 .sprite .steam { position: absolute; width: 5.4%; opacity: 0; animation: steam 2.6s ease-in-out infinite; }
@@ -291,7 +293,9 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 @keyframes steam { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px); } }
 
 @media (max-width: 960px) {
-  .devs { grid-template-columns: minmax(0, 1fr); }
+  .duo { grid-template-columns: minmax(0, 1fr); }
+  .duo-arrow { justify-self: center; transform: rotate(90deg); }
+  .duo-dev { max-width: 420px; justify-self: center; width: 100%; }
   .hero-grid, .cost, .end { grid-template-columns: minmax(0, 1fr); }
   .globe-stage { max-width: 420px; }
   .editor-body { grid-template-columns: 40px minmax(0, 1fr); }
@@ -302,10 +306,10 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 }
 @media (max-width: 640px) {
   .top .nav a:not(.btn) { display: none; }
-  .devs, .grid3, .stats { grid-template-columns: minmax(0, 1fr); }
+  .grid3, .stats { grid-template-columns: minmax(0, 1fr); }
   .code { font-size: 12px; }
   .code .ln { padding-inline: var(--space-3); gap: var(--space-3); }
-  .dev { padding: var(--space-5) var(--space-5) 0; }
+  .duo { padding: var(--space-4); }
   .end { padding: var(--space-5); }
   .bubble { display: none; }
   .mini-body { grid-template-columns: 24px minmax(0, 1fr); height: auto; }

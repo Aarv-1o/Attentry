@@ -69,8 +69,8 @@
         </div>
       </div>
 
-      <div class="devs">
-        <figure class="dev reveal">
+      <figure class="duo reveal">
+        <div class="duo-dev">
           <div class="sprite" data-sprite>
             <img src="assets/b3-man.png" alt="A developer typing a request to an AI agent" width="560" height="380">
             <img class="frame hold" src="assets/b3-f-t.png" alt="" width="560" height="380">
@@ -81,9 +81,10 @@
             <img class="frame" src="assets/b3-f-e.png" alt="" width="560" height="380">
             <img class="steam" src="assets/b3-f-steam.png" alt="" width="30" height="35" style="left: 18.8%; top: 61.8%">
           </div>
-          <figcaption><span>Asks: <b>"add a coupon code"</b></span><span>typing…</span></figcaption>
-        </figure>
-        <figure class="dev dev-wide reveal" data-delay="1">
+          <p class="duo-cap"><span>You ask: <b>"add a coupon code"</b></span></p>
+        </div>
+        <svg class="duo-arrow" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="#1fc8a4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="duo-agent">
           <div class="mini" id="mini" aria-hidden="true">
             <div class="mini-bar"><b></b><b></b><b></b><span>checkout.ts · Claude Code</span></div>
             <div class="mini-body">
@@ -95,9 +96,9 @@
               <div class="mini-chat" id="mini-chat"></div>
             </div>
           </div>
-          <figcaption><span>The agent: <b>edits checkout.ts</b></span><span id="mini-status">reading…</span></figcaption>
-        </figure>
-      </div>
+          <p class="duo-cap"><span>The agent edits <b>checkout.ts</b></span><span id="mini-status">reading…</span></p>
+        </div>
+      </figure>
     </div>
   </section>
 
