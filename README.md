@@ -10,8 +10,8 @@ Attentry is in preview. It reads JavaScript, TypeScript (including JSX and TSX),
 
 ## Install
 
-Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=attentry.attentry).
-For Cursor, Windsurf and other VS Code forks it's coming to Open VSX shortly. Then open the Attentry panel in the sidebar and click **Connect Claude
+Install the extension from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=attentry.attentry), or from
+[Open VSX](https://open-vsx.org/extension/attentry/attentry) if you use Cursor, Windsurf or another VS Code fork. Then open the Attentry panel in the sidebar and click **Connect Claude
 Code**. That's all the setup there is. It adds Attentry to Claude Code for every project, and the
 extension keeps it up to date.
 
