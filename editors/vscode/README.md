@@ -42,8 +42,20 @@ a security or crash problem.
   functions.
 - **Hotspots:** complex files that change often.
 
-It reads JavaScript, TypeScript and Python. If your project uses a framework Attentry can't check
-yet, it tells you, rather than reporting that everything is fine.
+## Supported backends and libraries
+
+| What | Checked |
+|---|---|
+| Web frameworks | Express, Koa, Hono, Fastify, NestJS, Next.js (API routes), FastAPI, Flask, Django and Django REST Framework |
+| Other ways in | Socket.io events, WebSocket (`ws`) messages, tRPC procedures, GraphQL resolvers (Apollo Server, GraphQL Yoga, Mercurius, graphql-tools), Next.js server actions |
+| Frontend calls | fetch, axios (including base URLs), apisauce, superagent, generated API clients, Vite's dev proxy |
+| Databases | Mongoose, Sequelize, TypeORM, Prisma, Knex, the Django ORM, SQLAlchemy, SQLModel, raw SQL |
+| Languages | JavaScript, TypeScript (including JSX and TSX), Python, Astro |
+
+Not checked yet: hapi, restify, AdonisJS, Elysia, h3/Nitro, LoopBack, Tornado, aiohttp, Sanic,
+Litestar, Django Channels, and GraphQL written with type-graphql, NestJS GraphQL, Pothos,
+Graphene, Strawberry or Ariadne. If your project uses one of these, Attentry tells you it couldn't
+check it, rather than reporting that everything is fine.
 
 ## In the editor
 

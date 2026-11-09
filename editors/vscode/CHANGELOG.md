@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- The store page lists the supported backends, libraries and languages, and the ones Attentry can't check yet.
+- The example in the "serverCommand" setting no longer shows a folder from the author's machine.
+- One helper instead of two copies for finding the name a value is assigned to (found by Attentry's own scan).
+
 ## 0.1.0 (first public release, preview)
 
 - **Connect Claude Code** installs Attentry's Claude Code plugin for all your projects, kept up to date with the extension, and lets Claude call Attentry's read-only tools without asking each time.
