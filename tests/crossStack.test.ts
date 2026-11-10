@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { buildIndex } from "../src/index/repo.ts";
-import { findCrossStack } from "../src/rules/crossStack/check.ts";
+import { findCrossStack, takes } from "../src/rules/crossStack/check.ts";
 import { htmlCallsIn } from "../src/rules/crossStack/htmlCalls.ts";
 import type { FileApi } from "../src/rules/crossStack/types.ts";
 import { makeRepo } from "./helpers.ts";
@@ -131,4 +131,27 @@ export const Nav = () => <a href="/dashboard">Home</a>;
 `,
   }), []);
   assert.deepEqual(await crossStack({ "src/a.ts": `fetch("/api/anything");` }), []);
+});
+
+test("a typo means the nearly-same route, and a wrong method lists every method the route takes", async () => {
+  const root = await makeRepo({
+    "server.js": `import express from "express";
+const app = express();
+app.get("/api/notes/:id", (req, res) => res.json({}));
+app.put("/api/notes/:id", (req, res) => res.json({}));
+app.delete("/api/shared/:id", (req, res) => res.end());
+`,
+    "public/app.js": `export const open = (id) => fetch(\`/api/note/\${id}\`);
+export const rename = (id) => fetch(\`/api/notes/\${id}\`, { method: "PATCH" });
+export const remove = (id) => fetch(\`/api/shared/\${id}\`, { method: "DELETE" });
+`,
+  });
+  const index = await buildIndex(root);
+  const apis = new Map<string, FileApi>([...index.scans].map(([file, s]) => [file, s.api]));
+  const result = findCrossStack(apis, new Map([...index.usage].map(([file, u]) => [file, u.imports])), await htmlCallsIn(root, index.allFiles));
+  const typo = result.missing.find((m) => m.kind === "missing-route");
+  assert.equal(typo?.closest?.path.text, "/api/notes/:id");
+  const wrong = result.missing.find((m) => m.kind === "wrong-method");
+  assert.deepEqual(wrong?.methods?.sort(), ["GET", "PUT"]);
+  assert.equal(takes(wrong!), "The route takes GET and PUT");
 });

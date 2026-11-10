@@ -2,6 +2,7 @@ import type { FunctionInfo } from "../index/functions.ts";
 import { escapeRegex, readTexts } from "../index/texts.ts";
 import { nameUses } from "../index/usage.ts";
 import type { DuplicateGroup } from "../rules/codebase/duplicates.ts";
+import { takes } from "../rules/crossStack/check.ts";
 import { worthFlagging } from "../rules/codebase/hotspots.ts";
 import type { LineChange } from "../rules/codebase/differences.ts";
 import type { LineFinding } from "../rules/line/types.ts";
@@ -102,7 +103,7 @@ function crossStackFindings(r: ScanResult): Finding[] {
       confidence: m.confidence, file: m.file, line: m.line,
       title: m.kind === "missing-route" ? `Call to a route that doesn't exist: ${m.method ?? "?"} ${m.path.text}` : `Call with the wrong method: ${m.method} ${m.path.text}`,
       evidence: m.closest
-        ? [m.kind === "missing-route" ? `Closest route: ${m.closest.method} ${m.closest.path.text} at ${at(m.closest)}` : `The route only takes ${m.closest.method}, at ${at(m.closest)}`]
+        ? [m.kind === "missing-route" ? `Closest route: ${m.closest.method} ${m.closest.path.text} at ${at(m.closest)}` : `${takes(m)}, at ${at(m.closest)}`]
         : ["No route in this repo has this path."],
       related: m.closest ? [{ file: m.closest.file, line: m.closest.line, label: "route" }] : [],
     })),

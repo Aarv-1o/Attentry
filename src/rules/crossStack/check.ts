@@ -17,7 +17,14 @@ export interface MissingRoute {
   method: string | undefined;
   path: ApiPath;
   closest?: FullRoute; // missing-route: the route it most likely meant; wrong-method: the one with that path
+  methods?: string[]; // wrong-method: every method the path takes
 }
+
+// "The route only takes GET", "The route takes GET and PUT".
+export const takes = (m: MissingRoute) => {
+  const methods = m.methods ?? [m.closest!.method];
+  return methods.length === 1 ? `The route only takes ${methods[0]}` : `The route takes ${methods.slice(0, -1).join(", ")} and ${methods.at(-1)}`;
+};
 
 export interface UnusedRoute {
   confidence: Confidence;
@@ -37,13 +44,17 @@ const CALLED_FROM_OUTSIDE = /webhook|callback|oauth|redirect|health|status|ping|
 
 const methodFits = (call: string | undefined, route: string) => !call || route === "ALL" || call === route;
 
-// The route a call probably meant: same length, most segments in common, at least half.
+// A typo of the same word: note / notes, user / users, prof / profile.
+const nearWord = (a: string, b: string) => a !== "*" && b !== "*" && a !== b && (a.startsWith(b) || b.startsWith(a));
+
+// The route a call probably meant: same length, most segments in common, at least half. A segment
+// that's nearly the same word counts half, so /api/note/:id means /api/notes/:id, not /api/shared/:id.
 function closestRoute(path: ApiPath, routes: FullRoute[]): FullRoute | undefined {
   let best: FullRoute | undefined;
   let bestScore = 0;
   for (const route of routes) {
     if (route.path.unknownPrefix || route.path.segments.length !== path.segments.length) continue;
-    const score = route.path.segments.filter((s, i) => s === path.segments[i]).length;
+    const score = route.path.segments.reduce((sum, s, i) => sum + (s === path.segments[i] ? 1 : nearWord(s, path.segments[i]!) ? 0.5 : 0), 0);
     if (score > bestScore && score >= path.segments.length / 2) [best, bestScore] = [route, score];
   }
   return best;
@@ -67,7 +78,7 @@ function checkCall(call: ApiCall & { file: string }, hits: FullRoute[], path: Ap
   if (isTestFile(call.file)) return undefined;
   const base = { file: call.file, line: call.line, method: call.method, path };
   const solid = path.unknownPrefix ? hits.filter((r) => hasWordInCommon(path, r.path)) : hits;
-  if (solid.length) return { kind: "wrong-method", confidence: "likely", ...base, closest: solid[0]! };
+  if (solid.length) return { kind: "wrong-method", confidence: "likely", ...base, closest: solid[0]!, methods: [...new Set(solid.map((r) => r.method))] };
   // Sure of the namespace (it's under /api like the real routes)? Then likely; otherwise it
   // may go to a server that isn't in this repo.
   const namespace = path.segments[0];

@@ -1,4 +1,4 @@
-import type { CrossStack, MissingRoute, UnusedRoute } from "../rules/crossStack/check.ts";
+import { takes, type CrossStack, type MissingRoute, type UnusedRoute } from "../rules/crossStack/check.ts";
 import { hiddenNote, sureness } from "./common.ts";
 
 const MAX_SHOWN = 8;
@@ -26,7 +26,7 @@ function missingRow(m: MissingRoute) {
 
 function wrongMethodRow(m: MissingRoute) {
   const route = m.closest!;
-  return { at: where(m.file, m.line), what: call(m), note: `The route only takes ${route.method} (${where(route.file, route.line)}).`, confidence: m.confidence };
+  return { at: where(m.file, m.line), what: call(m), note: `${takes(m)} (${where(route.file, route.line)}).`, confidence: m.confidence };
 }
 
 function unusedRow(u: UnusedRoute) {
