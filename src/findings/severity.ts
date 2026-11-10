@@ -26,5 +26,8 @@ export function severityOf(f: Finding): Severity {
   return "info";
 }
 
+// A problem to tell the agent about: security, crash, will break, database. Not clean-up or hints.
+export const isProblem = (f: Finding) => ["error", "warning"].includes(severityOf(f));
+
 export const PART_NAMES: Record<Part, string> = { security: "Security", breaks: "Will break", database: "Database", cleanup: "Clean-up" };
 export const PARTS = Object.keys(PART_NAMES) as Part[];

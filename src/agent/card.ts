@@ -9,11 +9,11 @@ import { plural } from "../report/common.ts";
 
 const MAX_FILES = 5;
 
-export function changeCard(task: Task, findings: Finding[]): string {
+export function changeCard(task: Task, findings: Finding[], exists?: (file: string) => boolean): string {
   const added = newSince(task, findings).filter((f) => severityOf(f) !== "hint");
   const real = added.filter((f) => severityOf(f) !== "info");
   const cleanup = added.length - real.length;
-  const fixed = fixedSince(task, findings);
+  const fixed = fixedSince(task, findings, exists);
   const files = [...task.editedFiles].sort();
   const parts = (["security", "breaks", "database"] as const)
     .map((p) => [p, real.filter((f) => partOf(f) === p).length] as const)

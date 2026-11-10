@@ -97,6 +97,23 @@ def login(): ...
   ]);
 });
 
+// A helper that takes the method: fetch(url, { method }) can be any of them (a game posting scores).
+test("does not flag: a route reached through a helper that passes the method as a variable", async () => {
+  assert.deepEqual(await crossStack({
+    "server.js": `import express from "express";
+const app = express();
+app.get("/scores", (req, res) => res.json([]));
+app.post("/scores", (req, res) => res.status(201).json({}));
+`,
+    "public/game.js": `async function request(method, body) {
+  return fetch("/scores", { method, headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
+}
+request("GET");
+request("POST", { name, score });
+`,
+  }), []);
+});
+
 test("does not flag: unknown base URLs, other hosts, webhooks, repos with no backend", async () => {
   assert.deepEqual(await crossStack({
     ...EXPRESS,

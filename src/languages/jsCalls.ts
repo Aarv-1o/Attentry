@@ -19,7 +19,9 @@ export function methodOption(options: Node | undefined): string | undefined {
   if (!options) return "GET";
   if (options.type !== "object") return undefined;
   const method = objectValue(options, "method");
-  if (!method) return options.namedChildren.some((p) => p.type === "spread_element") ? undefined : "GET";
+  // { method } is { method: method }: a value we can't read, like a spread that may set it.
+  const unreadable = (p: Node) => p.type === "spread_element" || (p.type === "shorthand_property_identifier" && p.text === "method");
+  if (!method) return options.namedChildren.some(unreadable) ? undefined : "GET";
   return method.type === "string" ? unquote(method).toUpperCase() : undefined;
 }
 

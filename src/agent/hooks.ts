@@ -1,5 +1,6 @@
-import { isAbsolute, relative } from "node:path";
-import { severityOf } from "../findings/severity.ts";
+import { existsSync } from "node:fs";
+import { isAbsolute, join, relative } from "node:path";
+import { isProblem as matters, severityOf } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
@@ -41,8 +42,10 @@ const MAX_BLOCKED_STOPS = 2; // then let it finish: a block that keeps failing i
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const json = (value: object): HookReply => ({ stdout: `${JSON.stringify(value)}\n`, exitCode: 0 });
-const matters = (f: Finding) => ["error", "warning"].includes(severityOf(f));
 const worstFirst = (a: Finding, b: Finding) => Number(severityOf(a) !== "error") - Number(severityOf(b) !== "error");
+
+// For "fixed": a file that's gone may have been deleted by someone else, not fixed by this task.
+const inRepo = (root: string) => (file: string) => existsSync(join(root, file));
 
 export const isEdit = (input: HookInput) => EDIT_TOOLS.test(input.tool_name ?? "");
 
@@ -74,7 +77,7 @@ export function afterEdit(input: HookInput, root: string, task: Task, told: Set<
   }
   if (task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;
-    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings));
+    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root)));
   }
   if (!lines.length) return SILENT;
   const message = lines.join("\n");
@@ -83,11 +86,11 @@ export function afterEdit(input: HookInput, root: string, task: Task, told: Set<
   return json({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message } });
 }
 
-function checkIn(task: Task, findings: Finding[]): string[] {
+function checkIn(task: Task, findings: Finding[], exists: (file: string) => boolean): string[] {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const cleanup = added.length - real.length;
-  const fixed = fixedSince(task, findings);
+  const fixed = fixedSince(task, findings, exists);
   const head = `Attentry check-in after ${plural(task.edits, "edit")}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
   if (!real.length && !cleanup) return [`${head} Nothing to fix: carry on.`];
   return [
@@ -99,7 +102,7 @@ function checkIn(task: Task, findings: Finding[]): string[] {
 
 // When the agent wants to finish: the change card for the person; in block mode, not done
 // while the task has added security or crash problems.
-export function atStop(input: HookInput, task: Task, findings: Finding[], config: Config): HookReply {
+export function atStop(input: HookInput, root: string, task: Task, findings: Finding[], config: Config): HookReply {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const errors = real.filter((f) => severityOf(f) === "error");
@@ -108,7 +111,7 @@ export function atStop(input: HookInput, task: Task, findings: Finding[], config
     return json({ decision: "block", reason: [`Attentry: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
   }
   if (!task.edits) return SILENT;
-  return json({ systemMessage: changeCard(task, findings) });
+  return json({ systemMessage: changeCard(task, findings, inRepo(root)) });
 }
 
 // The file as it will be after this edit, or undefined if the edit can't be applied to it as it

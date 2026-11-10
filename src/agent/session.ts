@@ -275,7 +275,7 @@ export class Sessions {
       if (this.background && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);
       }
-      return atStop(input, entry.task, await this.findings(), config);
+      return atStop(input, this.root, entry.task, await this.findings(), config);
     }
     return SILENT;
   }

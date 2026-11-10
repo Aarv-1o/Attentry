@@ -1,3 +1,4 @@
+import { isProblem } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import type { TestRun } from "./tests.ts";
 
@@ -10,6 +11,7 @@ export const keyOf = (f: Finding) => `${f.rule}|${f.file}|${f.title}`;
 
 export interface Task {
   started: Map<string, number>; // finding key -> how many there were
+  serious: Set<string>; // the started keys that were problems (security, crash, will break, database), not clean-up
   edits: number;
   lastCheckIn: number; // edit count at the last check-in
   editedFiles: Set<string>;
@@ -28,14 +30,17 @@ const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
 export function startTask(findings: Finding[] = []): Task {
-  const task: Task = { started: new Map(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
+  const task: Task = { started: new Map(), serious: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
   recordStart(task, findings);
   return task;
 }
 
 // What the task started with. Filled in later for a task that began while Attentry was still reading the repo.
 export function recordStart(task: Task, findings: Finding[]): void {
-  for (const f of findings) task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
+  for (const f of findings) {
+    task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
+    if (isProblem(f)) task.serious.add(keyOf(f));
+  }
 }
 
 // Findings now that weren't there when the task started (counting duplicates: a second
@@ -52,11 +57,16 @@ export function newSince(task: Task, findings: Finding[]): Finding[] {
   });
 }
 
-// Problems the task fixed: there at the start, gone now.
-export function fixedSince(task: Task, findings: Finding[]): number {
+// Problems the task fixed: there at the start, gone now. Clean-up doesn't count, and neither does a
+// file deleted outside the task's edits (someone removing an old folder mid-session isn't a fix).
+export function fixedSince(task: Task, findings: Finding[], exists: (file: string) => boolean = () => true): number {
   const now = new Map<string, number>();
   for (const f of findings) now.set(keyOf(f), (now.get(keyOf(f)) ?? 0) + 1);
   let fixed = 0;
-  for (const [key, n] of task.started) if (ownFile(task, fileOfKey(key))) fixed += Math.max(0, n - (now.get(key) ?? 0));
+  for (const [key, n] of task.started) {
+    const file = fileOfKey(key);
+    if (!task.serious.has(key) || !ownFile(task, file) || !(exists(file) || task.editedFiles.has(file))) continue;
+    fixed += Math.max(0, n - (now.get(key) ?? 0));
+  }
   return fixed;
 }

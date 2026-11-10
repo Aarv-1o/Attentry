@@ -1,4 +1,4 @@
-import { PART_NAMES, PARTS, partOf, severityOf } from "../findings/severity.ts";
+import { isProblem, PART_NAMES, PARTS, partOf, severityOf } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 
 // Short output. For agents (hooks, MCP): one line per finding, errors and warnings only,
@@ -12,7 +12,7 @@ export const briefLine = (f: Finding) => `${f.file}:${f.line} ${severityOf(f)} a
 
 // `all` is the command that lists every finding, for the "…and N more" line.
 export function formatForAgent(findings: Finding[], all = "attentry scan --agent"): string {
-  const sent = findings.filter((f) => ["error", "warning"].includes(severityOf(f))).sort(order);
+  const sent = findings.filter(isProblem).sort(order);
   if (!sent.length) return "";
   const shown = sent.slice(0, AGENT_MAX);
   const more = sent.length - shown.length;
