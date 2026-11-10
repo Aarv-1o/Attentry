@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",
+    "path-to-regexp": "6.3.0",
     "tree-kill": "1.2.2",
     "tree-sitter-javascript": "0.25.0",
     "tree-sitter-python": "0.25.0",

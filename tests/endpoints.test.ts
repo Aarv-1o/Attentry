@@ -117,3 +117,32 @@ app.post("/signup", (req, res) => res.json(createUser(req.body)));
   });
   assert.deepEqual(found.filter((f) => f.startsWith("auth-without-rate-limit")), ["auth-without-rate-limit likely server.js:7"]);
 });
+
+test("Next.js middleware: routes its matcher covers are protected, others aren't, unclear ones are 'maybe'", async () => {
+  const NEXT = JSON.stringify({ dependencies: { next: "^15.0.0" } });
+  const notes = {
+    "app/api/notes/route.ts": `import { auth } from "@/auth";\nexport async function GET() {\n  const session = await auth();\n  return Response.json(await db.note.findMany({ where: { userId: session.user.id } }));\n}\n`,
+    "app/api/notes/[id]/route.ts": `export async function DELETE(req, { params }) {\n  await db.note.delete({ where: { id: params.id } });\n  return new Response(null, { status: 204 });\n}\n`,
+  };
+  const blocking = (matcher: string) => `import { NextResponse } from "next/server";\nimport { getToken } from "next-auth/jwt";\nexport async function middleware(req) {\n  if (!(await getToken({ req }))) return NextResponse.redirect(new URL("/login", req.url));\n}\nexport const config = { matcher: ${matcher} };\n`;
+
+  // Covered: the matcher includes /api/notes/[id], and the middleware turns away strangers. Logged in
+  // is checked, so the next question is asked: does the note belong to the caller?
+  const owner = ["missing-ownership-check maybe app/api/notes/[id]/route.ts:1"];
+  assert.deepEqual(await security({ "package.json": NEXT, ...notes, "middleware.ts": blocking(`["/api/:path*"]`) }), owner);
+  // Everything but static files (the usual negative lookahead), in proxy.ts (Next 16).
+  assert.deepEqual(await security({ "package.json": NEXT, ...notes, "proxy.ts": blocking(`["/((?!_next/static|_next/image|favicon.ico).*)"]`) }), owner);
+  // NextAuth: `auth as middleware`, blocking through the authorized callback in auth.ts.
+  assert.deepEqual(await security({
+    "package.json": NEXT, ...notes,
+    "auth.ts": `export const { auth } = NextAuth({ callbacks: { authorized({ auth }) { return !!auth; } } });\n`,
+    "middleware.ts": `export { auth as middleware } from "@/auth";\nexport const config = { matcher: ["/api/:path*"] };\n`,
+  }), owner);
+  // Not covered: the matcher is only for pages, so the API route has nothing in front of it.
+  assert.deepEqual(await security({ "package.json": NEXT, ...notes, "middleware.ts": blocking(`["/dashboard/:path*"]`) }), ["unauthenticated-route likely app/api/notes/[id]/route.ts:1"]);
+  // Unclear: Clerk decides which paths to protect inside the middleware.
+  assert.deepEqual(await security({
+    "package.json": NEXT, ...notes,
+    "middleware.ts": `import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\nconst isProtected = createRouteMatcher(["/dashboard(.*)"]);\nexport default clerkMiddleware(async (auth, req) => { if (isProtected(req)) await auth.protect(); });\nexport const config = { matcher: ["/(api|trpc)(.*)"] };\n`,
+  }), ["unauthenticated-route maybe app/api/notes/[id]/route.ts:1"]);
+});

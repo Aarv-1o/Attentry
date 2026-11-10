@@ -3,7 +3,7 @@ import type { FunctionInfo } from "../../index/functions.ts";
 import type { Confidence } from "../confidence.ts";
 import type { FullRoute } from "../crossStack/resolve.ts";
 import type { LineFinding } from "../line/types.ts";
-import { isNextAuthMiddleware } from "./doors.ts";
+import { nextMiddlewareCoverage } from "./nextMiddleware.ts";
 
 // Every endpoint, checked for what AI-built apps most often get wrong (broken access control is
 // the #1 critical class in 2025-2026 scans): no auth on a route that changes data, an admin route
@@ -31,9 +31,9 @@ const SCOPED = /req\.user|ctx\.user|context\.user|socket\.(data\.)?user|req\.use
 
 // Auth set up once for many routes, in a way Attentry can't follow to each route: a route with no
 // check of its own may still be covered, so it's "maybe", named with the file to look at. (NestJS
-// global guards, DRF default permissions and FastAPI router dependencies are followed exactly.)
+// global guards, DRF default permissions, FastAPI router dependencies and, when it's clear, Next.js
+// middleware are followed exactly: see nextMiddleware.ts.)
 const GLOBAL_AUTH: ((file: string, text: string) => boolean)[] = [
-  isNextAuthMiddleware, // Next.js middleware.ts / proxy.ts
   (_, text) => /LoginRequiredMiddleware/.test(text), // Django 5.1+
   (_, text) => /\.before_request\b[\s\S]{0,400}?(login|auth|session|token|current_user)/i.test(text), // Flask before_request
 ];
@@ -82,9 +82,12 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
   const add = (route: Endpoint, rule: string, confidence: Confidence, message: string) =>
     found.push({ rule, file: route.file, line: route.line, confidence, message });
   const code = new Map(routes.map((r) => [r, handlerCode(r, functions, texts)]));
-  const authed = (r: FullRoute) => r.guards.some((g) => AUTH_GUARD.test(g)) || AUTH_INLINE.test(code.get(r)!);
   // "Other routes check auth" only counts within the same app.
   const app = appOf(allFiles);
+  // Next.js middleware: URL routes only (server actions and other doors have their own check in doors.ts).
+  const middleware = nextMiddlewareCoverage(texts, app);
+  const nextCoverage = (r: Endpoint) => (r.label ? undefined : middleware.of(r.file, r.path.segments));
+  const authed = (r: Endpoint) => r.guards.some((g) => AUTH_GUARD.test(g)) || AUTH_INLINE.test(code.get(r)!) || nextCoverage(r) === "covered";
   const appsWithAuth = new Set(routes.filter(authed).map((r) => app(r.file)));
   const appHasAuthFor = (r: FullRoute) => appsWithAuth.has(app(r.file));
   // The file in each app that sets up auth for many routes at once.
@@ -104,7 +107,8 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
     const isAuthed = authed(route);
     const isAdmin = /\/admin(\/|$)/i.test(route.path.text);
 
-    const setUpIn = globalAuth.get(app(route.file));
+    const coverage = nextCoverage(route);
+    const setUpIn = coverage === "unsure" ? middleware.file(route.file) : coverage === "not-covered" ? undefined : globalAuth.get(app(route.file));
     if (!isAuthed && !isPublic && (appHasAuthFor(route) || setUpIn)) {
       const what = WRITE.has(route.method) ? "changes data" : PRIVATE_READ.test(route.path.text) || isAdmin ? "returns private data" : undefined;
       if (what && setUpIn) add(route, "unauthenticated-route", "maybe", `${label(route)} ${what} with no auth check of its own; auth is set up in ${setUpIn}, so check it covers this route`);
@@ -128,7 +132,7 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
   // Once per app with no auth at all.
   const reported = new Set<string>();
   for (const r of routes) {
-    if (appHasAuthFor(r) || globalAuth.has(app(r.file)) || !WRITE.has(r.method) || PUBLIC_PATH.test(r.path.text) || reported.has(app(r.file))) continue;
+    if (appHasAuthFor(r) || globalAuth.has(app(r.file)) || middleware.file(r.file) || !WRITE.has(r.method) || PUBLIC_PATH.test(r.path.text) || reported.has(app(r.file))) continue;
     reported.add(app(r.file));
     add(r, "no-auth-at-all", "maybe", `Nothing in this app checks who's calling: anyone can call ${label(r)}, and every other endpoint`);
   }
