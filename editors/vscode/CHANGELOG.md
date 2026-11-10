@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2
+
+- Next.js middleware (`middleware.ts` or `proxy.ts`) is read, including its `matcher`. Routes it protects count as protected; routes it leaves out are still flagged.
+- When auth is set up app-wide in a way Attentry can't fully follow (Next.js middleware it can't read, Flask `before_request`, Django `LoginRequiredMiddleware`), a route with no check of its own is "worth a check" instead of a problem. Claude hears it after the edit, is told it may be fine, and the change card shows a "To check" line.
+- `fetch(url, { method })` with the method in a variable is no longer read as a GET, so the POST route it calls isn't reported as unused.
+- The change card counts only real problems as fixed, and no longer counts files deleted outside the task.
+- A typo in a URL suggests the nearly-same route, and a wrong method lists every method the route takes.
+
 ## 0.1.1
 
 - The store page lists the supported backends, libraries and languages, and the ones Attentry can't check yet.

@@ -2,7 +2,7 @@
   "name": "attentry",
   "displayName": "Attentry",
   "description": "Checks the code Claude Code writes for security holes, crash risks, copied and dead code, and tells Claude right after each edit.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "preview": true,
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
