@@ -3,6 +3,7 @@ import type { FunctionInfo } from "../../index/functions.ts";
 import type { Confidence } from "../confidence.ts";
 import type { FullRoute } from "../crossStack/resolve.ts";
 import type { LineFinding } from "../line/types.ts";
+import { isNextAuthMiddleware } from "./doors.ts";
 
 // Every endpoint, checked for what AI-built apps most often get wrong (broken access control is
 // the #1 critical class in 2025-2026 scans): no auth on a route that changes data, an admin route
@@ -27,6 +28,15 @@ const RATE_LIMIT = /limit|throttl|slow_?down|brute/i;
 const BY_ID = /\.(findById|findByIdAndUpdate|findByIdAndDelete|findByIdAndRemove|findByPk|findUnique|findOne|findFirst|get|delete|update|destroy)\w*\(\s*[^)]*(req\.params|params\.\w+|params\[|\bid\b|_id\b|item_id|\w+_id\b|(?<!["'])\b[a-z]\w*Id\b(?!["']))/;
 // Signs the lookup is scoped to the caller: their id in the query, or a check after it.
 const SCOPED = /req\.user|ctx\.user|context\.user|socket\.(data\.)?user|req\.userId|userId|user_id|owner|current_user|currentUser|session\.user|ctx\.state\.user|request\.user|author|createdBy|created_by|tenant|org(anization)?_?id|account_?id|isAdmin|is_superuser|role/;
+
+// Auth set up once for many routes, in a way Attentry can't follow to each route: a route with no
+// check of its own may still be covered, so it's "maybe", named with the file to look at. (NestJS
+// global guards, DRF default permissions and FastAPI router dependencies are followed exactly.)
+const GLOBAL_AUTH: ((file: string, text: string) => boolean)[] = [
+  isNextAuthMiddleware, // Next.js middleware.ts / proxy.ts
+  (_, text) => /LoginRequiredMiddleware/.test(text), // Django 5.1+
+  (_, text) => /\.before_request\b[\s\S]{0,400}?(login|auth|session|token|current_user)/i.test(text), // Flask before_request
+];
 
 const WRITE = new Set(["POST", "PUT", "PATCH", "DELETE", "ALL"]);
 
@@ -77,6 +87,9 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
   const app = appOf(allFiles);
   const appsWithAuth = new Set(routes.filter(authed).map((r) => app(r.file)));
   const appHasAuthFor = (r: FullRoute) => appsWithAuth.has(app(r.file));
+  // The file in each app that sets up auth for many routes at once.
+  const globalAuth = new Map<string, string>();
+  for (const [file, text] of texts) if (!globalAuth.has(app(file)) && GLOBAL_AUTH.some((sets) => sets(file, text))) globalAuth.set(app(file), file);
   // Files where some handler scopes records to the caller: there, one that doesn't is an oversight.
   const unparam = (text: string) => text.replace(/\b(req|request)\.params\b/g, "");
   const scopingFiles = new Set(routes.filter((r) => SCOPED.test(unparam(code.get(r)!))).map((r) => r.file));
@@ -91,9 +104,11 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
     const isAuthed = authed(route);
     const isAdmin = /\/admin(\/|$)/i.test(route.path.text);
 
-    if (!isAuthed && !isPublic && appHasAuthFor(route)) {
-      if (WRITE.has(route.method)) add(route, "unauthenticated-route", "likely", `${label(route)} changes data, and nothing checks who's calling (other routes do)`);
-      else if (PRIVATE_READ.test(route.path.text) || isAdmin) add(route, "unauthenticated-route", "likely", `${label(route)} returns private data, and nothing checks who's calling (other routes do)`);
+    const setUpIn = globalAuth.get(app(route.file));
+    if (!isAuthed && !isPublic && (appHasAuthFor(route) || setUpIn)) {
+      const what = WRITE.has(route.method) ? "changes data" : PRIVATE_READ.test(route.path.text) || isAdmin ? "returns private data" : undefined;
+      if (what && setUpIn) add(route, "unauthenticated-route", "maybe", `${label(route)} ${what} with no auth check of its own; auth is set up in ${setUpIn}, so check it covers this route`);
+      else if (what) add(route, "unauthenticated-route", "likely", `${label(route)} ${what}, and nothing checks who's calling (other routes do)`);
     }
     if (isAdmin && isAuthed && !route.guards.some((g) => ADMIN.test(g)) && !/\b(role|isAdmin|is_admin|is_staff|is_superuser|admin)\b/.test(body)) {
       add(route, "admin-without-role", "likely", `${label(route)} checks that the caller is logged in, not that they're an admin`);
@@ -113,7 +128,7 @@ export function findEndpointIssues({ routes, functions, texts, rateLimitLibrary,
   // Once per app with no auth at all.
   const reported = new Set<string>();
   for (const r of routes) {
-    if (appHasAuthFor(r) || !WRITE.has(r.method) || PUBLIC_PATH.test(r.path.text) || reported.has(app(r.file))) continue;
+    if (appHasAuthFor(r) || globalAuth.has(app(r.file)) || !WRITE.has(r.method) || PUBLIC_PATH.test(r.path.text) || reported.has(app(r.file))) continue;
     reported.add(app(r.file));
     add(r, "no-auth-at-all", "maybe", `Nothing in this app checks who's calling: anyone can call ${label(r)}, and every other endpoint`);
   }

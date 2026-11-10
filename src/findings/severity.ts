@@ -29,5 +29,9 @@ export function severityOf(f: Finding): Severity {
 // A problem to tell the agent about: security, crash, will break, database. Not clean-up or hints.
 export const isProblem = (f: Finding) => ["error", "warning"].includes(severityOf(f));
 
+// Not sure enough to call a problem, but worth the agent's look: a route with no auth check of its
+// own in an app that sets up auth elsewhere. The agent checks, and tells the person what it found.
+export const worthChecking = (f: Finding) => f.rule === "unauthenticated-route" && f.confidence === "maybe";
+
 export const PART_NAMES: Record<Part, string> = { security: "Security", breaks: "Will break", database: "Database", cleanup: "Clean-up" };
 export const PARTS = Object.keys(PART_NAMES) as Part[];

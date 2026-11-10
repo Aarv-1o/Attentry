@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
-import { isProblem as matters, severityOf } from "../findings/severity.ts";
+import { isProblem as matters, severityOf, worthChecking } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
@@ -37,7 +37,7 @@ export interface HookReply {
 
 const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit)$/;
 const PER_EDIT = 5; // lines after one edit
-const FOCUS = 3; // lines in a check-in
+const FOCUS = 3; // lines in a check-in, and "worth a check" lines after an edit
 const MAX_BLOCKED_STOPS = 2; // then let it finish: a block that keeps failing is a loop
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
@@ -68,6 +68,13 @@ export function afterEdit(input: HookInput, root: string, task: Task, told: Set<
     lines.push(`Attentry: this edit added ${plural(fresh.length, "problem")}:`, ...fresh.slice(0, PER_EDIT).map(briefLine));
     if (fresh.length > PER_EDIT) lines.push(`…and ${fresh.length - PER_EDIT} more.`);
     lines.push("Fix them before moving on, or say why not. Full steps: `attentry explain <file:line>`.");
+  }
+  // Maybe fine: Claude looks, and tells the person, so they know why it's (not) a problem.
+  const check = newSince(task, findings).filter((f) => worthChecking(f) && !told.has(keyOf(f)));
+  for (const f of check) told.add(keyOf(f));
+  if (check.length) {
+    lines.push(...(lines.length ? [""] : []), "Attentry: worth a check, may be fine:", ...check.slice(0, FOCUS).map((f) => `- ${f.file}:${f.line} ${f.title}`));
+    lines.push("If it's covered, leave the code as it is and tell the person you checked. If not, add the check.");
   }
   // Tests run in the background at check-ins: a failure is told once, on the next edit.
   const tests = task.tests;

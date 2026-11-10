@@ -59,6 +59,30 @@ app.get("/api/admin/stats", requireAuth, isAdmin, async (req, res) => res.json(a
   }), []);
 });
 
+test("auth set up app-wide in a way that can't be followed (Flask before_request): a route with no check of its own is 'maybe'", async () => {
+  assert.deepEqual(await security({
+    "requirements.txt": "flask\nflask-login\n",
+    "app.py": `from flask import Flask, request, abort
+from flask_login import login_required, current_user
+app = Flask(__name__)
+
+@app.before_request
+def require_login():
+    if request.endpoint != "login" and not current_user.is_authenticated:
+        abort(401)
+
+@app.route("/notes", methods=["POST"])
+@login_required
+def create():
+    return save(request.json)
+
+@app.route("/notes/<int:note_id>", methods=["DELETE"])
+def remove(note_id):
+    return delete(note_id)
+`,
+  }), ["unauthenticated-route maybe app.py:15"]);
+});
+
 test("NestJS forRoutes, FastAPI dependencies, Django permission classes count as guards", async () => {
   assert.deepEqual(await security({
     "src/main.ts": `import { AppModule } from "./app.module";\nconst app = await NestFactory.create(AppModule);\napp.setGlobalPrefix("api");\n`,

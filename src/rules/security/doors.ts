@@ -36,6 +36,9 @@ const GRAPHQL_CONTEXT_AUTH = /context\s*[:=]\s*(async\s*)?\(?\s*\{\s*req\b[\s\S]
 const NEXT_MIDDLEWARE = /(^|\/)(src\/)?(middleware|proxy)\.[jt]s$/;
 const NEXT_MIDDLEWARE_AUTH = /NextAuth|\bauth\b|clerkMiddleware|withAuth|getToken|session|supabase|kinde|auth0/i;
 
+// Next.js middleware.ts (proxy.ts since Next 16) that runs auth.
+export const isNextAuthMiddleware = (file: string, text: string) => NEXT_MIDDLEWARE.test(file) && NEXT_MIDDLEWARE_AUTH.test(text);
+
 const kebab = (word: string) => word.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 function pathFor(name: string) {
   const segments = name.split(/[:./\s]+/).filter(Boolean).map(kebab);
@@ -157,7 +160,7 @@ export async function findDoors(texts: Map<string, string>, usage: Map<string, F
   // The GraphQL server works out who's calling for every resolver (context from the request's token).
   const contextAuthApps = new Set([...texts].filter(([file, text]) => graphqlApps.has(app(file)) && GRAPHQL_CONTEXT_AUTH.test(text)).map(([file]) => app(file)));
   // Next.js middleware (proxy.ts since Next 16) that runs auth on every page: server actions post to pages.
-  const middlewareAuthApps = new Set([...texts].filter(([file, text]) => NEXT_MIDDLEWARE.test(file) && NEXT_MIDDLEWARE_AUTH.test(text)).map(([file]) => app(file)));
+  const middlewareAuthApps = new Set([...texts].filter(([file, text]) => isNextAuthMiddleware(file, text)).map(([file]) => app(file)));
   const imports = (file: string, source: RegExp) => usage.get(file)?.imports.some((i) => source.test(i.source)) ?? false;
 
   const doors: Door[] = [];

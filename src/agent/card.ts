@@ -1,4 +1,4 @@
-import { partOf, severityOf } from "../findings/severity.ts";
+import { partOf, severityOf, worthChecking } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import { fixedSince, newSince, type Task } from "./ledger.ts";
 import { describeTests } from "./tests.ts";
@@ -14,6 +14,7 @@ export function changeCard(task: Task, findings: Finding[], exists?: (file: stri
   const real = added.filter((f) => severityOf(f) !== "info");
   const cleanup = added.length - real.length;
   const fixed = fixedSince(task, findings, exists);
+  const check = newSince(task, findings).filter(worthChecking).length;
   const files = [...task.editedFiles].sort();
   const parts = (["security", "breaks", "database"] as const)
     .map((p) => [p, real.filter((f) => partOf(f) === p).length] as const)
@@ -24,7 +25,8 @@ export function changeCard(task: Task, findings: Finding[], exists?: (file: stri
     `- Changed: ${plural(files.length, "file")}${files.length ? ` (${files.slice(0, MAX_FILES).join(", ")}${files.length > MAX_FILES ? `, +${files.length - MAX_FILES} more` : ""})` : ""}`,
     `- Problems: ${real.length ? `${real.length} added (${parts.join(", ")})` : "none added"}${fixed ? `, ${fixed} fixed` : ""}`,
     ...(cleanup ? [`- Clean-up: ${cleanup} added (unused or copied code)`] : []),
+    ...(check ? [`- To check: ${check} route${check === 1 ? "" : "s"} with no auth check of ${check === 1 ? "its" : "their"} own, in an app that sets up auth elsewhere`] : []),
     `- Tests: ${task.testing ? "still running (the sidebar shows the result)" : task.tests && task.tests.atEdit < task.edits ? `${describeTests(task.tests)}, before the last ${plural(task.edits - task.tests.atEdit, "edit")}` : describeTests(task.tests)}`,
-    ...(real.length || cleanup ? ["See them with `attentry scan --changed` or in the Attentry sidebar."] : []),
+    ...(real.length || cleanup || check ? ["See them with `attentry scan --changed` or in the Attentry sidebar."] : []),
   ].join("\n");
 }

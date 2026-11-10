@@ -190,3 +190,27 @@ test("while the first scan reads a big repo, hooks answer at once; edits made me
   assert.match(told.hookSpecificOutput.additionalContext, /this edit added 1 problem/, "measured from the repo as it was read");
   assert.equal((await sessions.status())!.edits, 3, "edits made while reading still count");
 });
+
+test("auth set up in Next.js middleware: a route with no check of its own is 'worth a check', not a problem", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ dependencies: { next: "^15.0.0", "next-auth": "^5.0.0" } }),
+    "middleware.ts": `export { auth as middleware } from "@/auth";\nexport const config = { matcher: ["/api/:path*"] };\n`,
+    "app/api/notes/route.ts": `import { auth } from "@/auth";\nexport async function GET() {\n  const session = await auth();\n  return Response.json(await db.note.findMany({ where: { userId: session.user.id } }));\n}\n`,
+  });
+  const sessions = new Sessions(root);
+  const hook = async (event: string, extra: object = {}) => {
+    const reply = await sessions.handle({ hook_event_name: event, session_id: "s1", ...extra });
+    return reply.stdout ? JSON.parse(reply.stdout) : undefined;
+  };
+  await hook("SessionStart");
+  const file = join(root, "app/api/notes/[id]/route.ts");
+  await mkdir(join(file, ".."), { recursive: true });
+  await writeFile(file, `export async function DELETE(req: Request, { params }) {\n  await db.note.delete({ where: { id: params.id } });\n  return new Response(null, { status: 204 });\n}\n`);
+  const note = (await hook("PostToolUse", { tool_name: "Write", tool_input: { file_path: file } }))?.hookSpecificOutput?.additionalContext ?? "";
+  assert.match(note, /worth a check, may be fine/);
+  assert.match(note, /DELETE \/api\/notes\/\[id\] changes data with no auth check of its own; auth is set up in middleware\.ts, so check it covers this route/);
+  assert.doesNotMatch(note, /this edit added/, "not reported as a problem");
+  const card = (await hook("Stop"))?.systemMessage ?? "";
+  assert.match(card, /Problems: none added/);
+  assert.match(card, /To check: 1 route with no auth check of its own/);
+});
