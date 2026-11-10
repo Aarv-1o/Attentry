@@ -1,10 +1,14 @@
 # Attentry
 
-Attentry checks the code your AI agent writes. It works with Claude Code: after each edit, it
-tells Claude about any security hole, crash risk, copied function or dead code that the edit added,
-so Claude can fix it straight away. When the task is done, you get a short summary of what changed.
+Attentry checks the code your AI agent writes. It works with Claude Code: before Claude writes a
+function the repo already has, it points to the existing one. After each edit, it tells Claude about
+any security hole or crash risk the edit added, so Claude can fix it straight away. Copies and
+unused code show up in a check-in every few edits, and when the task is done you get a short
+summary of what changed.
 
-Website: [attentry.js.org](https://attentry.js.org)
+- Website: [attentry.js.org](https://attentry.js.org)
+- Try it: [attentry-demo](https://github.com/Aarv-1o/attentry-demo), a small notes app with
+  problems planted on purpose, and what Attentry says about each one
 
 Attentry is in preview. It reads JavaScript, TypeScript (including JSX and TSX), Python and Astro.
 
@@ -15,9 +19,8 @@ Install the extension from the [VS Code Marketplace](https://marketplace.visuals
 Code**. That's all the setup there is. It adds Attentry to Claude Code for every project, and the
 extension keeps it up to date.
 
-To see it work before using it on your own code, open
-[attentry-demo](https://github.com/Aarv-1o/attentry-demo): a small notes app with problems planted
-on purpose, and a list of what Attentry should say about each one.
+To see it work before using it on your own code, open the
+[demo repo](https://github.com/Aarv-1o/attentry-demo) in VS Code.
 
 ## What Claude hears, and when
 
