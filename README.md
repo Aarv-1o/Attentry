@@ -15,6 +15,10 @@ Install the extension from the [VS Code Marketplace](https://marketplace.visuals
 Code**. That's all the setup there is. It adds Attentry to Claude Code for every project, and the
 extension keeps it up to date.
 
+To see it work before using it on your own code, open
+[attentry-demo](https://github.com/Aarv-1o/attentry-demo): a small notes app with problems planted
+on purpose, and a list of what Attentry should say about each one.
+
 ## What Claude hears, and when
 
 Attentry speaks up at a few moments during a Claude Code session, and stays quiet the rest of the
