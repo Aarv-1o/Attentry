@@ -1,8 +1,8 @@
 {
   "name": "attentry",
-  "displayName": "Attentry",
-  "description": "Checks the code Claude Code writes for security holes, crash risks, copied and dead code, and tells Claude right after each edit.",
-  "version": "0.1.2",
+  "displayName": "Attentry: Claude Code Checker - Security, Duplicate & Dead Code",
+  "description": "Claude Code checker: catches security holes and crash risks right after each edit, points Claude to helpers the repo already has, and flags duplicate and dead code. Runs locally, no AI, zero tokens.",
+  "version": "0.1.3",
   "preview": true,
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
@@ -27,13 +27,17 @@
   "keywords": [
     "claude",
     "claude code",
+    "ai code review",
     "ai agent",
+    "vibe coding",
     "security",
-    "dead code",
     "duplicate code",
+    "dead code",
+    "linter",
     "code review",
     "mcp",
-    "vibe coding"
+    "cursor",
+    "windsurf"
   ],
   "activationEvents": [
     "onStartupFinished"

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- The panel no longer shows "Last task: 0 edits to 0 files, ... 498,442 hours ago" when Claude Code has started but made no edits yet.
+- The store page says when each kind of problem is reported: copies before the edit, security holes and crash risks right after it, unused code at the check-ins and the end. It also links the demo repo.
+
 ## 0.1.2
 
 - Next.js middleware (`middleware.ts` or `proxy.ts`) is read, including its `matcher`. Routes it protects count as protected; routes it leaves out are still flagged.

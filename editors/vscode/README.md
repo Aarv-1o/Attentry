@@ -1,10 +1,14 @@
 # Attentry
 
-Attentry checks the code your AI agent writes. It works with Claude Code: after each edit, it
-tells Claude about any security hole, crash risk, copied function or dead code that the edit added,
-so Claude can fix it straight away. When the task is done, you get a short summary of what changed.
+Attentry checks the code your AI agent writes. It works with Claude Code: before Claude writes a
+function the repo already has, it points to the existing one. After each edit, it tells Claude about
+any security hole or crash risk the edit added, so Claude can fix it straight away. Copies and
+unused code show up in a check-in every few edits, and when the task is done you get a short
+summary of what changed. The checks run on your machine without AI, so a clean edit costs no tokens.
 
-Website: [attentry.js.org](https://attentry.js.org). Source: [GitHub](https://github.com/Aarv-1o/Attentry).
+- Website: [attentry.js.org](https://attentry.js.org). Source: [GitHub](https://github.com/Aarv-1o/Attentry).
+- Try it first: [attentry-demo](https://github.com/Aarv-1o/attentry-demo), a small notes app with
+  problems planted on purpose, and what Attentry says about each one.
 
 ## Getting started
 

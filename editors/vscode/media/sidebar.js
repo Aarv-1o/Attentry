@@ -115,7 +115,7 @@ function claudeCode() {
       </div>
       <span class="quiet">${MODES[mode]}</span>
     </div>
-    ${live ? task(live, working) + checkInMeter(live) : ""}
+    ${live ? (live.edits ? task(live, working) : "") + checkInMeter(live) : ""}
   </section>`;
 }
 
