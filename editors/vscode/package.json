@@ -1,7 +1,7 @@
 {
   "name": "attentry",
   "displayName": "Attentry: Claude Code Checker - Security, Duplicate & Dead Code",
-  "description": "Claude Code checker: catches security holes and crash risks right after each edit, points Claude to helpers the repo already has, and flags duplicate and dead code. Runs locally, no AI, zero tokens.",
+  "description": "Claude Code checker: catches security holes and crash risks right after each edit, points Claude to helpers the repo already has, and flags duplicate and dead code. Runs locally with no AI, so a clean edit costs zero tokens.",
   "version": "0.1.3",
   "preview": true,
   "icon": "dist/icon.png",
