@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig, writeMode } from "./config.ts";
-import { findTests } from "./tests.ts";
+import { findTests, type TestCommand } from "./tests.ts";
 import { allowTests } from "./trust.ts";
 
 // `attentry init`: sets up Attentry's hooks for Claude Code in a repo, for running Attentry from its
@@ -74,13 +74,17 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
   // Hooks go where Claude Code starts; the mode and the tests go with the project Attentry checks.
   const project = await projectRoot(root);
   if (mode) done.push(`Mode: ${mode} (${await writeMode(project, mode)})`);
-  // Connecting Attentry is the person saying yes to its test runs: only these commands, as they are now.
-  const tests = await findTests(project, (await loadConfig(project)).tests);
-  if (tests.length) {
-    await allowTests(project, tests);
-    done.push(`Tests Attentry may run at check-ins: ${tests.map((t) => (t.runs === t.command ? t.command : `${t.label} (${t.runs})`)).join(", ")}. If they change, run init again to allow the new ones`);
-  }
+  const tests = await allowCurrentTests(project);
+  if (tests.length) done.push(`Tests Attentry may run at check-ins: ${tests.map((t) => (t.runs === t.command ? t.command : `${t.label} (${t.runs})`)).join(", ")}. If they change, run init again to allow the new ones`);
   return done;
+}
+
+// Connecting Attentry (init, or Connect in the editor) is the person saying yes to its test runs:
+// only the project's commands as they are now. Returns them.
+export async function allowCurrentTests(project: string): Promise<TestCommand[]> {
+  const tests = await findTests(project, (await loadConfig(project)).tests);
+  if (tests.length) await allowTests(project, tests);
+  return tests;
 }
 
 // Takes out hooks `init` added: the plugin runs the same ones, and both would check every edit twice.

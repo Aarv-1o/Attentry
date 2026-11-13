@@ -101,7 +101,7 @@ export function describeTests(run: TestRun | undefined): string {
   if (!run) return "not run";
   if (run.state === "none") return "none found (set \"tests\" in .attentry/config.json)";
   if (run.state === "off") return "off (\"tests\": \"off\" in .attentry/config.json)";
-  if (run.state === "blocked") return `not run: allow ${run.label} first (run \`attentry init\` here, or Connect in the Attentry sidebar)`;
+  if (run.state === "blocked") return `not run: allow ${run.label} first (Allow tests in the Attentry sidebar, or run \`attentry init\` here)`;
   if (run.state === "passed") return `passed (${run.label}, ${run.seconds}s)`;
   if (run.state === "timeout") return `didn't finish in time (${run.label})`;
   const missing = run.tail.find((l) => NOT_INSTALLED.test(l));

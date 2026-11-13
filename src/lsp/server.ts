@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
 import { loadConfig, writeMode } from "../agent/config.ts";
-import { hookState, init } from "../agent/init.ts";
+import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
 import { installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
 import { agentStatus, repoFindings } from "../daemon/client.ts";
@@ -161,7 +161,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.setMode"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -216,6 +216,7 @@ export function startServer(connection: Connection): void {
     if (command === "attentry.server.connectAgent") {
       if (home) {
         const result = await installPlugin(home, workspace);
+        if (result.ok) await allowCurrentTests(root); // as init does: connecting says yes to the tests
         await askPlugin(() => refreshPlugin(home, workspace));
         return result;
       }
@@ -226,9 +227,12 @@ export function startServer(connection: Connection): void {
     if (command === "attentry.server.connectCodex") {
       if (!codexAt) return { ok: false, reason: "this copy of Attentry has no Codex plugin (run it from the editor extension)", command: "" };
       const result = await installCodex(codexAt, workspace);
+      if (result.ok) await allowCurrentTests(root);
       await askCodex(() => refreshCodex(codexAt, workspace));
       return result;
     }
+    // The person clicked Allow tests: the project's test commands as they are now.
+    if (command === "attentry.server.allowTests") return (await allowCurrentTests(root)).map((t) => t.label);
     if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });

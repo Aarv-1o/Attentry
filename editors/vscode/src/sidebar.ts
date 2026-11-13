@@ -25,7 +25,7 @@ const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "allowTests" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -98,6 +98,11 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (m.type === "connectAgent") await this.connect(client, "Claude Code", "attentry.server.connectAgent", [true], "Start a new Claude Code session to use it.");
     // Codex asks the person to trust a plugin's hooks before it runs them.
     if (m.type === "connectCodex") await this.connect(client, "Codex", "attentry.server.connectCodex", [], "Start a new Codex session, and trust Attentry's hooks when Codex asks (or run /hooks).");
+    if (m.type === "allowTests") {
+      const allowed = await client.sendRequest<string[]>("workspace/executeCommand", { command: "attentry.server.allowTests", arguments: [] });
+      void vscode.window.showInformationMessage(allowed.length ? `Attentry: it may run ${allowed.join(", ")} at check-ins now. If the command changes, it asks again.` : "Attentry: no test command found here.");
+      await this.agent();
+    }
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));
     if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse(REPO));

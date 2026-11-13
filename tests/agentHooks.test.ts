@@ -122,7 +122,7 @@ test("a repo's tests run only once the person allowed them, and again only if th
     await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
     return JSON.parse((await sessions.handle({ hook_event_name: "Stop", session_id: "s1" })).stdout).systemMessage as string;
   };
-  assert.match(await card(), /- Tests: not run: allow npm test first \(run `attentry init` here/, "a cloned repo's script doesn't run on its own");
+  assert.match(await card(), /- Tests: not run: allow npm test first \(Allow tests in the Attentry sidebar, or run `attentry init` here\)/, "a cloned repo's script doesn't run on its own");
   assert.equal(existsSync(join(root, "ran")), false);
   await allowTests(root, await findTests(root, undefined));
   assert.match(await card(), /- Tests: passed \(npm test/);

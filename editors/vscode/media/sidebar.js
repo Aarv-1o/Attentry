@@ -84,7 +84,9 @@ function checkInMeter(live) {
 
 function task(live, working) {
   const tone = { passed: "ok", failed: "error", timeout: "error", running: "busy" }[live.tests?.state] ?? "hint";
-  const tests = live.tests ? `<p class="tests ${esc(live.tests.state)}"><i class="glyph ${tone}"></i>Tests: ${esc(live.tests.text)}</p>` : "";
+  // Found but not allowed: a repo's test command could run anything, so the person says yes here.
+  const allow = live.tests?.state === "blocked" ? ` <a data-act="allowTests">Allow tests</a>` : "";
+  const tests = live.tests ? `<p class="tests ${esc(live.tests.state)}"><i class="glyph ${tone}"></i>Tests: ${esc(live.tests.text)}${allow}</p>` : "";
   return `<p class="task">${working ? "This task" : "Last task"}: ${plural(live.edits, "edit")} to ${plural(live.files ?? 0, "file")}, ${live.added ? `<b>${plural(live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(live.lastEditAt)}`}.</p>${tests}`;
 }
 
