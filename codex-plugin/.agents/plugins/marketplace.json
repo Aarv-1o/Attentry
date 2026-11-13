@@ -1,0 +1,12 @@
+{
+  "name": "attentry",
+  "interface": { "displayName": "Attentry" },
+  "plugins": [
+    {
+      "name": "attentry",
+      "source": { "source": "local", "path": "./attentry" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Coding"
+    }
+  ]
+}
