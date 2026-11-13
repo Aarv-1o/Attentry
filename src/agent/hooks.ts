@@ -49,16 +49,36 @@ const inRepo = (root: string) => (file: string) => existsSync(join(root, file));
 
 export const isEdit = (input: HookInput) => EDIT_TOOLS.test(input.tool_name ?? "");
 
+// One file an edit changes: written whole, or changed by find-and-replace. One edit can change
+// several files (a Codex patch does), so everything after the hook works on these, not on the
+// agent's own input.
+export interface FileEdit {
+  path: string;
+  write?: string | undefined; // the file's whole new content
+  changes?: { old_string: string; new_string: string; replace_all?: boolean | undefined }[];
+}
+
+export function editsOf(input: HookInput): FileEdit[] {
+  const t = input.tool_input ?? {};
+  if (!isEdit(input) || !t.file_path) return [];
+  if (input.tool_name === "Write") return [{ path: t.file_path, write: t.content }];
+  if (input.tool_name === "MultiEdit") return [{ path: t.file_path, changes: t.edits ?? [] }];
+  if (input.tool_name === "Edit") return [{ path: t.file_path, changes: [{ old_string: t.old_string ?? "", new_string: t.new_string ?? "", replace_all: t.replace_all }] }];
+  return [{ path: t.file_path }]; // which file, not what it becomes
+}
+
+export const repoPath = (root: string, path: string) => relative(root, path).replace(/\\/g, "/");
+
 // An edit counts toward the task, also while Attentry is still reading the repo.
-export function noteEdit(input: HookInput, root: string, task: Task): void {
-  if (input.tool_input?.file_path) task.editedFiles.add(relative(root, input.tool_input.file_path).replace(/\\/g, "/"));
+export function noteEdit(edits: FileEdit[], root: string, task: Task): void {
+  for (const edit of edits) task.editedFiles.add(repoPath(root, edit.path));
   task.edits++;
   task.lastEditAt = Date.now();
 }
 
 // After an edit: problems this task added that the agent hasn't been told about yet.
-export function afterEdit(input: HookInput, root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
-  noteEdit(input, root, task);
+export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
+  noteEdit(edits, root, task);
   const added = newSince(task, findings).filter(matters).sort(worstFirst);
   task.added = added.length;
   const fresh = added.filter((f) => !told.has(keyOf(f)));
@@ -122,17 +142,16 @@ export function atStop(input: HookInput, root: string, task: Task, findings: Fin
 }
 
 // The file as it will be after this edit, or undefined if the edit can't be applied to it as it
-// is now (then Claude Code will refuse the edit itself).
-export function contentAfter(input: HookInput, before: string): string | undefined {
-  const t = input.tool_input ?? {};
-  if (input.tool_name === "Write") return t.content;
-  const edits = input.tool_name === "MultiEdit" ? (t.edits ?? []) : input.tool_name === "Edit" ? [{ old_string: t.old_string ?? "", new_string: t.new_string ?? "", replace_all: t.replace_all }] : [];
+// is now (then the agent will refuse the edit itself).
+export function contentAfter(edit: FileEdit, before: string): string | undefined {
+  if (edit.write !== undefined) return edit.write;
+  const changes = edit.changes ?? [];
   let text = before;
-  for (const e of edits) {
+  for (const e of changes) {
     if (!e.old_string || !text.includes(e.old_string)) return undefined;
     text = e.replace_all ? text.split(e.old_string).join(e.new_string) : text.replace(e.old_string, () => e.new_string);
   }
-  return edits.length ? text : undefined;
+  return changes.length ? text : undefined;
 }
 
 // Before Claude starts on a plan: what the repo already has that it should know. Never a block.

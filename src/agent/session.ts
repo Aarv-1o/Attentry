@@ -1,18 +1,18 @@
 import { readFile } from "node:fs/promises";
-import { basename, relative } from "node:path";
+import { basename } from "node:path";
 import { collectFindings } from "../findings/collect.ts";
 import type { Finding } from "../findings/types.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { isSource, listRepoFiles } from "../index/files.ts";
-import { buildIndex } from "../index/repo.ts";
+import { buildIndex, type RepoIndex } from "../index/repo.ts";
 import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, isEdit, isPlanFile, noteEdit, outsideProject, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
 import { relatedCode, relatedMessage } from "./related.ts";
-import { findExisting, newFunctions } from "./reuse.ts";
+import { findExisting, newFunctions, type ExistingMatch } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
 import { testsAllowed } from "./trust.ts";
 import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
@@ -182,20 +182,22 @@ export class Sessions {
   }
 
   // New functions in what the agent is about to write that the repo already has.
-  private async reuseCheck(input: HookInput, told: Set<string>): Promise<HookReply> {
-    const path = input.tool_input?.file_path;
-    if (!path) return SILENT;
-    const before = await readFile(path, "utf8").catch((error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return ""; // a new file
-      throw error;
-    });
-    const after = contentAfter(input, before);
-    if (after === undefined) return SILENT;
-    const candidates = await newFunctions(path, before, after);
-    if (!candidates.length) return SILENT;
-    const file = relative(this.root, path).replace(/\\/g, "/");
-    const matches = findExisting(candidates, await buildIndex(this.root, this.cache), file, input.tool_name === "Write");
-    return beforeEdit(matches, told, await loadConfig(this.root));
+  private async reuseCheck(edits: FileEdit[], told: Set<string>): Promise<HookReply> {
+    const matches: ExistingMatch[] = [];
+    let index: Promise<RepoIndex> | undefined; // built once, and only if a file adds functions
+    for (const edit of edits) {
+      const before = await readFile(edit.path, "utf8").catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return ""; // a new file
+        throw error;
+      });
+      const after = contentAfter(edit, before);
+      if (after === undefined) continue;
+      const candidates = await newFunctions(edit.path, before, after);
+      if (!candidates.length) continue;
+      index ??= buildIndex(this.root, this.cache);
+      matches.push(...findExisting(candidates, await index, repoPath(this.root, edit.path), edit.write !== undefined));
+    }
+    return matches.length ? beforeEdit(matches, told, await loadConfig(this.root)) : SILENT;
   }
 
   // A plan, from ExitPlanMode or its file: notes it hasn't heard yet this session (writing the
@@ -237,22 +239,24 @@ export class Sessions {
     }
     if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") return this.planCheck(input.session_id, input.tool_input?.plan, event);
     // Outside the project: not this task's edit. A plan file is checked as a plan.
-    const path = input.tool_input?.file_path;
-    if (isEdit(input) && path && outsideProject(this.root, path)) {
-      if (event !== "PostToolUse" || !isPlanFile(path)) return SILENT;
-      return this.planCheck(input.session_id, await readFile(path, "utf8").catch(() => undefined), event);
+    const all = editsOf(input);
+    const edits = all.filter((edit) => !outsideProject(this.root, edit.path));
+    if (all.length && !edits.length) {
+      const plan = all.find((edit) => isPlanFile(edit.path));
+      if (event !== "PostToolUse" || !plan) return SILENT;
+      return this.planCheck(input.session_id, await readFile(plan.path, "utf8").catch(() => undefined), event);
     }
     if (event === "PreToolUse" && isEdit(input)) {
       if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
       const { told } = await this.taskOf(input.session_id);
-      return this.reuseCheck(input, told);
+      return this.reuseCheck(edits, told);
     }
     if (event === "PostToolUse" && isEdit(input)) {
       const ready = await this.ready();
       const { task, told } = await this.taskOf(input.session_id);
       if (!ready) {
         // Counted now, checked after the first scan: the next edit then hears what this one added.
-        noteEdit(input, this.root, task);
+        noteEdit(edits, this.root, task);
         if (told.has(READING)) return SILENT;
         told.add(READING);
         return tell(event, `Attentry is still reading the repo (${this.progress()}). It checks this task's edits once it's done.`);
@@ -260,7 +264,7 @@ export class Sessions {
       const config = await loadConfig(this.root);
       this.markShared(task);
       const checkIns = task.lastCheckIn;
-      const reply = afterEdit(input, this.root, task, told, await this.findings(), config);
+      const reply = afterEdit(edits, this.root, task, told, await this.findings(), config);
       // A check-in: the tests, in the background (the agent doesn't wait).
       if (this.background && task.lastCheckIn !== checkIns) void this.startTests(task, config);
       return reply;
