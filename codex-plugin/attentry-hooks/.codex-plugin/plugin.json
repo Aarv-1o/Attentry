@@ -1,0 +1,16 @@
+{
+  "name": "attentry-hooks",
+  "version": "1.0.0",
+  "description": "Attentry's hooks for Codex: after each edit Codex hears about the problems its task added, and a summary when it's done. Runs the Attentry the editor extension has, so it never changes.",
+  "author": { "name": "Aarv Singh Chauhan" },
+  "homepage": "https://attentry.js.org",
+  "repository": "https://github.com/Aarv-1o/Attentry",
+  "license": "MIT",
+  "interface": {
+    "displayName": "Attentry hooks",
+    "shortDescription": "Checks each edit Codex makes, with the Attentry from your editor.",
+    "developerName": "Aarv Singh Chauhan",
+    "category": "Coding",
+    "websiteURL": "https://attentry.js.org"
+  }
+}

@@ -4,12 +4,23 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { codex, setupFailed, type Setup } from "./mcpSetup.ts";
 
-// The Codex plugin the editor extension carries: its codex/ folder, next to claude/, is a Codex
-// plugin marketplace with the attentry plugin in it. Installed through Codex's own commands; Codex
-// copies it into its cache, so an extension update needs the copy updated too.
+// The Codex plugins the editor extension carries: its codex/ folder, next to claude/, is a Codex
+// plugin marketplace with two plugins. attentry-hooks has the hooks, and never changes: Codex asks
+// the person to trust a plugin's hooks again whenever any file in it changes. attentry has the
+// MCP tools and skills, and no hooks, so it can change with each release. Both run the Attentry
+// in the extension, named in ~/.attentry/build.json. Installed through Codex's own commands.
 
-const PLUGIN = "attentry@attentry";
+const HOOKS = "attentry-hooks@attentry";
+const TOOLS = "attentry@attentry";
 const MARKETPLACE = "attentry";
+
+// The Attentry that Codex's plugins run: the extension's own, beside the Claude Code plugin.
+const buildOf = (home: string) => resolve(home, "..", "claude", "attentry", "dist", "attentry.mjs");
+async function pointAt(home: string): Promise<void> {
+  const file = join(homedir(), ".attentry", "build.json");
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify({ entry: buildOf(home) })}\n`);
+}
 
 export type CodexState = { installed: false } | { installed: true; enabled: boolean; version: string };
 
@@ -70,26 +81,35 @@ export function codexHome(claudeHome: string): string | undefined {
 const versionAt = async (home: string) =>
   (JSON.parse(await readFile(join(home, "attentry", ".codex-plugin", "plugin.json"), "utf8")) as { version: string }).version;
 
+type Listed = { pluginId: string; enabled: boolean; version: string };
+const listed = async (folder: string) => (JSON.parse((await codex(["plugin", "list", "--json"], folder)).stdout) as { installed: Listed[] }).installed;
+
+// Connected when both plugins are in: the version is the tools plugin's, which follows releases.
 export async function codexState(folder: string): Promise<CodexState> {
-  const { installed } = JSON.parse((await codex(["plugin", "list", "--json"], folder)).stdout) as { installed: { pluginId: string; enabled: boolean; version: string }[] };
-  const found = installed.find((p) => p.pluginId === PLUGIN);
-  return found ? { installed: true, enabled: found.enabled, version: found.version } : { installed: false };
+  const plugins = await listed(folder);
+  const [hooks, tools] = [HOOKS, TOOLS].map((id) => plugins.find((p) => p.pluginId === id));
+  return hooks && tools ? { installed: true, enabled: hooks.enabled && tools.enabled, version: tools.version } : { installed: false };
 }
 
 // What to run by hand when `codex` can't be run from here.
-const installCommands = (home: string) => `codex plugin marketplace add "${home}" && codex plugin add ${PLUGIN}`;
+const installCommands = (home: string) => `codex plugin marketplace add "${home}" && codex plugin add ${HOOKS} && codex plugin add ${TOOLS}`;
 
 // The marketplace points at the extension's folder, which an update moves: point it here again,
-// then (re)install the plugin from it, which also brings an older copy up to this version.
+// then (re)install both plugins from it, which also brings an older tools plugin up to this
+// version. The hooks plugin is the same one each time, so Codex keeps trusting it: only its
+// first install is one the person has to trust.
 async function addFrom(home: string, folder: string): Promise<void> {
+  const hadHooks = (await listed(folder)).some((p) => p.pluginId === HOOKS);
   await codex(["plugin", "marketplace", "remove", MARKETPLACE], folder).catch(() => undefined); // not added yet: fine
   await codex(["plugin", "marketplace", "add", home], folder);
-  await codex(["plugin", "add", PLUGIN], folder);
-  await note({ installedAt: Date.now() });
+  await codex(["plugin", "add", HOOKS], folder);
+  await codex(["plugin", "add", TOOLS], folder);
+  await pointAt(home);
+  if (!hadHooks) await note({ installedAt: Date.now() });
 }
 
-// Connect: installs, repairs or updates the plugin. Codex then asks the person to trust its hooks
-// once, when it starts (or in /hooks): the panel says so.
+// Connect: installs, repairs or updates the plugins. Codex then asks the person to trust the
+// hooks once, when it starts (or in /hooks): the panel says so.
 export async function installCodex(home: string, folder: string): Promise<Setup> {
   try {
     await addFrom(home, folder);
@@ -99,11 +119,15 @@ export async function installCodex(home: string, folder: string): Promise<Setup>
   }
 }
 
-// When the editor starts: an installed plugin older than this extension's gets updated, so Codex
-// runs the same Attentry as the editor. Returns the plugin's state.
+// When the editor starts: Codex's plugins run this extension's Attentry (an update moves it), and
+// a tools plugin older than this extension's is updated. Returns the plugins' state.
 export async function refreshCodex(home: string, folder: string): Promise<CodexState> {
   const state = await codexState(folder);
-  if (!state.installed || state.version === (await versionAt(home))) return state;
+  if (!state.installed) return state;
+  if (state.version === (await versionAt(home))) {
+    await pointAt(home);
+    return state;
+  }
   await addFrom(home, folder);
   return codexState(folder);
 }

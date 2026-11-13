@@ -1,0 +1,2 @@
+# Codex asks every user to trust attentry-hooks again if any byte in it changes, line endings included.
+codex-plugin/attentry-hooks/** text eol=lf

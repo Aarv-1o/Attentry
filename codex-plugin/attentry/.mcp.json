@@ -2,7 +2,7 @@
   "mcpServers": {
     "attentry": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs", "mcp"]
+      "args": ["-e", "const f=require('fs'),p=require('path'),u=require('url');const{entry}=JSON.parse(f.readFileSync(p.join(require('os').homedir(),'.attentry','build.json'),'utf8'));process.argv=[process.argv[0],entry,'mcp'];process.execArgv=[];import(u.pathToFileURL(entry).href)"]
     }
   }
 }

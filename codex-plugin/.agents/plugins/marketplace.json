@@ -3,6 +3,12 @@
   "interface": { "displayName": "Attentry" },
   "plugins": [
     {
+      "name": "attentry-hooks",
+      "source": { "source": "local", "path": "./attentry-hooks" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Coding"
+    },
+    {
       "name": "attentry",
       "source": { "source": "local", "path": "./attentry" },
       "policy": { "installation": "AVAILABLE" },

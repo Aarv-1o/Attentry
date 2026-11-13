@@ -33,21 +33,6 @@ test("plugin MCP server: the same build, as `attentry`", async () => {
   assert.deepEqual((await read(".mcp.json")).mcpServers.attentry, { command: "node", args: [...RUN, "mcp"] });
 });
 
-// Codex asks the person to trust a plugin's hooks again whenever its hooks file changes, so the
-// file stays exactly this: every event, each running the build, which is free to change.
-const CODEX = join(import.meta.dirname, "../codex-plugin/attentry");
-test("Codex plugin hooks: one fixed file, every event running the build inside the plugin", async () => {
-  const run = (matcher?: string) => [{ ...(matcher ? { matcher } : {}), hooks: [{ type: "command", command: 'node "${CLAUDE_PLUGIN_ROOT}/dist/attentry.mjs" hook codex' }] }];
-  const edits = "apply_patch|Edit|Write";
-  assert.deepEqual(JSON.parse(await readFile(join(CODEX, "hooks/hooks.json"), "utf8")), {
-    hooks: { SessionStart: run(), UserPromptSubmit: run(), PreToolUse: run(edits), PostToolUse: run(edits), Stop: run() },
-  });
-});
-
-test("Codex plugin MCP server: the same build as Claude Code's", async () => {
-  assert.deepEqual(JSON.parse(await readFile(join(CODEX, ".mcp.json"), "utf8")), await read(".mcp.json"));
-});
-
 // The extension's claude/ folder: a marketplace, the plugin, and Attentry built into it. Under a
 // folder with a space, as a home folder can be: `claude` gets it quoted on Windows.
 const extension = async (version: string) => join(await makeRepo({

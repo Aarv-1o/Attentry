@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/launch.mjs\" hook codex" }] }
+    ],
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/launch.mjs\" hook codex" }] }
+    ],
+    "PreToolUse": [
+      { "matcher": "apply_patch|Edit|Write", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/launch.mjs\" hook codex" }] }
+    ],
+    "PostToolUse": [
+      { "matcher": "apply_patch|Edit|Write", "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/launch.mjs\" hook codex" }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/launch.mjs\" hook codex" }] }
+    ]
+  }
+}

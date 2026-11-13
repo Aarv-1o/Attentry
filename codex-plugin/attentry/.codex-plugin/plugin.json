@@ -1,6 +1,6 @@
 {
   "name": "attentry",
-  "description": "Stops AI coding agents from making a mess of your codebase: after each edit Codex hears about the problems its task added, and it can ask Attentry before writing a helper.",
+  "description": "Attentry's tools for Codex: before writing a helper Codex can ask for one the repo already has, and check what its task added. The notes after each edit come with attentry-hooks.",
   "author": { "name": "Aarv Singh Chauhan" },
   "homepage": "https://attentry.js.org",
   "repository": "https://github.com/Aarv-1o/Attentry",
