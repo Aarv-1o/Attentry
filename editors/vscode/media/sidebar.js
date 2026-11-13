@@ -1,5 +1,5 @@
 // The panel's page: draws what it's sent (status, findings, agent) and sends back what's clicked.
-// Three parts, top to bottom: the findings, Claude Code, and one line on the last check.
+// Three parts, top to bottom: the findings, the agents (Claude Code, Codex), and one line on the last check.
 const vscode = acquireVsCodeApi();
 const app = document.getElementById("app");
 const PARTS = [["security", "Security", "error"], ["breaks", "Will break", "warning"], ["database", "Database", "warning"], ["cleanup", "Clean-up", "info"]];
@@ -89,34 +89,69 @@ function task(live, working) {
 }
 
 const MODES = {
-  suggest: "Attentry tells Claude about problems, and never stops it.",
-  block: "Claude can't finish a task while it has added security or crash problems.",
+  suggest: "Attentry tells the agent about problems, and never stops it.",
+  block: "The agent can't finish a task while it has added security or crash problems.",
 };
 
-function claudeCode() {
-  if (!agent) return `<section class="agent"><div class="who"><h2>Claude Code</h2></div></section>`;
-  const state = agent.claude ?? agent.hooks;
-  const live = agent.live;
-  const working = live && Date.now() - live.lastEditAt < LIVE_MS;
-  const [tone, text] = state === "connected" ? (working ? ["live", "Working now"] : ["ok", "Connected"]) : state === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
-  const head = `<div class="who"><h2>Claude Code</h2><span class="pill ${tone}"><i></i>${text}</span></div>`;
-  if (state !== "connected") {
-    return `<section class="agent">${head}
-      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time)."}</p>
-      <button class="primary" data-act="connectAgent">${state === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>
-    </section>`;
-  }
+const head = (name, tone, text) => `<div class="who"><h2>${name}</h2><span class="pill ${tone}"><i></i>${text}</span></div>`;
+
+function modeTabs() {
   const mode = agent.mode === "block" ? "block" : "suggest";
-  return `<section class="agent">${head}
-    <div class="mode">
+  return `<div class="mode">
       <div class="tabs" role="tablist" aria-label="How strict">
         <button role="tab" data-mode="suggest" aria-selected="${mode === "suggest"}" ${mode === "suggest" ? "disabled" : ""}>Suggest</button>
         <button role="tab" data-mode="block" aria-selected="${mode === "block"}" ${mode === "block" ? "disabled" : ""}>Block</button>
       </div>
       <span class="quiet">${MODES[mode]}</span>
-    </div>
-    ${live ? (live.edits ? task(live, working) : "") + checkInMeter(live) : ""}
-  </section>`;
+    </div>`;
+}
+
+const working = (live) => Date.now() - live.lastEditAt < LIVE_MS;
+const liveTask = (live) => (live.edits ? task(live, working(live)) : "") + checkInMeter(live);
+
+function claudeSection(state, busy, extras) {
+  const [tone, text] = state === "connected" ? (busy ? ["live", "Working now"] : ["ok", "Connected"]) : state === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
+  if (state === "connected") return `<section class="agent">${head("Claude Code", tone, text)}${extras}</section>`;
+  return `<section class="agent">${head("Claude Code", tone, text)}
+      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time)."}</p>
+      <button class="primary" data-act="connectAgent">${state === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>
+    </section>`;
+}
+
+// Codex runs a plugin's hooks only once the person trusts them: each state says what's next.
+// [pill tone, pill text, note, button]
+const CODEX = {
+  missing: ["off", "Not connected", "Connect adds Attentry to Codex, for all your projects. Codex then asks you once to trust Attentry's hooks.", "Connect Codex"],
+  off: ["warn", "Turned off", "The Attentry plugin is in Codex, but turned off.", "Turn it on"],
+  waiting: ["ok", "Connected", "Start a new Codex session. Codex asks you once to trust Attentry's hooks: say yes (or run `/hooks`)."],
+  approve: ["warn", "Needs your OK", "Codex hasn't run Attentry's hooks yet. In Codex, run `/hooks`, trust Attentry's, then start a new session."],
+  running: ["ok", "Connected"],
+};
+
+function codexSection(state, busy, extras) {
+  const [tone, text, note, button] = CODEX[state] ?? CODEX.missing;
+  const [pillTone, pillText] = busy && state === "running" ? ["live", "Working now"] : [tone, text];
+  return `<section class="agent">${head("Codex", pillTone, pillText)}
+      ${note ? `<p class="quiet">${words(note)}</p>` : ""}
+      ${button ? `<button class="primary" data-act="connectCodex">${esc(button)}</button>` : ""}
+      ${extras}
+    </section>`;
+}
+
+// Claude Code, and Codex for someone who uses it. Suggest or block is one setting for both, under
+// the first agent that's connected; the task under the agent doing it.
+function agents() {
+  if (!agent) return `<section class="agent"><div class="who"><h2>Claude Code</h2></div></section>`;
+  const claude = agent.claude ?? agent.hooks;
+  const codex = agent.codex ?? "absent";
+  const on = { claude: claude === "connected", codex: ["running", "waiting", "approve"].includes(codex) };
+  const modeAt = on.claude ? "claude" : on.codex ? "codex" : undefined;
+  const live = agent.live;
+  const owner = live?.agent ?? "claude";
+  const liveAt = live && (on[owner] ? owner : modeAt);
+  const extras = (name) => (modeAt === name ? modeTabs() : "") + (liveAt === name ? liveTask(live) : "");
+  const busy = (name) => !!live && owner === name && working(live);
+  return claudeSection(claude, busy("claude"), extras("claude")) + (codex === "absent" ? "" : codexSection(codex, busy("codex"), extras("codex")));
 }
 
 // ---- The last check ----
@@ -143,7 +178,7 @@ const links = () => `<nav class="links" aria-label="Attentry">
 function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
-  app.innerHTML = findings() + claudeCode() + footer() + links();
+  app.innerHTML = findings() + agents() + footer() + links();
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;

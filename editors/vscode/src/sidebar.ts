@@ -2,8 +2,8 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 
-// The Attentry panel in the activity bar: the findings (by part, each opens its line), Claude Code
-// (connect it, suggest or block, how its task is going), and one line on the last check. Hints and
+// The Attentry panel in the activity bar: the findings (by part, each opens its line), the agents
+// (connect Claude Code or Codex, suggest or block, how a task is going), and one line on the last check. Hints and
 // automatic checks are settings, not switches here.
 
 export interface Status {
@@ -25,7 +25,7 @@ const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -64,12 +64,20 @@ export class Sidebar implements vscode.WebviewViewProvider {
     await this.agent();
   }
 
-  // Without Claude Code's command the person runs it: offer to copy it.
-  private async connectFailed(what: string, mcp: Extract<McpResult, { ok: false }>): Promise<void> {
-    const copy = "Copy the command";
-    if ((await vscode.window.showWarningMessage(`Attentry: ${what}: ${mcp.reason}. Run this in the project's folder instead.`, copy)) === copy) {
-      await vscode.env.clipboard.writeText(mcp.command);
+  // Connects an agent through the language server, and says how it went. Without the agent's own
+  // command the person runs it: offer to copy it.
+  private async connect(client: LanguageClient, agent: string, command: string, args: unknown[], done: string): Promise<void> {
+    try {
+      const result = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command, arguments: args });
+      if (result && !result.ok) {
+        const copy = "Copy the command";
+        const asked = await vscode.window.showWarningMessage(`Attentry: couldn't connect ${agent}: ${result.reason}.${result.command ? " Run this in the project's folder instead." : ""}`, ...(result.command ? [copy] : []));
+        if (asked === copy) await vscode.env.clipboard.writeText(result.command);
+      } else void vscode.window.showInformationMessage(`Attentry: ${agent} is connected. ${done}`);
+    } catch (error) {
+      void vscode.window.showErrorMessage(`Attentry: couldn't connect ${agent}. ${(error as Error).message}`);
     }
+    await this.agent();
   }
 
   // The panel's title-bar buttons run these too.
@@ -87,16 +95,9 @@ export class Sidebar implements vscode.WebviewViewProvider {
       await this.agent();
     }
     // The plugin brings the hooks and the MCP tools together; from Attentry's source, `true` adds both too.
-    if (m.type === "connectAgent") {
-      try {
-        const mcp = await client.sendRequest<McpResult | null>("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [true] });
-        if (mcp && !mcp.ok) await this.connectFailed("couldn't connect Claude Code", mcp);
-        else void vscode.window.showInformationMessage("Attentry: Claude Code is connected. Start a new Claude Code session to use it.");
-      } catch (error) {
-        void vscode.window.showErrorMessage(`Attentry: couldn't connect Claude Code. ${(error as Error).message}`);
-      }
-      await this.agent();
-    }
+    if (m.type === "connectAgent") await this.connect(client, "Claude Code", "attentry.server.connectAgent", [true], "Start a new Claude Code session to use it.");
+    // Codex asks the person to trust a plugin's hooks before it runs them.
+    if (m.type === "connectCodex") await this.connect(client, "Codex", "attentry.server.connectCodex", [], "Start a new Codex session, and trust Attentry's hooks when Codex asks (or run /hooks).");
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));
     if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse(REPO));

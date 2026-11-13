@@ -24,6 +24,7 @@ export interface Task {
   // Another agent is editing this repo at the same time: only problems in files this task edited
   // are its own. (Alone, a problem anywhere is its own: deleting a caller makes a function dead elsewhere.)
   shared: boolean;
+  agent?: "claude" | "codex"; // whose hooks: the panel shows the task under that agent
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;

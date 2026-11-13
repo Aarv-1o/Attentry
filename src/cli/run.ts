@@ -113,14 +113,15 @@ async function readStdin(): Promise<string> {
 // without blocking the agent (exit 2 would block).
 // Both agents send the same events and take the same answers; their edit tools differ, and the
 // edit's tool name says which it is.
-const AGENTS = ["claude", "codex"];
+const AGENTS = ["claude", "codex"] as const;
+const isAgent = (name: string | undefined): name is (typeof AGENTS)[number] => AGENTS.some((a) => a === name);
 async function hook(agent: string | undefined, out: Write): Promise<number> {
-  if (!AGENTS.includes(agent ?? "")) {
+  if (!isAgent(agent)) {
     process.stderr.write(`attentry hook: unknown agent "${agent ?? ""}". Supported: ${AGENTS.join(", ")}.\n`);
     return 1;
   }
   try {
-    const input = JSON.parse(await readStdin()) as HookInput;
+    const input: HookInput = { ...(JSON.parse(await readStdin()) as HookInput), agent };
     const root = await projectRoot(resolve(process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? "."));
     const reply = await hookReply(root, input);
     out(reply.stdout);

@@ -40,8 +40,8 @@ test("hooks share one background Attentry that remembers the task between calls"
     const live = await agentStatus(root);
     assert.deepEqual({ ...live, lastEditAt: undefined }, {
       edits: 1, added: 1, untilCheckIn: 9, checkInEvery: 10, lastEditAt: undefined, files: 1,
-      tests: { state: "not run", text: "not run yet (they run at the first check-in)" },
-    }, "the editor sees the task");
+      tests: { state: "not run", text: "not run yet (they run at the first check-in)" }, agent: "claude",
+    }, "the editor sees the task, as Claude Code's when the hook doesn't name its agent");
     const end = await hook(root, { hook_event_name: "Stop", stop_hook_active: false });
     assert.match(end.systemMessage, /^Attentry change card\n- Changed: 1 file \(index\.js\)\n- Problems: 1 added \(1 will break\)\n[^]*- Tests: none found/, "the task survived across hook processes");
     console.log(`# after-edit hook took ${took}ms (process start included)`);

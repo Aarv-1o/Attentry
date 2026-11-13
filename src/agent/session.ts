@@ -46,6 +46,7 @@ export interface AgentStatus {
   checkInEvery: number;
   files: number; // files the task changed
   tests: { state: TestRun["state"] | "running" | "not run"; text: string };
+  agent: "claude" | "codex";
 }
 
 export class Sessions {
@@ -119,8 +120,9 @@ export class Sessions {
     return collectFindings(await scanRepo(this.root, this.cache));
   }
 
-  // The task starts at the session's start, or before its first edit if that came first.
-  private async taskOf(session: string) {
+  // The task starts at the session's start, or before its first edit if that came first. `agent`:
+  // whose hooks asked, when they say.
+  private async taskOf(session: string, agent?: Task["agent"]) {
     let entry = this.tasks.get(session);
     if (!entry) {
       let task: Task;
@@ -128,6 +130,7 @@ export class Sessions {
       else task = startTask(await this.findings());
       this.tasks.set(session, (entry = { task, told: new Set() }));
     }
+    if (agent) entry.task.agent = agent;
     return entry;
   }
 
@@ -178,7 +181,7 @@ export class Sessions {
     if (!latest) return undefined;
     const every = (await loadConfig(this.root)).checkInEvery;
     const tests = latest.testing ? { state: "running" as const, text: "running…" } : latest.tests ? { state: latest.tests.state, text: describeTests(latest.tests) } : { state: "not run" as const, text: "not run yet (they run at the first check-in)" };
-    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every, files: latest.editedFiles.size, tests };
+    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every, files: latest.editedFiles.size, tests, agent: latest.agent ?? "claude" };
   }
 
   // New functions in what the agent is about to write that the repo already has.
@@ -231,7 +234,7 @@ export class Sessions {
     if (event === "SessionStart") {
       this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
       const ready = await this.ready();
-      await this.taskOf(input.session_id);
+      await this.taskOf(input.session_id, input.agent);
       // One line, once per session, so the agent (and the person asking it) knows Attentry is on.
       const mode = (await loadConfig(this.root)).mode;
       if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
@@ -248,12 +251,12 @@ export class Sessions {
     }
     if (event === "PreToolUse" && isEdit(input)) {
       if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
-      const { told } = await this.taskOf(input.session_id);
+      const { told } = await this.taskOf(input.session_id, input.agent);
       return this.reuseCheck(edits, told);
     }
     if (event === "PostToolUse" && isEdit(input)) {
       const ready = await this.ready();
-      const { task, told } = await this.taskOf(input.session_id);
+      const { task, told } = await this.taskOf(input.session_id, input.agent);
       if (!ready) {
         // Counted now, checked after the first scan: the next edit then hears what this one added.
         noteEdit(edits, this.root, task);

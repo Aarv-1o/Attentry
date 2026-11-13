@@ -54,7 +54,7 @@ test("Codex session: the reuse note before a patch, the new problem after it, an
   });
   const sessions = new Sessions(root);
   const hook = async (event: string, extra: object = {}) => {
-    const reply = await sessions.handle({ hook_event_name: event, session_id: "codex-1", cwd: root, ...extra });
+    const reply = await sessions.handle({ hook_event_name: event, session_id: "codex-1", cwd: root, agent: "codex", ...extra });
     return reply.stdout ? JSON.parse(reply.stdout) : undefined;
   };
   await hook("SessionStart");
@@ -69,6 +69,7 @@ test("Codex session: the reuse note before a patch, the new problem after it, an
   await writeFile(join(root, "ui/ago.js"), "export function since(when) {\n  const s = Math.floor((Date.now() - when) / 1000);\n  if (s < 60) return `${s}s ago`;\n  return `${Math.floor(s / 60)}m ago`;\n}\n");
   const after = await hook("PostToolUse", { tool_name: "apply_patch", tool_input: { command }, tool_response: "Success." });
   assert.match(after.hookSpecificOutput.additionalContext, /^Attentry: this edit added 1 problem:\nindex\.js:7 warning attentry\/empty-catch/);
+  assert.equal((await sessions.status())?.agent, "codex", "the panel shows the task under Codex");
   const stop = await hook("Stop", { stop_hook_active: false });
   assert.match(stop.systemMessage, /- Changed: 2 files \(index\.js, ui\/ago\.js\)/, "one patch, two files on the card");
 });

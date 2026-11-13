@@ -14,6 +14,7 @@ import { plural } from "../report/common.ts";
 // every word, so it hears only problems this task added, once each, and nothing when clean.
 
 export interface HookInput {
+  agent?: "claude" | "codex"; // added by `attentry hook <agent>`: the agents don't say
   hook_event_name: string;
   session_id: string;
   cwd?: string;
