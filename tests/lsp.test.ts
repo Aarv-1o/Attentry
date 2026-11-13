@@ -18,7 +18,8 @@ function startServer(claudeHome: string) {
   // The flags VS Code adds when it starts a language server.
   const flags = ["lsp", "--stdio", `--clientProcessId=${process.pid}`];
   const args = bundle ? [join(bundle, "attentry.mjs"), ...flags] : ["--import", "tsx", "src/cli/bin.ts", ...flags];
-  const env = { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, ...(bundle ? { ATTENTRY_WASM_DIR: join(bundle, "wasm") } : {}) };
+  // A Codex home that doesn't exist: as for someone who never used Codex, and the person's own is never asked.
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: claudeHome, CODEX_HOME: join(claudeHome, "no-codex"), ...(bundle ? { ATTENTRY_WASM_DIR: join(bundle, "wasm") } : {}) };
   const child = spawn(process.execPath, args, { cwd: join(import.meta.dirname, ".."), env });
   let buffer = Buffer.alloc(0);
   let nextId = 1;
@@ -118,14 +119,15 @@ test("the language server shows your changes, explains them, and offers safe fix
     const whole = await server.waitFor("textDocument/publishDiagnostics", (p) => p.uri === uri, before);
     assert.deepEqual(whole.diagnostics.map((d: any) => [d.code, d.severity]), [["empty-catch", 2], ["dead-function", 3]], "warnings before info");
 
-    // The agent section: not connected, connect it, change the mode.
-    assert.deepEqual(await server.request("attentry/agent", {}), { claude: "missing", hooks: "missing", mcp: "missing", mode: "suggest", live: null });
+    // The agent section: not connected, connect it, change the mode. Codex is left out: this
+    // server's Codex home doesn't exist.
+    assert.deepEqual(await server.request("attentry/agent", {}), { codex: "absent", claude: "missing", hooks: "missing", mcp: "missing", mode: "suggest", live: null });
     // From the extension's plugin, Connect installs it (hooks and MCP tools in one), with the real
     // `claude` command; from Attentry's source, it adds hooks to the folder.
     const connected = await server.request("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [] });
     await server.request("workspace/executeCommand", { command: "attentry.server.setMode", arguments: ["block"] });
     if (server.bundled) assert.deepEqual(connected, { ok: true });
-    assert.deepEqual(await server.request("attentry/agent", {}), { claude: "connected", hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
+    assert.deepEqual(await server.request("attentry/agent", {}), { codex: "absent", claude: "connected", hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
 
     // Auto-check turned off in the editor's settings: the status says so.
     const mark = server.count();

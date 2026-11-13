@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { isEdit } from "../src/agent/hooks.ts";
 import { allowTools, installPlugin, pluginHome, refreshPlugin, TOOLS_RULE } from "../src/agent/plugin.ts";
-import { makeRepo } from "./helpers.ts";
+import { fakeAgent, makeRepo } from "./helpers.ts";
 
 // The Claude Code plugin the extension carries: its files name the build and the events, so they
 // must agree with the code (Claude Code validates the format, `claude plugin validate`, not this).
@@ -49,36 +48,6 @@ test("Codex plugin MCP server: the same build as Claude Code's", async () => {
   assert.deepEqual(JSON.parse(await readFile(join(CODEX, ".mcp.json"), "utf8")), await read(".mcp.json"));
 });
 
-// A stand-in for Claude Code's `claude` command (a .cmd on Windows): writes down each call, and
-// answers `plugin list --json` with `listed`. Named by ATTENTRY_CLAUDE, so the real claude.exe on
-// PATH is never the one run; and with its own CLAUDE_CONFIG_DIR, so even that couldn't touch the
-// person's real Claude Code.
-async function fakeClaude(listed: object[]) {
-  const dir = await makeRepo({ "listed.json": JSON.stringify(listed) });
-  const log = join(dir, "calls.log");
-  await writeFile(join(dir, "fake.mjs"), [
-    `import { appendFileSync, readFileSync } from "node:fs";`,
-    `const args = process.argv.slice(2).join(" ");`,
-    `appendFileSync(${JSON.stringify(log)}, args + "\\n");`,
-    `if (args === "plugin list --json") process.stdout.write(readFileSync(${JSON.stringify(join(dir, "listed.json"))}, "utf8"));`,
-  ].join("\n"));
-  await writeFile(join(dir, "claude"), `#!/bin/sh\nexec node "${join(dir, "fake.mjs")}" "$@"\n`);
-  await chmod(join(dir, "claude"), 0o755);
-  await writeFile(join(dir, "claude.cmd"), `@node "%~dp0fake.mjs" %*\r\n`);
-  const before = { ATTENTRY_CLAUDE: process.env.ATTENTRY_CLAUDE, CLAUDE_CONFIG_DIR: process.env.CLAUDE_CONFIG_DIR };
-  process.env.ATTENTRY_CLAUDE = join(dir, process.platform === "win32" ? "claude.cmd" : "claude");
-  process.env.CLAUDE_CONFIG_DIR = join(dir, "config");
-  return {
-    calls: async () => (existsSync(log) ? (await readFile(log, "utf8")).trim().split("\n").filter(Boolean) : []),
-    [Symbol.dispose]: () => {
-      for (const [key, value] of Object.entries(before)) {
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
-      }
-    },
-  };
-}
-
 // The extension's claude/ folder: a marketplace, the plugin, and Attentry built into it. Under a
 // folder with a space, as a home folder can be: `claude` gets it quoted on Windows.
 const extension = async (version: string) => join(await makeRepo({
@@ -98,7 +67,7 @@ test("Connect installs the plugin for every project and takes out the hooks and 
   const mine = { type: "command", command: "prettier --write" };
   const old = { type: "command", command: 'node "C:/old/dist/attentry.mjs" hook claude' };
   const folder = await makeRepo({ ".claude/settings.local.json": JSON.stringify({ model: "opus", hooks: { PostToolUse: [{ matcher: "Edit", hooks: [mine, old] }], Stop: [{ hooks: [old] }] } }) });
-  using claude = await fakeClaude([]);
+  using claude = await fakeAgent("claude", []);
   assert.deepEqual(await installPlugin(home, folder), { ok: true });
   assert.deepEqual(await claude.calls(), [
     `plugin marketplace add ${home}`, "plugin install attentry@attentry --scope user", "plugin enable attentry@attentry",
@@ -112,7 +81,7 @@ test("Connect installs the plugin for every project and takes out the hooks and 
 });
 
 test("allowing Attentry's tools keeps the person's settings, adds the rule once, and leaves a file it can't read alone", async () => {
-  using _claude = await fakeClaude([]);
+  using _claude = await fakeAgent("claude", []);
   const user = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
   await mkdir(process.env.CLAUDE_CONFIG_DIR!, { recursive: true });
   await writeFile(user, JSON.stringify({ theme: "dark", permissions: { allow: ["Bash(npm test)"], deny: ["Read(.env)"] } }));
@@ -128,12 +97,12 @@ test("when the editor starts, an installed plugin older than the extension's is 
   const home = join(await extension("1.1.0"), "claude");
   const folder = await makeRepo({});
   {
-    using claude = await fakeClaude([{ id: "attentry@attentry", enabled: true, version: "1.0.0" }]);
+    using claude = await fakeAgent("claude", [{ id: "attentry@attentry", enabled: true, version: "1.0.0" }]);
     await refreshPlugin(home, folder);
     assert.deepEqual(await claude.calls(), ["plugin list --json", `plugin marketplace add ${home}`, "plugin update attentry@attentry", "plugin list --json"]);
   }
   for (const listed of [[{ id: "attentry@attentry", enabled: true, version: "1.1.0" }], []]) {
-    using claude = await fakeClaude(listed);
+    using claude = await fakeAgent("claude", listed);
     assert.deepEqual(await refreshPlugin(home, folder), listed.length ? { installed: true, enabled: true, version: "1.1.0" } : { installed: false });
     assert.deepEqual(await claude.calls(), ["plugin list --json"], "up to date, or never installed: left alone");
   }

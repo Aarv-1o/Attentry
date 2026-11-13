@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -64,3 +65,35 @@ export const stopBackground = (root: string) => new Promise<void>((done) => {
   socket.on("close", () => done());
   socket.on("error", () => done());
 });
+
+// A stand-in for an agent's own command (a .cmd on Windows): writes down each call, and answers
+// `plugin list --json` with `listed`. Named by ATTENTRY_CLAUDE or ATTENTRY_CODEX, so the real
+// command on PATH is never the one run; and with its own config folder, so even that couldn't
+// touch the person's real Claude Code or Codex.
+const AGENT_ENV = { claude: ["ATTENTRY_CLAUDE", "CLAUDE_CONFIG_DIR"], codex: ["ATTENTRY_CODEX", "CODEX_HOME"] } as const;
+export async function fakeAgent(name: keyof typeof AGENT_ENV, listed: unknown) {
+  const dir = await makeRepo({ "listed.json": JSON.stringify(listed) });
+  const log = join(dir, "calls.log");
+  await writeFile(join(dir, "fake.mjs"), [
+    `import { appendFileSync, readFileSync } from "node:fs";`,
+    `const args = process.argv.slice(2).join(" ");`,
+    `appendFileSync(${JSON.stringify(log)}, args + "\\n");`,
+    `if (args === "plugin list --json") process.stdout.write(readFileSync(${JSON.stringify(join(dir, "listed.json"))}, "utf8"));`,
+  ].join("\n"));
+  await writeFile(join(dir, name), `#!/bin/sh\nexec node "${join(dir, "fake.mjs")}" "$@"\n`);
+  await chmod(join(dir, name), 0o755);
+  await writeFile(join(dir, `${name}.cmd`), `@node "%~dp0fake.mjs" %*\r\n`);
+  const [command, config] = AGENT_ENV[name];
+  const before = { [command]: process.env[command], [config]: process.env[config] };
+  process.env[command] = join(dir, process.platform === "win32" ? `${name}.cmd` : name);
+  process.env[config] = join(dir, "config");
+  return {
+    calls: async () => (existsSync(log) ? (await readFile(log, "utf8")).trim().split("\n").filter(Boolean) : []),
+    [Symbol.dispose]: () => {
+      for (const [key, value] of Object.entries(before)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    },
+  };
+}

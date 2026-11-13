@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
+import { codexHome, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
 import { loadConfig, writeMode } from "../agent/config.ts";
 import { hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
@@ -74,6 +75,10 @@ export function startServer(connection: Connection): void {
   const home = pluginHome(process.argv[1]!);
   let plugin: Promise<PluginState | undefined> = Promise.resolve(undefined);
   const askPlugin = (ask: () => Promise<PluginState>) => (plugin = ask().catch(() => undefined)); // no `claude`: as if not installed
+  // The same for Codex, from the codex/ marketplace beside it: asked only of someone who uses Codex.
+  const codexAt = home && codexHome(home);
+  let codexPlugin: Promise<CodexState | undefined> = Promise.resolve(undefined);
+  const askCodex = (ask: () => Promise<CodexState>) => (codexPlugin = ask().catch(() => undefined)); // no `codex`: as if not installed
 
   const shown = () => all.filter((f) => (options.hints || f.confidence !== "maybe") && (options.show === "all" || isInChanges(f, changes)));
   // Findings left out because they're from before your changes.
@@ -156,7 +161,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.setMode"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.setMode"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -164,6 +169,7 @@ export function startServer(connection: Connection): void {
   connection.onInitialized(() => {
     void rescan();
     if (home) askPlugin(() => refreshPlugin(home, workspace)); // after an extension update: the agent's copy too
+    if (codexAt && codexUsed()) askCodex(() => refreshCodex(codexAt, workspace));
   });
   // A save in the editor, or a file changed on disk (an agent's edit, a git checkout).
   const changed = () => {
@@ -216,6 +222,13 @@ export function startServer(connection: Connection): void {
       await init(workspace, process.argv[1]!, undefined);
       return args?.[0] === true ? addMcp(workspace, process.argv[1]!) : undefined;
     }
+    // Codex has only the plugin: the extension carries it, Attentry's own source doesn't.
+    if (command === "attentry.server.connectCodex") {
+      if (!codexAt) return { ok: false, reason: "this copy of Attentry has no Codex plugin (run it from the editor extension)", command: "" };
+      const result = await installCodex(codexAt, workspace);
+      await askCodex(() => refreshCodex(codexAt, workspace));
+      return result;
+    }
     if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
@@ -235,7 +248,10 @@ export function startServer(connection: Connection): void {
     const on = await plugin.then((p) => p?.installed && p.enabled);
     const hooks = on ? "connected" : await hookState(workspace);
     const mcp = on ? "added" : await mcpState(workspace);
+    const cx = await codexPlugin;
     return {
+      // Left out ("absent") for someone who doesn't use Codex.
+      codex: cx?.installed ? (cx.enabled ? "connected" : "off") : codexUsed() && codexAt ? "missing" : "absent",
       // One state for the panel: Reconnect fixes either part pointing at an old Attentry.
       claude: hooks === "stale" || mcp === "stale" ? "stale" : hooks === "connected" ? "connected" : "missing",
       hooks,

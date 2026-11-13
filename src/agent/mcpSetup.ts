@@ -51,12 +51,12 @@ export async function mcpState(folder: string): Promise<"added" | "missing" | "s
 
 export const mcpAddCommand = (entry: string) => `claude mcp add attentry --scope local -- ${hookCommand(entry).replace(/ hook claude$/, " mcp")}`;
 
-// Claude Code's own command, run in `folder`: `claude`, or ATTENTRY_CLAUDE when it's somewhere else.
-// Usually claude.exe (the native installer), started directly. An npm install on Windows gives
-// claude.cmd, which only a shell can start (Node refuses it without one: ENOENT by name, EINVAL by
-// path): then one command line, with what has spaces or shell characters quoted.
-export const claude = async (args: string[], folder: string) => {
-  const command = process.env.ATTENTRY_CLAUDE || "claude";
+// An agent's own command, run in `folder`: its name, or `env` when it's somewhere else. Usually an
+// .exe, started directly. An npm install on Windows gives a .cmd (Codex's always is), which only a
+// shell can start (Node refuses it without one: ENOENT by name, EINVAL by path): then one command
+// line, with what has spaces or shell characters quoted.
+const agentCommand = (name: string, env: string) => async (args: string[], folder: string) => {
+  const command = process.env[env] || name;
   const options = { cwd: folder, timeout: 60_000, windowsHide: true };
   try {
     return await run(command, args, options);
@@ -67,13 +67,15 @@ export const claude = async (args: string[], folder: string) => {
     return run(line, [], { ...options, shell: true });
   }
 };
+export const claude = agentCommand("claude", "ATTENTRY_CLAUDE");
+export const codex = agentCommand("codex", "ATTENTRY_CODEX");
 
 export type Setup = { ok: true } | { ok: false; reason: string; command: string };
 
-// Why running `claude` failed, for the person, with the command they can run themselves.
-export function setupFailed(error: unknown, command: string): Setup {
+// Why running the agent's command failed, for the person, with the command they can run themselves.
+export function setupFailed(error: unknown, command: string, agent = "Claude Code's `claude`"): Setup {
   const missing = (error as NodeJS.ErrnoException).code === "ENOENT" || /not recognized|not found/i.test(String((error as { stderr?: string }).stderr ?? ""));
-  return { ok: false, reason: missing ? "Claude Code's `claude` command isn't installed" : (error as Error).message.split("\n")[0]!, command };
+  return { ok: false, reason: missing ? `${agent} command isn't installed` : (error as Error).message.split("\n")[0]!, command };
 }
 
 // Adds (or re-adds, after an update moved Attentry) the server for `folder`, with Claude Code's own
