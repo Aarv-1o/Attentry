@@ -1,6 +1,7 @@
 // Builds Attentry into one file, dist/attentry.mjs, with the tree-sitter grammars in dist/wasm next
 // to it. That's what hooks run (plain `node`, no TypeScript loader, from any folder), and what
 // the editor extension ships as its server.
+import { randomUUID } from "node:crypto";
 import { build } from "esbuild";
 import { copyFile, mkdir } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -14,6 +15,9 @@ const WASM = ["web-tree-sitter/web-tree-sitter.wasm", "tree-sitter-javascript/tr
 export async function buildAttentry(outFile) {
   await build({
     entryPoints: [join(root, "src/cli/bin.ts")], outfile: outFile, bundle: true, platform: "node", format: "esm", target: "node20",
+    // One stamp per build, in every copy of it (Claude Code's and Codex's caches, the extension's):
+    // the background Attentry knows them for one build wherever they sit (src/daemon/address.ts).
+    define: { ATTENTRY_BUILD: JSON.stringify(randomUUID()) },
     banner: {
       js: [
         "#!/usr/bin/env node",

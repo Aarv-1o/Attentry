@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
 import { addressFor } from "../src/daemon/address.ts";
-import { agentStatus } from "../src/daemon/client.ts";
+import { agentStatus, backgroundFlags } from "../src/daemon/client.ts";
 import { findTests } from "../src/agent/tests.ts";
 import { allowTests, testsAllowed } from "../src/agent/trust.ts";
 import { makeRepo, stopBackground, withClaudeSettings } from "./helpers.ts";
@@ -72,4 +72,12 @@ test("one folder spelled two ways (VS Code's d: and a terminal's D:) shares one 
     await allowTests(root, await findTests(root, undefined));
     assert.equal(await testsAllowed(other, await findTests(other, undefined)), true, "tests allowed for one spelling are allowed for both");
   });
+});
+
+test("the background Attentry gets this one's Node flags, never code given on the command line", () => {
+  assert.deepEqual(backgroundFlags(["--import", "tsx"]), ["--import", "tsx"], "a loader for TypeScript: kept");
+  // Codex starts Attentry's MCP server through a loader given with -e: passed on, it would run
+  // the loader again in the background, which starts another background Attentry, and so on.
+  assert.deepEqual(backgroundFlags(["-e", "import('x')"]), []);
+  assert.deepEqual(backgroundFlags(["--no-warnings", "--eval=run()", "-p", "1+1", "--import", "tsx"]), ["--no-warnings", "--import", "tsx"]);
 });

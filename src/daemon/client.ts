@@ -41,11 +41,18 @@ function ask(address: string, request: Request): Promise<Response> {
   });
 }
 
+// The Node flags to start the background Attentry with: this one's, but never code given on the
+// command line (-e, -p): a loader that started Attentry that way would run again instead of it,
+// and start another background Attentry, and so on.
+const EVAL = new Set(["-e", "--eval", "-p", "--print"]);
+export const backgroundFlags = (flags: string[]) =>
+  flags.filter((flag, i) => !EVAL.has(flag) && !EVAL.has(flags[i - 1] ?? "") && !/^--(eval|print)=/.test(flag));
+
 // The same Attentry that's running now (same Node flags and entry file), in the background.
 function startBackground(root: string): void {
   // From Attentry's own folder: Node flags like `--import tsx` resolve there, not in the repo.
   const entry = resolve(process.argv[1]!);
-  const child = spawn(process.execPath, [...process.execArgv, entry, "serve", root], { cwd: dirname(entry), detached: true, stdio: "ignore", windowsHide: true });
+  const child = spawn(process.execPath, [...backgroundFlags(process.execArgv), entry, "serve", root], { cwd: dirname(entry), detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
 

@@ -23,8 +23,14 @@ export function addressFor(root: string): string {
   return join(dir, `${id}.sock`);
 }
 
-// Which Attentry is running: a background Attentry from before an update must not answer.
+// The build's stamp, written in by scripts/build.mjs. Unset when run from source.
+declare const ATTENTRY_BUILD: string | undefined;
+
+// Which Attentry is running: a background Attentry from before an update must not answer. A built
+// Attentry is known by its stamp, so copies of one build in different folders (each agent caches
+// its own) agree instead of restarting each other's background Attentry. From source: the file.
 export function buildId(): string {
+  if (typeof ATTENTRY_BUILD === "string") return ATTENTRY_BUILD;
   const entry = process.argv[1] ?? "";
   return `${entry}:${statSync(entry, { throwIfNoEntry: false })?.mtimeMs ?? 0}`;
 }
