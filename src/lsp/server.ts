@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
-import { codexHome, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
+import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
 import { loadConfig, writeMode } from "../agent/config.ts";
 import { hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
@@ -250,8 +250,9 @@ export function startServer(connection: Connection): void {
     const mcp = on ? "added" : await mcpState(workspace);
     const cx = await codexPlugin;
     return {
-      // Left out ("absent") for someone who doesn't use Codex.
-      codex: cx?.installed ? (cx.enabled ? "connected" : "off") : codexUsed() && codexAt ? "missing" : "absent",
+      // Left out ("absent") for someone who doesn't use Codex. Connected, its hooks are running,
+      // waiting for a first session, or need the person to trust them ("approve").
+      codex: cx?.installed ? (cx.enabled ? await codexHooks() : "off") : codexUsed() && codexAt ? "missing" : "absent",
       // One state for the panel: Reconnect fixes either part pointing at an old Attentry.
       claude: hooks === "stale" || mcp === "stale" ? "stale" : hooks === "connected" ? "connected" : "missing",
       hooks,

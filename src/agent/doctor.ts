@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 import { backgroundRunning } from "../daemon/client.ts";
+import { codexHooks, codexState, codexUsed, type CodexState } from "./codex.ts";
 import { isSource, listRepoFiles, unsupportedCode } from "../index/files.ts";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig } from "./config.ts";
@@ -16,8 +17,8 @@ import { plural } from "../report/common.ts";
 
 type Check = { ok: boolean | "warn"; text: string; fix?: string };
 
-// `plugin` asks Claude Code which plugins it has (tests answer for it).
-export async function doctor(folder: string, plugin: (folder: string) => Promise<PluginState> = pluginState): Promise<string> {
+// `plugin` and `codex` ask Claude Code and Codex which plugins they have (tests answer for them).
+export async function doctor(folder: string, plugin: (folder: string) => Promise<PluginState> = pluginState, codex: (folder: string) => Promise<CodexState> = codexState): Promise<string> {
   const root = await projectRoot(folder);
   const checks: Check[] = [];
   const files = await listRepoFiles(root);
@@ -48,6 +49,7 @@ export async function doctor(folder: string, plugin: (folder: string) => Promise
   if (installed?.installed && installed.enabled) checks.push({ ok: true, text: `Claude Code: connected (the Attentry plugin, ${installed.version}). A session started before that needs a restart` });
   else if (installed?.installed) checks.push({ ok: false, text: "Claude Code: the Attentry plugin is installed but turned off", fix: "Run `claude plugin enable attentry@attentry`, or click Connect Claude Code in the Attentry sidebar." });
   else await withoutPlugin(folder, root, checks);
+  if (codexUsed()) checks.push(await codexCheck(folder, codex));
 
   checks.push((await backgroundRunning(root))
     ? { ok: true, text: "Background Attentry: running" }
@@ -55,6 +57,17 @@ export async function doctor(folder: string, plugin: (folder: string) => Promise
 
   const mark = (c: Check) => (c.ok === true ? "✓" : c.ok === "warn" ? "!" : "✗");
   return `${checks.map((c) => `${mark(c)} ${c.text}${c.fix ? `\n  → ${c.fix}` : ""}`).join("\n")}\n`;
+}
+
+// Codex, for someone who uses it: only the plugin connects it. Not connected is a note, not a
+// failure: Codex is optional.
+async function codexCheck(folder: string, codex: (folder: string) => Promise<CodexState>): Promise<Check> {
+  const state = await codex(folder).catch(() => undefined); // no `codex` command: as if not installed
+  if (!state?.installed) return { ok: "warn", text: "Codex: not connected", fix: "Click Connect Codex in the Attentry sidebar (VS Code)." };
+  if (!state.enabled) return { ok: false, text: "Codex: the Attentry plugin is installed but turned off", fix: "Click Connect Codex in the Attentry sidebar to turn it back on." };
+  const hooks = await codexHooks();
+  if (hooks === "approve") return { ok: false, text: `Codex: the Attentry plugin is installed (${state.version}), but Codex hasn't run its hooks`, fix: "In Codex, run /hooks and trust Attentry's hooks, then start a new session." };
+  return { ok: true, text: `Codex: connected (the Attentry plugin, ${state.version})${hooks === "waiting" ? ". Codex asks you to trust its hooks when it next starts" : ""}` };
 }
 
 // Set up by hand, without the plugin: hooks in the folder, and the MCP server.

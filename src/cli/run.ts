@@ -8,6 +8,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
 import { formatMarkdown } from "../report/markdown.ts";
 import { formatScan, scanToJson } from "../report/scan.ts";
+import { noteHeard } from "../agent/codex.ts";
 import type { HookInput } from "../agent/hooks.ts";
 import { init, mcpSetup } from "../agent/init.ts";
 import { doctor } from "../agent/doctor.ts";
@@ -123,6 +124,8 @@ async function hook(agent: string | undefined, out: Write): Promise<number> {
     const root = await projectRoot(resolve(process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? "."));
     const reply = await hookReply(root, input);
     out(reply.stdout);
+    // Codex ran this hook, so the person trusts it: the panel stops asking them to.
+    if (agent === "codex" && input.hook_event_name === "SessionStart") await noteHeard();
     return reply.exitCode;
   } catch (error) {
     process.stderr.write(`Attentry hook failed: ${(error as Error).message}\n`);

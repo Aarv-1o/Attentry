@@ -3,8 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { doctor } from "../src/agent/doctor.ts";
+import type { CodexState } from "../src/agent/codex.ts";
 import type { PluginState } from "../src/agent/plugin.ts";
-import { makeRepo, withClaudeSettings } from "./helpers.ts";
+import { makeRepo, withClaudeSettings, withHome } from "./helpers.ts";
 
 // Claude Code's answer about its plugins, without running `claude`.
 const noPlugin = async (): Promise<PluginState> => ({ installed: false });
@@ -39,5 +40,23 @@ test("doctor: with the plugin, one line for Claude Code, and no folder hooks or 
     assert.match(on, /✓ Claude Code: connected \(the Attentry plugin, 0\.0\.14\)/);
     assert.doesNotMatch(on, /hooks|MCP tools/);
     assert.match(await doctor(folder, async () => ({ installed: true, enabled: false, version: "0.0.14" })), /✗ Claude Code: the Attentry plugin is installed but turned off\n {2}→ Run `claude plugin enable attentry@attentry`/);
+  });
+});
+
+test("doctor: a Codex line for someone who uses Codex, saying whether its hooks run", async () => {
+  const folder = await makeRepo({ "src/app.ts": "export const a = 1;\n" });
+  const plugin = async (version = "0.1.4"): Promise<CodexState> => ({ installed: true, enabled: true, version });
+  await withHome({}, async () => assert.doesNotMatch(await doctor(folder, noPlugin, plugin), /Codex/, "no Codex folder: no line"));
+  const session = JSON.stringify({ id: "1", thread_name: "a task", updated_at: "2026-11-13T10:00:00Z" });
+  await withHome({ ".codex/session_index.jsonl": "" }, async () => {
+    assert.match(await doctor(folder, noPlugin, async () => ({ installed: false })), /! Codex: not connected\n {2}→ Click Connect Codex/);
+    assert.match(await doctor(folder, noPlugin, () => plugin()), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\. Codex asks you to trust its hooks when it next starts/);
+  });
+  // Installed before the last Codex session, and never heard from: the person hasn't trusted the hooks.
+  await withHome({ ".codex/session_index.jsonl": `${session}\n`, ".attentry/codex.json": JSON.stringify({ installedAt: Date.parse("2026-11-13T09:00:00Z") }) }, async () => {
+    assert.match(await doctor(folder, noPlugin, () => plugin()), /✗ Codex: the Attentry plugin is installed \(0\.1\.4\), but Codex hasn't run its hooks\n {2}→ In Codex, run \/hooks/);
+  });
+  await withHome({ ".codex/session_index.jsonl": `${session}\n`, ".attentry/codex.json": JSON.stringify({ installedAt: 1, heardAt: 2 }) }, async () => {
+    assert.match(await doctor(folder, noPlugin, () => plugin()), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\n/);
   });
 });
