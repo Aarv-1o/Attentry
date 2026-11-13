@@ -6,6 +6,7 @@ import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
 import { changeCard } from "./card.ts";
 import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
+import { applyHunks, patchEdits, type Hunk } from "./patch.ts";
 import type { ExistingMatch } from "./reuse.ts";
 import { plural } from "../report/common.ts";
 
@@ -25,6 +26,7 @@ export interface HookInput {
     replace_all?: boolean;
     edits?: { old_string: string; new_string: string; replace_all?: boolean }[]; // MultiEdit
     plan?: string; // ExitPlanMode: Claude Code puts the plan's text here
+    command?: string; // apply_patch: Codex puts the patch here
   };
   stop_hook_active?: boolean;
   prompt?: string; // UserPromptSubmit: what the person asked
@@ -35,7 +37,7 @@ export interface HookReply {
   exitCode: number;
 }
 
-const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit)$/;
+const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit|apply_patch)$/; // Claude Code's, and Codex's one
 const PER_EDIT = 5; // lines after one edit
 const FOCUS = 3; // lines in a check-in, and "worth a check" lines after an edit
 const MAX_BLOCKED_STOPS = 2; // then let it finish: a block that keeps failing is a loop
@@ -56,10 +58,12 @@ export interface FileEdit {
   path: string;
   write?: string | undefined; // the file's whole new content
   changes?: { old_string: string; new_string: string; replace_all?: boolean | undefined }[];
+  hunks?: Hunk[]; // a Codex patch's changes to this file
 }
 
 export function editsOf(input: HookInput): FileEdit[] {
   const t = input.tool_input ?? {};
+  if (input.tool_name === "apply_patch") return patchEdits(t.command ?? "", input.cwd ?? ".");
   if (!isEdit(input) || !t.file_path) return [];
   if (input.tool_name === "Write") return [{ path: t.file_path, write: t.content }];
   if (input.tool_name === "MultiEdit") return [{ path: t.file_path, changes: t.edits ?? [] }];
@@ -145,6 +149,7 @@ export function atStop(input: HookInput, root: string, task: Task, findings: Fin
 // is now (then the agent will refuse the edit itself).
 export function contentAfter(edit: FileEdit, before: string): string | undefined {
   if (edit.write !== undefined) return edit.write;
+  if (edit.hunks) return applyHunks(before, edit.hunks);
   const changes = edit.changes ?? [];
   let text = before;
   for (const e of changes) {

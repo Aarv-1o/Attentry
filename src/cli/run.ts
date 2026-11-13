@@ -30,8 +30,8 @@ Usage:
   attentry init [path]          Set up Attentry's hooks for Claude Code in a repo (the VS Code
                               extension's Connect does this for you). --mode block to also
                               stop tasks that add security or crash problems
-  attentry hook claude          Run as an agent hook: reads the hook's JSON on stdin, answers
-                              in Claude Code's format
+  attentry hook claude|codex    Run as an agent hook (Claude Code or Codex): reads the hook's
+                              JSON on stdin, answers in the agent's format
   attentry mcp [path]           Run as an MCP server: tools agents call themselves
                               (find_existing, check, explain)
   attentry serve [path]         The background Attentry that hooks and MCP talk to (started for you)
@@ -110,9 +110,12 @@ async function readStdin(): Promise<string> {
 
 // An agent hook. Attentry failing must not break the agent: exit 1 shows the error to the person
 // without blocking the agent (exit 2 would block).
+// Both agents send the same events and take the same answers; their edit tools differ, and the
+// edit's tool name says which it is.
+const AGENTS = ["claude", "codex"];
 async function hook(agent: string | undefined, out: Write): Promise<number> {
-  if (agent !== "claude") {
-    process.stderr.write(`attentry hook: unknown agent "${agent ?? ""}". Supported: claude.\n`);
+  if (!AGENTS.includes(agent ?? "")) {
+    process.stderr.write(`attentry hook: unknown agent "${agent ?? ""}". Supported: ${AGENTS.join(", ")}.\n`);
     return 1;
   }
   try {
