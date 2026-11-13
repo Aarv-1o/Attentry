@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.4
+
+- **Codex support.** Click **Connect Codex** in the panel, start a new Codex session and trust **attentry-hooks** once. Codex then hears about the problems each edit adds, gets the change card at the end, and can call `find_existing`, `check`, `explain` and `check_plan`. Works in the Codex command line and the Codex extension for VS Code. Block mode for Codex comes in 0.1.5.
+- Codex's patches (`apply_patch`) are read: several files in one patch, new, changed, moved and deleted files.
+- Updates never ask Codex users to approve the hooks again: the hooks live in a small plugin that never changes and runs the Attentry inside the extension.
+- If Codex hasn't run Attentry's hooks yet (not trusted, or Codex was open from before), the panel and `attentry doctor` say so and what to do.
+- The panel shows Codex beside Claude Code, and each task under the agent doing it.
+- Connect allows the repo's test commands, and an **Allow tests** link in the panel allows them in another repo or after they change. Before, only `attentry init` did, so with the extension tests never ran at check-ins.
+- Two copies of the same Attentry (one per agent) no longer restart each other's background process, which could make a hook fail.
+- Out of preview. The store page and the README tell the story with a real demo.
+
 ## 0.1.3
 
 - The panel no longer shows "Last task: 0 edits to 0 files, ... 498,442 hours ago" when Claude Code has started but made no edits yet.
