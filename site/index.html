@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="google-site-verification" content="hhZ2ddYWbSLOxFOfmVU6Mwkf5hjTesqHu9snpo-p1O4">
 <title>Attentry: checks the code your AI agent writes</title>
-<meta name="description" content="The world codes with AI agents now. Attentry watches what Claude Code writes: security holes, copied and dead code. It tells the agent right after each edit, and shows you a change card at the end.">
+<meta name="description" content="The world codes with AI agents now. Attentry watches what Claude Code and Codex write: security holes, copied and dead code. It tells the agent right after each edit, and shows you a change card at the end.">
 <link rel="canonical" href="https://attentry.js.org/">
 <meta property="og:url" content="https://attentry.js.org/">
 <meta property="og:type" content="website">
@@ -49,7 +49,7 @@
     <div class="wrap">
       <div class="hero-grid">
         <div class="hero-copy">
-          <p class="pill reveal"><i></i>For Claude Code, in VS Code</p>
+          <p class="pill reveal"><i></i>For Claude Code and Codex, in VS Code</p>
           <h1 id="hero-title" class="reveal" data-delay="1">The world codes with AI now. Attentry watches the code.</h1>
           <p class="prompt reveal" data-delay="2" aria-label="Things people ask their coding agent"><span id="typed">build me an Uber clone</span><span class="caret" aria-hidden="true"></span></p>
         </div>
@@ -179,6 +179,10 @@
         </div>
         <div class="scene-caption" role="group" aria-label="Jump to a step"><button type="button" data-cap="write">Claude writes</button><button type="button" data-cap="watch">Attentry spots 3 problems</button><button type="button" data-cap="fix">Claude fixes them</button><button type="button" data-cap="done">The change card is clean</button></div>
       </div>
+      <figure class="real reveal">
+        <img src="assets/demo.gif" alt="A real Claude Code session with Attentry: the agent adds a route, Attentry checks each edit, and the change card shows no problems added and 10 fixed" width="540" height="540" loading="lazy" decoding="async">
+        <figcaption>The real thing: one Claude Code session on the <a href="https://github.com/Aarv-1o/attentry-demo">demo repo</a>, sped up where the agent was thinking.</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -190,10 +194,10 @@
         <h2 id="how-title">Four moments. Otherwise, quiet.</h2>
       </div>
       <div class="steps">
-        <div class="step reveal"><p class="when">When you ask</p><div><h3>The code you already have</h3><p>Claude hears which helpers and routes in the repo match your request, so it plans with them.</p></div><p class="said"><span class="who">Attentry:</span> the repo already has code related to this request:
+        <div class="step reveal"><p class="when">When you ask</p><div><h3>The code you already have</h3><p>Your agent hears which helpers and routes in the repo match your request, so it plans with them.</p></div><p class="said"><span class="who">Attentry:</span> the repo already has code related to this request:
 - `timeAgo` in src/utils/time.js:1
 - GET /api/rides/:id in server.js:11</p></div>
-        <div class="step reveal"><p class="when">Before an edit</p><div><h3>No second copy</h3><p>About to write a function the repo already has? Claude hears where the existing one is.</p></div><p class="said"><span class="who">Attentry:</span> `formatRidePrice`: the repo already has `formatPrice` (src/utils/money.js:2). Import it.</p></div>
+        <div class="step reveal"><p class="when">Before an edit</p><div><h3>No second copy</h3><p>About to write a function the repo already has? Your agent hears where the existing one is.</p></div><p class="said"><span class="who">Attentry:</span> `formatRidePrice`: the repo already has `formatPrice` (src/utils/money.js:2). Import it.</p></div>
         <div class="step reveal"><p class="when">After an edit</p><div><h3>Only what this edit added</h3><p>New problems, once each, in a few lines. A clean edit gets nothing at all; old issues never nag.</p></div><p class="said"><span class="who">Attentry:</span> this edit added 1 problem:
 socket event "message:delete" loads a record by an id the caller sends without checking it belongs to the caller</p></div>
         <div class="step reveal"><p class="when">At the end</p><div><h3>A change card for you</h3><p>What changed, what it added or fixed, and whether the tests passed. Ten seconds to read.</p></div><p class="said"><span class="who">Attentry change card</span>
@@ -267,8 +271,8 @@ socket event "message:delete" loads a record by an id the caller sends without c
           <h2 id="get-title">Let your agent build. Attentry keeps watch.</h2>
           <ol class="install">
             <li><span><b>Install the extension</b> from the <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">VS Code Marketplace</a>, or from <a href="https://open-vsx.org/extension/attentry/attentry">Open VSX</a> for Cursor and Windsurf.</span></li>
-            <li><span><b>Click Connect Claude Code</b> in the Attentry panel: it's added for all your projects.</span></li>
-            <li><span><b>Start a Claude Code session</b> and ask for anything.</span></li>
+            <li><span><b>Click Connect Claude Code or Connect Codex</b> in the Attentry panel: it's added for all your projects.</span></li>
+            <li><span><b>Start a new session</b> and ask for anything. Codex asks you once to trust <b>attentry-hooks</b>: say yes.</span></li>
           </ol>
           <div class="actions">
             <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get it for VS Code</a>
