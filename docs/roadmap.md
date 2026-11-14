@@ -37,6 +37,34 @@ checked, with a menu of the others. The choice is remembered for that folder, an
 checks, the agent's hooks and its tools all follow it. Without a choice, the panel still says how
 many projects it found and which one it checks. The project is picked again when folders change.
 
+### 4. Is Claude Code actually running Attentry?
+
+**Today:** the panel's "Connected" for Claude Code means the plugin is installed and on. It doesn't
+mean Claude Code runs its hooks: they can be installed and still not run (raised on Reddit after the
+launch). Codex already has a check for this.
+
+**Change:** Attentry notes when Claude Code last ran one of its hooks, as it does for Codex. If a
+Claude Code session ran since connecting and Attentry never heard from it, the panel says so and
+what to do, instead of a green dot that may not be true. `attentry doctor` says the same.
+
+### 5. Check setup from the panel
+
+**Today:** the change card and the doctor tell people to run `attentry init` or `attentry doctor`,
+but someone using the extension has no `attentry` command: it only exists for people running
+Attentry from its source.
+
+**Change:** a **Check setup** button in the panel runs the doctor and shows its results, with the
+fix for each line where the panel can do it (Connect, Allow tests). The messages stop pointing at a
+command the person doesn't have.
+
+### 6. The background Attentry doesn't hold the extension's folder
+
+**Today:** the background process runs from Attentry's own folder, so on Windows the folder can't be
+replaced while it runs. That hung a reinstall of the same version during testing (an update to a
+new version installs into a new folder, so users don't hit it).
+
+**Change:** it runs from a neutral folder.
+
 ## Later
 
 ### Block mode for Codex
@@ -45,8 +73,10 @@ Test whether Codex follows Attentry's "not done yet" and "use the existing funct
 block mode. If it does, block mode works for Codex and the README says so; if not, the panel doesn't
 offer Block for Codex.
 
-### The background Attentry doesn't hold the extension's folder
+## Known issues
 
-The background process runs from Attentry's own folder, so on Windows the folder can't be replaced
-while it runs. That hung a reinstall of the same version during testing (an update to a new version
-installs into a new folder, so users don't hit it). Run it from a neutral folder instead.
+### VS Code and Cursor with different versions of Attentry
+
+Codex runs the Attentry that the editor which started last points to (`~/.attentry/build.json`).
+With VS Code and Cursor both installed and on different Attentry versions, Codex follows whichever
+opened last. Rare, so noted rather than fixed.
