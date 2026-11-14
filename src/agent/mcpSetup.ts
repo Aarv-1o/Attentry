@@ -70,6 +70,10 @@ const agentCommand = (name: string, env: string) => async (args: string[], folde
 export const claude = agentCommand("claude", "ATTENTRY_CLAUDE");
 export const codex = agentCommand("codex", "ATTENTRY_CODEX");
 
+// Versions in order (0.1.10 after 0.1.9). With the extension in two editors (VS Code, Cursor) on
+// different versions, each leaves the agents' plugins alone when theirs is newer.
+export const byVersion = new Intl.Collator("en", { numeric: true }).compare;
+
 export type Setup = { ok: true } | { ok: false; reason: string; command: string };
 
 // Why running the agent's command failed, for the person, with the command they can run themselves.

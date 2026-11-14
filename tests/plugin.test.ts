@@ -86,9 +86,10 @@ test("when the editor starts, an installed plugin older than the extension's is 
     await refreshPlugin(home, folder);
     assert.deepEqual(await claude.calls(), ["plugin list --json", `plugin marketplace add ${home}`, "plugin update attentry@attentry", "plugin list --json"]);
   }
-  for (const listed of [[{ id: "attentry@attentry", enabled: true, version: "1.1.0" }], []]) {
-    using claude = await fakeAgent("claude", listed);
-    assert.deepEqual(await refreshPlugin(home, folder), listed.length ? { installed: true, enabled: true, version: "1.1.0" } : { installed: false });
-    assert.deepEqual(await claude.calls(), ["plugin list --json"], "up to date, or never installed: left alone");
+  // Up to date; newer, from the extension in another editor (VS Code and Cursor); never installed.
+  for (const version of ["1.1.0", "1.10.0", undefined]) {
+    using claude = await fakeAgent("claude", version ? [{ id: "attentry@attentry", enabled: true, version }] : []);
+    assert.deepEqual(await refreshPlugin(home, folder), version ? { installed: true, enabled: true, version } : { installed: false });
+    assert.deepEqual(await claude.calls(), ["plugin list --json"], `${version ?? "not installed"}: left alone, never taken back to an older version`);
   }
 });

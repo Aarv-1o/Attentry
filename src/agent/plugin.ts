@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { hooksHeard, noteInstalled, type HooksHeard } from "./heard.ts";
 import { removeHooks } from "./init.ts";
-import { claude, setupFailed, type Setup } from "./mcpSetup.ts";
+import { byVersion, claude, setupFailed, type Setup } from "./mcpSetup.ts";
 
 // The Claude Code plugin the editor extension carries: its claude/ folder is a plugin marketplace
 // with the attentry plugin in it, and this Attentry built into that plugin. Installed for every
@@ -77,7 +77,7 @@ export async function allowTools(): Promise<boolean> {
 // agent runs the same Attentry as the editor. Returns the plugin's state.
 export async function refreshPlugin(home: string, folder: string): Promise<PluginState> {
   const state = await pluginState(folder);
-  if (!state.installed || state.version === (await versionAt(home))) return state;
+  if (!state.installed || byVersion(state.version, await versionAt(home)) >= 0) return state; // up to date, or newer from the other editor
   await claude(["plugin", "marketplace", "add", home], folder);
   await claude(["plugin", "update", PLUGIN], folder);
   return pluginState(folder);

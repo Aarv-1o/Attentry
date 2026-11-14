@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { hooksHeard, noteInstalled } from "./heard.ts";
-import { codex, setupFailed, type Setup } from "./mcpSetup.ts";
+import { byVersion, codex, setupFailed, type Setup } from "./mcpSetup.ts";
 
 // The Codex plugins the editor extension carries: its codex/ folder, next to claude/, is a Codex
 // plugin marketplace with two plugins. attentry-hooks has the hooks, and never changes: Codex asks
@@ -15,12 +15,23 @@ const HOOKS = "attentry-hooks@attentry";
 const TOOLS = "attentry@attentry";
 const MARKETPLACE = "attentry";
 
-// The Attentry that Codex's plugins run: the extension's own, beside the Claude Code plugin.
+// The Attentry that Codex's plugins run: the extension's own, beside the Claude Code plugin. Each
+// editor with the extension (VS Code, Cursor) points it at its own when it starts: a newer one
+// another editor has stays, while it's still installed, so Codex runs the newest Attentry there is.
 const buildOf = (home: string) => resolve(home, "..", "claude", "attentry", "dist", "attentry.mjs");
+type Build = { entry: string; version?: string };
+
 async function pointAt(home: string): Promise<void> {
   const file = join(homedir(), ".attentry", "build.json");
+  const mine: Build = { entry: buildOf(home), version: await versionAt(home) };
+  const now = await readFile(file, "utf8").then((text) => JSON.parse(text) as Build, (error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined; // Codex isn't pointed anywhere yet
+    throw error;
+  });
+  const newer = now && now.entry !== mine.entry && now.version && byVersion(now.version, mine.version!) > 0 && existsSync(now.entry);
+  if (newer) return;
   await mkdir(dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify({ entry: buildOf(home) })}\n`);
+  await writeFile(file, `${JSON.stringify(mine)}\n`);
 }
 
 export type CodexState = { installed: false } | { installed: true; enabled: boolean; version: string };
@@ -100,7 +111,8 @@ export async function installCodex(home: string, folder: string): Promise<Setup>
 export async function refreshCodex(home: string, folder: string): Promise<CodexState> {
   const state = await codexState(folder);
   if (!state.installed) return state;
-  if (state.version === (await versionAt(home))) {
+  // Up to date, or newer from the other editor: only an older tools plugin is replaced.
+  if (byVersion(state.version, await versionAt(home)) >= 0) {
     await pointAt(home);
     return state;
   }
