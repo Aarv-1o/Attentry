@@ -129,6 +129,11 @@ test("the language server shows your changes, explains them, and offers safe fix
     if (server.bundled) assert.deepEqual(connected, { ok: true });
     assert.deepEqual(await server.request("attentry/agent", {}), { codex: "absent", claude: "connected", hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
 
+    // Check setup: the doctor's checks, connected now.
+    const setup = await server.request("attentry/setup", {});
+    assert.match(setup[0].text, /^Project: /);
+    assert.equal(setup.find((c: any) => c.text.startsWith("Claude Code"))?.ok, true);
+
     // Auto-check turned off in the editor's settings: the status says so.
     const mark = server.count();
     await server.request("workspace/executeCommand", { command: "attentry.server.set", arguments: [{ autoScan: false }] });

@@ -68,6 +68,10 @@
         "command": "attentry.copyReport",
         "title": "Attentry: Copy the report for an agent",
         "icon": "$(copy)"
+      },
+      {
+        "command": "attentry.checkSetup",
+        "title": "Attentry: Check setup"
       }
     ],
     "configuration": {

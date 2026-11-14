@@ -63,6 +63,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider("attentry.panel", sidebar),
     vscode.commands.registerCommand("attentry.openReport", () => sidebar.run("openReport")),
     vscode.commands.registerCommand("attentry.copyReport", () => sidebar.run("copyReport")),
+    vscode.commands.registerCommand("attentry.checkSetup", async () => {
+      await vscode.commands.executeCommand("attentry.panel.focus"); // the list shows in the panel
+      await sidebar.run("checkSetup");
+    }),
   );
   client.onNotification("attentry/status", (s: Status) => {
     [bar.text, bar.tooltip] = statusText(s);

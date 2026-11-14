@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
 import { loadConfig, writeMode } from "../agent/config.ts";
+import { checkSetup } from "../agent/doctor.ts";
 import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
 import { claudeHooks, installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
@@ -266,6 +267,8 @@ export function startServer(connection: Connection): void {
       live: (await agentStatus(root)) ?? null,
     };
   });
+  // The panel's Check setup: the doctor's checks, with the fixes the panel can do itself.
+  connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
   connection.onRequest("attentry/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
     if (format === "agent") return formatAgent(root, shown(), options.hints);
     // Opened in a preview that has no file of its own: links name each file in full.
