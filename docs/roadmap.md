@@ -5,8 +5,9 @@ What's next for Attentry, in two releases. Each item says what goes wrong today,
 
 ## 0.1.5: trust what Attentry tells you
 
-Small fixes, all about the same thing: when Attentry says something, it should be true. Shipped
-first because a checker that says "fine" about code it never read is worse than no checker.
+Fixes about the same thing: when Attentry says something, it should be true, and when it isn't
+working, the panel says so and how to fix it. Shipped first because a checker that says "fine"
+about code it never read is worse than no checker.
 
 ### 1. Never "no problems" for code Attentry didn't read
 
@@ -46,11 +47,21 @@ new version installs into a new folder, so users don't hit it).
 
 **Change:** it runs from a neutral folder.
 
-## 0.1.6: setup and several projects
+### 5. Check setup from the panel
 
-Bigger changes to the panel and to how Attentry finds what to check.
+**Today:** the change card and the doctor tell people to run `attentry init` or `attentry doctor`,
+but someone using the extension has no `attentry` command: it only exists for people running
+Attentry from its source.
 
-### 5. Choose the project in the panel
+**Change:** a **Check setup** button in the panel runs the doctor and shows its results, with the
+fix for each line where the panel can do it (Connect, Allow tests). The messages stop pointing at a
+command the person doesn't have. This is where #3's "Claude Code never ran Attentry" shows up too.
+
+## 0.1.6: several projects and editors
+
+How Attentry finds what to check, and which Attentry runs.
+
+### 6. Choose the project in the panel
 
 **Today:** when the opened folder isn't a project itself, Attentry looks one level down and picks
 one project (the only git checkout, or the only folder that looks like a project). Other projects
@@ -61,16 +72,6 @@ cloned while the editor is open isn't noticed until a reload.
 checked, with a menu of the others. The choice is remembered for that folder, and the editor's
 checks, the agent's hooks and its tools all follow it. Without a choice, the panel still says how
 many projects it found and which one it checks. The project is picked again when folders change.
-
-### 6. Check setup from the panel
-
-**Today:** the change card and the doctor tell people to run `attentry init` or `attentry doctor`,
-but someone using the extension has no `attentry` command: it only exists for people running
-Attentry from its source.
-
-**Change:** a **Check setup** button in the panel runs the doctor and shows its results, with the
-fix for each line where the panel can do it (Connect, Allow tests). The messages stop pointing at a
-command the person doesn't have.
 
 ### 7. VS Code and Cursor with different versions of Attentry
 
