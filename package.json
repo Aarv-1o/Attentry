@@ -9,7 +9,7 @@
   },
   "scripts": {
     "attentry": "node --import tsx src/cli/bin.ts",
-    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "test": "node --import tsx --import ./tests/setup.ts --test \"tests/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs"
   },
