@@ -63,3 +63,17 @@ test("check never says no problems about files it didn't read, and says why for 
   assert.match(none.text, /^Attentry didn't check any of these files\.\nNot checked, outside/);
   assert.doesNotMatch(none.text, /No problems/);
 });
+
+test("an edit to code outside the project: the agent hears once that Attentry isn't checking it", async () => {
+  const root = await makeRepo(REPO);
+  const sessions = new Sessions(root);
+  const game = await makeRepo({ "game.js": "export const play = () => 1;\n" });
+  const write = (file: string) => sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(game, file) } });
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });
+  const first = JSON.parse((await write("game.js")).stdout!).hookSpecificOutput.additionalContext;
+  assert.match(first, /^Attentry: .*game\.js is outside attentry-\w+ \(.+\), the project Attentry checks, so it isn't checking edits there\. Tell the person: to have Attentry check that folder, open it in the editor\.$/);
+  assert.ok(!(await write("game.js")).stdout, "once a session");
+  assert.ok(!(await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s2", tool_name: "Write", tool_input: { file_path: join(game, "notes.md") } })).stdout, "not for notes: an agent's own files live outside every project");
+  const card = (await sessions.handle({ hook_event_name: "Stop", session_id: "s1" })).stdout ?? "";
+  assert.doesNotMatch(card, /game\.js/, "not on the change card");
+});

@@ -26,6 +26,7 @@ const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
 const READ_WAIT_MS = 2_000; // a small repo is read by then: it answers as if it always had been
 const READING = "reading"; // the agent heard that Attentry is still reading the repo
+const OUTSIDE = "outside"; // the agent heard that its edits outside the project aren't checked
 // MCP sessions are named by Attentry's MCP server, one per agent session: never a hook's session id.
 export const MCP_SESSION = "mcp:";
 
@@ -228,6 +229,19 @@ export class Sessions {
     return items.length ? tell("UserPromptSubmit", relatedMessage(items)) : SILENT;
   }
 
+  // Code written outside the project goes unchecked: said once a session, so neither the agent nor
+  // the person assumes Attentry is checking it. Only code: an agent's own notes and settings live
+  // outside every project.
+  private async outsideNote(input: HookInput, edits: FileEdit[]): Promise<HookReply> {
+    const code = edits.find((edit) => isSource(edit.path));
+    if (!code) return SILENT;
+    const { told } = await this.taskOf(input.session_id, input.agent);
+    if (told.has(OUTSIDE)) return SILENT;
+    told.add(OUTSIDE);
+    const name = basename(this.root);
+    return tell("PostToolUse", `Attentry: ${code.path} is outside ${name} (${this.root}), the project Attentry checks, so it isn't checking edits there. Tell the person: to have Attentry check that folder, open it in the editor.`);
+  }
+
   async handle(input: HookInput): Promise<HookReply> {
     const event = input.hook_event_name;
     if (event === "UserPromptSubmit") return this.relatedTo(input.session_id, input.prompt);
@@ -246,8 +260,9 @@ export class Sessions {
     const edits = all.filter((edit) => !outsideProject(this.root, edit.path));
     if (all.length && !edits.length) {
       const plan = all.find((edit) => isPlanFile(edit.path));
-      if (event !== "PostToolUse" || !plan) return SILENT;
-      return this.planCheck(input.session_id, await readFile(plan.path, "utf8").catch(() => undefined), event);
+      if (event !== "PostToolUse") return SILENT;
+      if (plan) return this.planCheck(input.session_id, await readFile(plan.path, "utf8").catch(() => undefined), event);
+      return this.outsideNote(input, all);
     }
     if (event === "PreToolUse" && isEdit(input)) {
       if (!(await this.ready())) return SILENT; // the reuse check needs every function in the repo
