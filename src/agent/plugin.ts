@@ -83,9 +83,12 @@ export async function refreshPlugin(home: string, folder: string): Promise<Plugi
   return pluginState(folder);
 }
 
-// When a Claude Code session in one of `folders` was last active. Claude Code keeps each session as
-// a .jsonl file under projects/, in a folder named after the session's folder: every character
-// that isn't a letter or digit becomes "-" (D:\work\app is D--work-app).
+// When the newest Claude Code session in one of `folders` started. Claude Code loads plugins when a
+// session starts, so one open since before connecting (or before an update) runs the old hooks, or
+// none: only sessions started since count. Each is a .jsonl file under projects/, in a folder named
+// after the session's folder: every character that isn't a letter or digit becomes "-" (D:\work\app
+// is D--work-app). Its creation time is the start; where the file system doesn't keep one, the
+// last change.
 async function lastSession(folders: string[]): Promise<number> {
   const times = await Promise.all(folders.map(async (folder) => {
     const dir = join(claudeDir(), "projects", folder.replace(/[^a-zA-Z0-9]/g, "-"));
@@ -93,7 +96,10 @@ async function lastSession(folders: string[]): Promise<number> {
       if (error.code === "ENOENT") return []; // no Claude Code session here yet
       throw error;
     });
-    const sessions = await Promise.all(files.filter((f) => f.endsWith(".jsonl")).map(async (f) => (await stat(join(dir, f))).mtimeMs));
+    const sessions = await Promise.all(files.filter((f) => f.endsWith(".jsonl")).map(async (f) => {
+      const { birthtimeMs, mtimeMs } = await stat(join(dir, f));
+      return birthtimeMs || mtimeMs;
+    }));
     return Math.max(0, ...sessions);
   }));
   return Math.max(0, ...times);
