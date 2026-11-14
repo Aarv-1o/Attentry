@@ -8,7 +8,8 @@ import { dirname, join } from "node:path";
 // Heard from since connecting: running. An agent session since then without a word: not running.
 
 export type Agent = "claude" | "codex";
-type Heard = { installedAt?: number; heardAt?: number };
+// toolsAllowedAt: when Attentry allowed its tools in the agent's settings (see plugin.ts allowTools).
+type Heard = { installedAt?: number; heardAt?: number; toolsAllowedAt?: number };
 
 const heardFile = (agent: Agent) => join(homedir(), ".attentry", `${agent}.json`);
 
@@ -28,6 +29,8 @@ async function note(agent: Agent, change: Heard): Promise<void> {
 }
 
 export const noteInstalled = (agent: Agent) => note(agent, { installedAt: Date.now() });
+export const noteToolsAllowed = (agent: Agent) => note(agent, { toolsAllowedAt: Date.now() });
+export const toolsAllowedBefore = async (agent: Agent) => (await readHeard(agent)).toolsAllowedAt !== undefined;
 
 // From every hook, so a session that was open before connecting counts once it runs one. Written
 // only until it's heard after the latest connect: most hooks only read the file.

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { isEdit } from "../src/agent/hooks.ts";
 import { allowTools, installPlugin, pluginHome, refreshPlugin, TOOLS_RULE } from "../src/agent/plugin.ts";
-import { fakeAgent, makeRepo } from "./helpers.ts";
+import { fakeAgent, makeRepo, withHome } from "./helpers.ts";
 
 // The Claude Code plugin the extension carries: its files name the build and the events, so they
 // must agree with the code (Claude Code validates the format, `claude plugin validate`, not this).
@@ -93,3 +93,16 @@ test("when the editor starts, an installed plugin older than the extension's is 
     assert.deepEqual(await claude.calls(), ["plugin list --json"], `${version ?? "not installed"}: left alone, never taken back to an older version`);
   }
 });
+
+test("connected before Connect allowed the tools: the editor allows them once, and never again after that", () => withHome({}, async () => {
+  const home = join(await extension("1.1.0"), "claude");
+  const folder = await makeRepo({});
+  using _claude = await fakeAgent("claude", [{ id: "attentry@attentry", enabled: true, version: "1.1.0" }]);
+  const settings = join(process.env.CLAUDE_CONFIG_DIR!, "settings.json");
+  const allowed = async () => JSON.parse(await readFile(settings, "utf8")).permissions.allow;
+  await refreshPlugin(home, folder);
+  assert.deepEqual(await allowed(), [TOOLS_RULE], "the agent isn't asked at every call");
+  await writeFile(settings, JSON.stringify({ permissions: { allow: [] } })); // the person took it out
+  await refreshPlugin(home, folder);
+  assert.deepEqual(await allowed(), [], "they want to be asked: left alone");
+}));

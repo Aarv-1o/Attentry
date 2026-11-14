@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { hooksHeard, noteInstalled, type HooksHeard } from "./heard.ts";
+import { hooksHeard, noteInstalled, noteToolsAllowed, toolsAllowedBefore, type HooksHeard } from "./heard.ts";
 import { removeHooks } from "./init.ts";
 import { byVersion, claude, setupFailed, type Setup } from "./mcpSetup.ts";
 
@@ -49,7 +49,7 @@ export async function installPlugin(home: string, folder: string): Promise<Setup
   }
   await removeHooks(folder);
   await claude(["mcp", "remove", "attentry", "--scope", "local"], folder).catch(() => undefined); // not there: fine
-  await allowTools();
+  if (await allowTools()) await noteToolsAllowed("claude");
   await noteInstalled("claude");
   return { ok: true };
 }
@@ -75,8 +75,12 @@ export async function allowTools(): Promise<boolean> {
 
 // When the editor starts: an installed plugin older than this extension's gets updated, so the
 // agent runs the same Attentry as the editor. Returns the plugin's state.
+// Connected before Connect allowed the tools (0.1.3): allowed now, once, so the agent isn't asked
+// at every call (and in `claude -p`, refused). Never again after that: someone who took the rule
+// out wants to be asked.
 export async function refreshPlugin(home: string, folder: string): Promise<PluginState> {
   const state = await pluginState(folder);
+  if (state.installed && state.enabled && !(await toolsAllowedBefore("claude")) && (await allowTools())) await noteToolsAllowed("claude");
   if (!state.installed || byVersion(state.version, await versionAt(home)) >= 0) return state; // up to date, or newer from the other editor
   await claude(["plugin", "marketplace", "add", home], folder);
   await claude(["plugin", "update", PLUGIN], folder);
