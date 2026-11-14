@@ -49,3 +49,17 @@ test("check lists clean-up too, with the other copy to reuse: the agent can't op
   assert.match(checked.text, /^0 problems and 2 clean-up items in 1 file in attentry-\w+\.\nClean-up \(unused or copied code: do it in its own step, apart from the feature\):\n/);
   assert.match(checked.text, /src\/save\.js:2 info attentry\/exact-copy: 2 copies of commentAge \/ timeAgo \(copy: timeAgo at src\/utils\/time\.js:1\) \(new in this task\)/);
 });
+
+test("check never says no problems about files it didn't read, and says why for each", async () => {
+  const root = await makeRepo({ ...REPO, "README.md": "# app\n" });
+  const sessions = new Sessions(root);
+  const game = join(root, "..", "tennis", "game.js");
+  const mixed = await sessions.tool("check", { files: ["src/utils/time.js", game, "does/not/exist.ts", "README.md"] });
+  assert.match(mixed.text, /^No problems in 1 file in attentry-\w+\.\n/, "only the file it read counts");
+  assert.match(mixed.text, /Not checked, outside attentry-\w+ \(the project Attentry reads\): .*tennis.game\.js\. To check them, open their folder in the editor\./);
+  assert.match(mixed.text, /Not checked, not found in attentry-\w+: does\/not\/exist\.ts\./);
+  assert.match(mixed.text, /Not checked, not code Attentry reads .*: README\.md\./);
+  const none = await sessions.tool("check", { files: [game, "does/not/exist.ts"] });
+  assert.match(none.text, /^Attentry didn't check any of these files\.\nNot checked, outside/);
+  assert.doesNotMatch(none.text, /No problems/);
+});
