@@ -1,5 +1,6 @@
-import { existsSync, realpathSync } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { existsSync, realpathSync, type Dirent } from "node:fs";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { isSource } from "./files.ts";
 
@@ -15,15 +16,47 @@ const isGit = (dir: string) => existsSync(join(dir, ".git"));
 // D:\REPO are one folder (VS Code says d:, a terminal D:), and links lead to their target.
 export const folderId = (folder: string) => realpathSync.native(folder);
 
+// The project the person chose for a folder of several (the editor panel's menu), in
+// ~/.attentry/projects.json: one file every Attentry reads, so the editor, the agents' hooks and
+// their tools all check the same one.
+const choicesFile = () => join(homedir(), ".attentry", "projects.json");
+async function readChoices(): Promise<Record<string, string>> {
+  try {
+    return JSON.parse(await readFile(choicesFile(), "utf8")) as Record<string, string>;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {}; // nothing chosen anywhere yet
+    throw error;
+  }
+}
+
+// `project`: a folder inside `folder`, or `folder` itself for all of it; undefined forgets the choice.
+export async function chooseProject(folder: string, project: string | undefined): Promise<void> {
+  const { [folderId(folder)]: _old, ...choices } = await readChoices();
+  await mkdir(dirname(choicesFile()), { recursive: true });
+  await writeFile(choicesFile(), `${JSON.stringify(project === undefined ? choices : { ...choices, [folderId(folder)]: project }, null, 2)}\n`);
+}
+
+const subfolders = (folder: string, entries: Dirent[]) =>
+  entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules").map((e) => join(folder, e.name));
+
+// The projects one level down: git checkouts, and folders that look like a project.
+export async function projectsIn(folder: string): Promise<string[]> {
+  const dirs = subfolders(folder, await readdir(folder, { withFileTypes: true }).catch(() => []));
+  const found = await Promise.all(dirs.map(async (dir) => isGit(dir) || (await looksLikeProject(dir))));
+  return dirs.filter((_, i) => found[i]);
+}
+
 export async function projectRoot(folder: string): Promise<string> {
   if (isGit(folder)) return folder;
+  const chosen = existsSync(folder) ? (await readChoices())[folderId(folder)] : undefined;
+  if (chosen && existsSync(chosen)) return chosen; // a chosen project that's since been deleted: picked again
   let entries;
   try {
     entries = await readdir(folder, { withFileTypes: true });
   } catch {
     return folder; // unreadable: let the scan say so
   }
-  const dirs = entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules").map((e) => join(folder, e.name));
+  const dirs = subfolders(folder, entries);
   const checkouts = dirs.filter(isGit);
   if (checkouts.length === 1) return checkouts[0]!;
   // Nothing here but one folder that is a project of its own: an unzipped repo. (A folder

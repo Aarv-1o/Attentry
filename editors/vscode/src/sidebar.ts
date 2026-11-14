@@ -28,7 +28,8 @@ type FromPanel =
   | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
-  | { type: "copyFix"; id: string };
+  | { type: "copyFix"; id: string }
+  | { type: "chooseProject"; project: string };
 
 export class Sidebar implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
@@ -116,6 +117,8 @@ export class Sidebar implements vscode.WebviewViewProvider {
     // After a fix (from the list or not): the list as it is now.
     if (m.type === "checkSetup" || (this.setupShown && ["connectAgent", "connectCodex", "allowTests"].includes(m.type))) await this.setup();
     if (m.type === "closeSetup") this.setupShown = false;
+    // Another project: the server checks it, and its status and findings follow.
+    if (m.type === "chooseProject") await client.sendRequest("workspace/executeCommand", { command: "attentry.server.chooseProject", arguments: [m.project] });
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));
     if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse(REPO));

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { projectRoot } from "../src/index/project.ts";
-import { makeRepo } from "./helpers.ts";
+import { chooseProject, projectRoot, projectsIn } from "../src/index/project.ts";
+import { makeRepo, withHome } from "./helpers.ts";
 
 test("the project in a folder opened one level too high", async () => {
   // An unzipped repo, alone in its download folder.
@@ -26,3 +26,21 @@ test("the project in a folder opened one level too high", async () => {
   const srcOnly = await makeRepo({ "src/main.ts": "", "src/util.ts": "" });
   assert.equal(await projectRoot(srcOnly), srcOnly);
 });
+
+test("a folder of several projects: the one the person chose, for everything that asks", () => withHome({}, async () => {
+  // The two code folders from the person's screenshot: neither a git checkout, both projects.
+  const folder = await makeRepo({ "chat-final/package.json": "{}", "ridely/package.json": "{}", "notes/todo.txt": "" });
+  assert.deepEqual(await projectsIn(folder), ["chat-final", "ridely"].map((p) => join(folder, p)), "folders that aren't projects aren't offered");
+  assert.equal(await projectRoot(folder), folder, "no choice yet: all of it");
+  await chooseProject(folder, join(folder, "ridely"));
+  assert.equal(await projectRoot(folder), join(folder, "ridely"));
+  assert.equal(await projectRoot(join(folder, ".")), join(folder, "ridely"), "however the folder is spelled");
+  await chooseProject(folder, folder);
+  assert.equal(await projectRoot(folder), folder, "all of it, chosen");
+  await chooseProject(folder, join(folder, "chat-final"));
+  await rm(join(folder, "chat-final"), { recursive: true });
+  assert.equal(await projectRoot(folder), folder, "the chosen one deleted: found again, as with no choice");
+  await chooseProject(folder, join(folder, "ridely"));
+  await chooseProject(folder, undefined);
+  assert.equal(await projectRoot(folder), folder, "the choice forgotten");
+}));

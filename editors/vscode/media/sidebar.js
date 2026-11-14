@@ -37,6 +37,17 @@ function item(f) {
   </div>`;
 }
 
+// A folder of several projects: which one Attentry checks, and a menu of the others. The agents'
+// hooks and tools follow the choice too.
+function projectPicker() {
+  const projects = data?.projects ?? [];
+  if (projects.length < 2) return "";
+  const current = data?.project ?? "";
+  const choices = [...projects.map((p) => [p, p]), ["", "All of them (the whole folder)"]];
+  return `<div class="project"><label for="project">Checking</label><select id="project" data-project>${choices.map(([value, name]) => `<option value="${esc(value)}" ${value === current ? "selected" : ""}>${esc(name)}</option>`).join("")}</select></div>
+    <p class="quiet project-note">${plural(projects.length, "project")} in this folder. Your agent's checks follow this choice.</p>`;
+}
+
 function findings() {
   const show = status?.show ?? data?.show ?? "changes";
   const items = data?.items ?? [];
@@ -58,6 +69,7 @@ function findings() {
   const tally = data ? `<div class="tallies">${PARTS.map(([part, name, tone]) => `<button class="tally ${of(part).length ? "" : "zero"}" data-jump="${part}"><i class="glyph ${tone}"></i><b>${of(part).length}</b> ${esc(name)}</button>`).join("")}</div>` : "";
   const groups = found.map(([part, name, tone]) => `<details id="${part}" ${part !== "cleanup" || found.length === 1 ? "open" : ""}><summary><i class="glyph ${tone}"></i>${esc(name)}<span class="n">${of(part).length}</span></summary>${of(part).map(item).join("")}</details>`).join("");
   return `<section class="findings">
+    ${projectPicker()}
     <div class="tabs" role="tablist" aria-label="What to show">
       <button role="tab" data-act="toggleShow" aria-selected="${show === "changes"}" ${show === "changes" ? "disabled" : ""}>Your changes</button>
       <button role="tab" data-act="toggleShow" aria-selected="${show === "all"}" ${show === "all" ? "disabled" : ""}>Whole repo</button>
@@ -232,6 +244,9 @@ document.addEventListener("click", (e) => {
   const open = e.target.closest("[data-open]");
   // Findings' paths are the project's: inside the opened folder when the project is a folder in it.
   if (open) vscode.postMessage({ type: "open", file: data?.project ? `${data.project}/${open.dataset.open}` : open.dataset.open, line: Number(open.dataset.line) });
+});
+document.addEventListener("change", (e) => {
+  if (e.target.matches("[data-project]")) vscode.postMessage({ type: "chooseProject", project: e.target.value });
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.matches(".row")) e.target.click();

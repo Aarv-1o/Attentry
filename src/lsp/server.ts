@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
@@ -20,7 +20,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { scanRepo } from "../scan/scan.ts";
-import { projectRoot } from "../index/project.ts";
+import { chooseProject, projectRoot, projectsIn } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
 // `attentry lsp`: Attentry as a language server, so every editor that speaks LSP (VS Code, Cursor,
@@ -61,6 +61,7 @@ export function startServer(connection: Connection): void {
   let workspace = ""; // the folder the editor opened: where Claude Code starts, so its hooks go here
   let root = ""; // the project in it, which Attentry scans
   let rootUri = "";
+  let folderUri = ""; // the editor's spelling of `workspace`
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
   let all: Finding[] = [];
@@ -129,6 +130,27 @@ export function startServer(connection: Connection): void {
     }
   }
 
+  // The project in the opened folder: the one chosen in the panel, else the one Attentry finds. The
+  // project may be one folder down (an unzipped repo): keep the editor's spelling of the part it
+  // opened (Windows: file:///d%3A/...), and add the rest. True when it changed.
+  async function pickRoot(): Promise<boolean> {
+    const next = await projectRoot(workspace);
+    if (next === root) return false;
+    root = next;
+    const below = relative(workspace, root).split(sep).filter(Boolean).map(encodeURIComponent);
+    rootUri = [folderUri, ...below].join("/");
+    return true;
+  }
+
+  // Another project now: the last one's squiggles go, and this one is checked.
+  async function switched(): Promise<void> {
+    for (const uri of published) await connection.sendDiagnostics({ uri, diagnostics: [] });
+    published = new Set();
+    all = [];
+    changes = { ok: false, reason: "not scanned yet" };
+    await rescan();
+  }
+
   // One scan at a time; a save during a scan runs one more after it.
   function rescan(): Promise<void> {
     if (running) {
@@ -148,11 +170,8 @@ export function startServer(connection: Connection): void {
   connection.onInitialize(async (params) => {
     const folder = params.workspaceFolders?.[0]?.uri ?? params.rootUri;
     workspace = folder ? fileURLToPath(folder) : process.cwd();
-    // The project may be one folder down (an unzipped repo): keep the editor's spelling of the
-    // part it opened (Windows: file:///d%3A/...), and add the rest.
-    root = await projectRoot(workspace);
-    const below = relative(workspace, root).split(sep).filter(Boolean).map(encodeURIComponent);
-    rootUri = [folder ?? pathToFileURL(workspace).href, ...below].join("/");
+    folderUri = folder ?? pathToFileURL(workspace).href;
+    await pickRoot();
     options = { ...options, ...(params.initializationOptions as Partial<Options> | undefined) };
     return {
       capabilities: {
@@ -162,7 +181,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.chooseProject"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -172,11 +191,12 @@ export function startServer(connection: Connection): void {
     if (home) askPlugin(() => refreshPlugin(home, workspace)); // after an extension update: the agent's copy too
     if (codexAt && codexUsed()) askCodex(() => refreshCodex(codexAt, workspace));
   });
-  // A save in the editor, or a file changed on disk (an agent's edit, a git checkout).
+  // A save in the editor, or a file changed on disk (an agent's edit, a git checkout). A repo cloned
+  // into the opened folder can make another project the one to check.
   const changed = () => {
     if (!options.autoScan) return;
     clearTimeout(timer);
-    timer = setTimeout(() => void rescan(), SAVE_DELAY_MS);
+    timer = setTimeout(() => void pickRoot().then((other) => (other ? switched() : rescan())), SAVE_DELAY_MS);
   };
   connection.onDidSaveTextDocument(changed);
   connection.onDidChangeWatchedFiles(changed);
@@ -234,15 +254,24 @@ export function startServer(connection: Connection): void {
     }
     // The person clicked Allow tests: the project's test commands as they are now.
     if (command === "attentry.server.allowTests") return (await allowCurrentTests(root)).map((t) => t.label);
+    // The panel's project menu: a folder in the opened one ("" for all of it), or null to forget.
+    if (command === "attentry.server.chooseProject") {
+      const project = args?.[0];
+      await chooseProject(workspace, typeof project === "string" ? resolve(workspace, project) : undefined);
+      if (await pickRoot()) await switched();
+      return;
+    }
     if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
     return undefined;
   });
 
   // For the editor's sidebar: the list, a whole report, one finding's full explanation.
-  connection.onRequest("attentry/findings", () => ({
+  connection.onRequest("attentry/findings", async () => ({
     show: options.show, hints: options.hints, older: older(),
     // The project, when it's a folder inside the one the editor opened.
     ...(root !== workspace ? { project: relative(workspace, root).replace(/\\/g, "/") } : {}),
+    // A folder of several projects: the panel's menu of them.
+    projects: await projectsIn(workspace).then((all) => (all.length > 1 ? all.map((p) => relative(workspace, p).replace(/\\/g, "/")) : [])),
     // Why "your changes" is everything, if it is: "not a git repo", "no commits yet".
     ...(changes.ok ? {} : { noChanges: changes.reason }),
     items: shown().map((f) => ({ id: f.id, rule: f.rule, part: partOf(f), severity: severityOf(f), file: f.file, line: f.line, title: f.title, why: f.why, does: f.plain?.does, replacedBy: f.plain?.replacedBy })),

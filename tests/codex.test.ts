@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
@@ -85,6 +85,7 @@ const extension = async (version: string) => join(await makeRepo({
   "my extensions/claude/.claude-plugin/marketplace.json": "{}",
   "my extensions/codex/.agents/plugins/marketplace.json": "{}",
   "my extensions/codex/attentry/.codex-plugin/plugin.json": JSON.stringify({ name: "attentry", version }),
+  "my extensions/claude/attentry/dist/attentry.mjs": "",
 }), "my extensions");
 const listed = (version: string) => ({ installed: [{ pluginId: "attentry-hooks@attentry", enabled: true, version: "1.0.0" }, { pluginId: "attentry@attentry", enabled: true, version }] });
 const ADD = (home: string) => ["plugin list --json", "plugin marketplace remove attentry", `plugin marketplace add ${home}`, "plugin add attentry-hooks@attentry", "plugin add attentry@attentry"];
@@ -134,6 +135,21 @@ test("when the editor starts: the plugins point at this extension's Attentry, an
     await refreshCodex(home, folder);
     assert.deepEqual(await codex.calls(), ["plugin list --json", ...ADD(home), "plugin list --json"]);
   }
+}));
+
+test("VS Code and Cursor on different versions: Codex runs the newest Attentry, and the older editor changes nothing", () => withHome({}, async (me) => {
+  const [vscode, cursor] = [await extension("1.10.0"), await extension("1.9.0")];
+  const folder = await makeRepo({});
+  const newest = join(vscode, "claude", "attentry", "dist", "attentry.mjs");
+  using codex = await fakeAgent("codex", listed("1.10.0"));
+  await refreshCodex(join(vscode, "codex"), folder);
+  assert.equal(await pointer(me), newest);
+  await refreshCodex(join(cursor, "codex"), folder);
+  assert.equal(await pointer(me), newest, "Cursor started later, with an older Attentry: Codex keeps the newer one");
+  assert.deepEqual(await codex.calls(), ["plugin list --json", "plugin list --json"], "and the tools plugin isn't taken back to Cursor's version");
+  await rm(newest);
+  await refreshCodex(join(cursor, "codex"), folder);
+  assert.equal(await pointer(me), join(cursor, "claude", "attentry", "dist", "attentry.mjs"), "the newer one uninstalled: the one there is");
 }));
 
 // ---- Whether Codex runs the hooks ----
