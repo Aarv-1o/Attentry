@@ -43,4 +43,9 @@ test("a folder of several projects: the one the person chose, for everything tha
   await chooseProject(folder, join(folder, "ridely"));
   await chooseProject(folder, undefined);
   assert.equal(await projectRoot(folder), folder, "the choice forgotten");
+  // A git repo with packages in it (a monorepo) is one project: no menu, since a choice there
+  // would be ignored.
+  const mono = await makeRepo({ "server/package.json": "{}", "client/package.json": "{}" });
+  await mkdir(join(mono, ".git"));
+  assert.deepEqual(await projectsIn(mono), []);
 }));
