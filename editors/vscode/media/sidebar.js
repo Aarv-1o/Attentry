@@ -111,12 +111,19 @@ function modeTabs() {
 const working = (live) => Date.now() - live.lastEditAt < LIVE_MS;
 const liveTask = (live) => (live.edits ? task(live, working(live)) : "") + checkInMeter(live);
 
+// [pill tone, pill text, note, button] for each state but connected.
+const CLAUDE = {
+  missing: ["off", "Not connected", "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time).", "Connect Claude Code"],
+  stale: ["warn", "Needs reconnecting", "It runs an old copy of Attentry from before the extension updated.", "Reconnect Claude Code"],
+  unheard: ["warn", "Not running", "Claude Code ran here since connecting, but never ran Attentry's hooks. Start a new Claude Code session (one open since before connecting doesn't have them). If this stays, run `/hooks` in Claude Code to see whether Attentry's are listed, and check that `node` runs in a terminal.", "Reconnect Claude Code"],
+};
+
 function claudeSection(state, busy, extras) {
-  const [tone, text] = state === "connected" ? (busy ? ["live", "Working now"] : ["ok", "Connected"]) : state === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
-  if (state === "connected") return `<section class="agent">${head("Claude Code", tone, text)}${extras}</section>`;
+  if (state === "connected") return `<section class="agent">${head("Claude Code", busy ? "live" : "ok", busy ? "Working now" : "Connected")}${extras}</section>`;
+  const [tone, text, note, button] = CLAUDE[state] ?? CLAUDE.missing;
   return `<section class="agent">${head("Claude Code", tone, text)}
-      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time)."}</p>
-      <button class="primary" data-act="connectAgent">${state === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>
+      <p class="quiet">${words(note)}</p>
+      <button class="primary" data-act="connectAgent">${button}</button>
     </section>`;
 }
 

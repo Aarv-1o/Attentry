@@ -9,7 +9,7 @@ import { hookState } from "./init.ts";
 import { findTests } from "./tests.ts";
 import { testsAllowed } from "./trust.ts";
 import { attentryMcp, attentryPath } from "./mcpSetup.ts";
-import { pluginState, type PluginState } from "./plugin.ts";
+import { CLAUDE_UNHEARD_FIX, claudeHooks, pluginState, type PluginState } from "./plugin.ts";
 import { plural } from "../report/common.ts";
 
 // `attentry doctor`: is Attentry set up here, and working? One check per line, with what to do when
@@ -46,7 +46,7 @@ export async function doctor(folder: string, plugin: (folder: string) => Promise
   // Claude Code: the plugin (from the editor extension) brings the hooks and MCP tools together.
   // Without it, the hooks `attentry init` sets up in the folder, and MCP tools added by hand.
   const installed = await plugin(folder).catch(() => undefined); // no `claude` command: as if not installed
-  if (installed?.installed && installed.enabled) checks.push({ ok: true, text: `Claude Code: connected (the Attentry plugin, ${installed.version}). A session started before that needs a restart` });
+  if (installed?.installed && installed.enabled) checks.push(await heardCheck(`Claude Code: connected (the Attentry plugin, ${installed.version})`, folder, root));
   else if (installed?.installed) checks.push({ ok: false, text: "Claude Code: the Attentry plugin is installed but turned off", fix: "Run `claude plugin enable attentry@attentry`, or click Connect Claude Code in the Attentry sidebar." });
   else await withoutPlugin(folder, root, checks);
   if (codexUsed()) checks.push(await codexCheck(folder, codex));
@@ -70,11 +70,18 @@ async function codexCheck(folder: string, codex: (folder: string) => Promise<Cod
   return { ok: true, text: `Codex: connected (the Attentry plugin, ${state.version})${hooks === "waiting" ? ". Codex asks you to trust its hooks when it next starts" : ""}` };
 }
 
+// Connected isn't running: has Claude Code run Attentry's hooks since?
+async function heardCheck(connected: string, folder: string, root: string): Promise<Check> {
+  const heard = await claudeHooks([folder, root]);
+  if (heard === "unheard") return { ok: false, text: `${connected}, but Claude Code ran here since without running Attentry's hooks`, fix: CLAUDE_UNHEARD_FIX };
+  return { ok: true, text: heard === "running" ? `${connected}, and Claude Code runs its hooks` : `${connected}. A session started before that needs a restart` };
+}
+
 // Set up by hand, without the plugin: hooks in the folder, and the MCP server.
 async function withoutPlugin(folder: string, root: string, checks: Check[]): Promise<void> {
   const hooks = await hookState(folder);
   checks.push(hooks === "connected"
-    ? { ok: true, text: "Claude Code hooks: set up, and the Attentry they run is there" }
+    ? await heardCheck("Claude Code hooks: set up, and the Attentry they run is there", folder, root)
     : hooks === "stale"
       ? { ok: false, text: "Claude Code hooks: set up, but the Attentry they run has moved", fix: "Run `attentry init` again, or click Reconnect Claude Code in the Attentry sidebar." }
       : { ok: false, text: "Claude Code: not connected", fix: "Click Connect Claude Code in the Attentry sidebar (VS Code), or run `attentry init` here." });

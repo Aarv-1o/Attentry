@@ -41,6 +41,12 @@ test("doctor: with the plugin, one line for Claude Code, and no folder hooks or 
     assert.doesNotMatch(on, /hooks|MCP tools/);
     assert.match(await doctor(folder, async () => ({ installed: true, enabled: false, version: "0.0.14" })), /✗ Claude Code: the Attentry plugin is installed but turned off\n {2}→ Run `claude plugin enable attentry@attentry`/);
   });
+  // Connected, then a Claude Code session here (Claude Code's file for it) without a word from the hooks.
+  const session = `.claude/projects/${folder.replace(/[^a-zA-Z0-9]/g, "-")}/1b2c.jsonl`;
+  await withHome({ ".attentry/claude.json": JSON.stringify({ installedAt: 1 }), [session]: "{}\n" }, async () => {
+    const unheard = await doctor(folder, async () => ({ installed: true, enabled: true, version: "0.1.5" }));
+    assert.match(unheard, /✗ Claude Code: connected \(the Attentry plugin, 0\.1\.5\), but Claude Code ran here since without running Attentry's hooks\n {2}→ Start a new Claude Code session/);
+  });
 });
 
 test("doctor: a Codex line for someone who uses Codex, saying whether its hooks run", async () => {

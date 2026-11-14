@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { hooksHeard, noteInstalled } from "./heard.ts";
 import { codex, setupFailed, type Setup } from "./mcpSetup.ts";
 
 // The Codex plugins the editor extension carries: its codex/ folder, next to claude/, is a Codex
@@ -30,30 +31,6 @@ const codexDir = () => process.env.CODEX_HOME || join(homedir(), ".codex");
 // Codex out, and nothing runs `codex`.
 export const codexUsed = () => existsSync(codexDir());
 
-// Codex runs a plugin's hooks only once the person trusts them, and asks again when they change.
-// So Attentry notes when it installed the plugin and when Codex last ran its SessionStart hook
-// (~/.attentry/codex.json): heard from since the install means trusted. A Codex session since the
-// install without a word from the hooks means they're waiting for the person.
-const heardFile = () => join(homedir(), ".attentry", "codex.json");
-type Heard = { installedAt?: number; heardAt?: number };
-
-async function readHeard(): Promise<Heard> {
-  try {
-    return JSON.parse(await readFile(heardFile(), "utf8")) as Heard;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {}; // never installed or heard from
-    throw error;
-  }
-}
-
-async function note(change: Heard): Promise<void> {
-  const now = await readHeard();
-  await mkdir(dirname(heardFile()), { recursive: true });
-  await writeFile(heardFile(), `${JSON.stringify({ ...now, ...change })}\n`);
-}
-
-export const noteHeard = () => note({ heardAt: Date.now() });
-
 // The newest Codex session's last activity, from Codex's own list of sessions.
 async function lastSession(): Promise<number> {
   const index = await readFile(join(codexDir(), "session_index.jsonl"), "utf8").catch((error: NodeJS.ErrnoException) => {
@@ -63,13 +40,12 @@ async function lastSession(): Promise<number> {
   return Math.max(0, ...index.split("\n").filter(Boolean).map((line) => Date.parse((JSON.parse(line) as { updated_at?: string }).updated_at ?? "") || 0));
 }
 
-// "running": Codex runs the hooks. "waiting": no Codex session since the install yet. "approve":
-// sessions ran without them, so the person hasn't trusted them (or Codex was open since before).
+// Codex runs a plugin's hooks only once the person trusts them, and asks again when they change:
+// a Codex session without a word from them means they're waiting for the person's OK.
 export type CodexHooks = "running" | "waiting" | "approve";
 export async function codexHooks(): Promise<CodexHooks> {
-  const { installedAt = 0, heardAt = 0 } = await readHeard();
-  if (heardAt && heardAt >= installedAt) return "running";
-  return (await lastSession()) > installedAt ? "approve" : "waiting";
+  const heard = await hooksHeard("codex", lastSession);
+  return heard === "unheard" ? "approve" : heard;
 }
 
 // The Codex marketplace beside the Claude Code one (pluginHome), if the extension carries it.
@@ -105,7 +81,7 @@ async function addFrom(home: string, folder: string): Promise<void> {
   await codex(["plugin", "add", HOOKS], folder);
   await codex(["plugin", "add", TOOLS], folder);
   await pointAt(home);
-  if (!hadHooks) await note({ installedAt: Date.now() });
+  if (!hadHooks) await noteInstalled("codex");
 }
 
 // Connect: installs, repairs or updates the plugins. Codex then asks the person to trust the

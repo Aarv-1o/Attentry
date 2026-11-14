@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig, writeMode } from "./config.ts";
+import { noteInstalled } from "./heard.ts";
 import { findTests, type TestCommand } from "./tests.ts";
 import { allowTests } from "./trust.ts";
 
@@ -70,6 +71,7 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
   }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(withAttentryHooks(settings, command), null, 2)}\n`);
+  await noteInstalled("claude");
   const done = [`Claude Code hooks: ${path} (session start, before and after each edit, at the end)`];
   // Hooks go where Claude Code starts; the mode and the tests go with the project Attentry checks.
   const project = await projectRoot(root);
