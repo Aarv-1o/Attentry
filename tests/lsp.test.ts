@@ -149,3 +149,26 @@ test("file URIs keep the editor's spelling of the folder (Windows: file:///d%3A/
   assert.equal(uriOf("file:///d%3A/attentry/Travscape-main", "agents/my file.py"), "file:///d%3A/attentry/Travscape-main/agents/my%20file.py");
   assert.equal(uriOf("file:///home/me/repo/", "a.ts"), "file:///home/me/repo/a.ts");
 });
+
+test("a folder of several projects: the panel lists them, and choosing one checks it", { timeout: 60_000 }, async () => {
+  const folder = await makeRepo({ "shop/index.js": OLD, "blog/app.js": "export const a = 1;\n" });
+  for (const repo of ["shop", "blog"]) git(join(folder, repo), "init", "-q");
+  const server = startServer(await makeRepo({}));
+  try {
+    await server.request("initialize", { processId: null, rootUri: pathToFileURL(folder).href, capabilities: {}, initializationOptions: { clientCommands: true } });
+    server.notify("initialized", {});
+    await server.waitFor("attentry/status", (p) => !p.scanning);
+    const before = await server.request("attentry/findings", {});
+    assert.deepEqual(before.projects, ["blog", "shop"]);
+    assert.equal(before.project, undefined, "two checkouts and no choice: the whole folder");
+    const mark = server.count();
+    await server.request("workspace/executeCommand", { command: "attentry.server.chooseProject", arguments: ["shop"] });
+    await server.waitFor("attentry/status", (p) => !p.scanning, mark);
+    const after = await server.request("attentry/findings", {});
+    assert.equal(after.project, "shop");
+    assert.ok(after.items.every((i: any) => i.file === "index.js"), "the shop's files, named from the shop");
+  } finally {
+    server.stop();
+    for (const repo of [folder, join(folder, "shop")]) await stopBackground(repo);
+  }
+});
