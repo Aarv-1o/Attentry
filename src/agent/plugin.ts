@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { writeFile } from "atomically";
 import { hooksHeard, noteInstalled, noteToolsAllowed, toolsAllowedBefore, type HooksHeard } from "./heard.ts";
 import { removeHooks } from "./init.ts";
 import { byVersion, claude, setupFailed, type Setup } from "./mcpSetup.ts";
@@ -68,7 +69,6 @@ export async function allowTools(): Promise<boolean> {
   }
   const allow = settings.permissions?.allow ?? [];
   if (allow.includes(TOOLS_RULE)) return true;
-  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify({ ...settings, permissions: { ...settings.permissions, allow: [...allow, TOOLS_RULE] } }, null, 2)}\n`);
   return true;
 }

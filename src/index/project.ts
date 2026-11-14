@@ -1,7 +1,8 @@
 import { existsSync, realpathSync, type Dirent } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { writeFile } from "atomically";
 import { isSource } from "./files.ts";
 
 // The project in a folder. Agents and editors are often opened one folder too high (the
@@ -32,7 +33,6 @@ async function readChoices(): Promise<Record<string, string>> {
 // `project`: a folder inside `folder`, or `folder` itself for all of it; undefined forgets the choice.
 export async function chooseProject(folder: string, project: string | undefined): Promise<void> {
   const { [folderId(folder)]: _old, ...choices } = await readChoices();
-  await mkdir(dirname(choicesFile()), { recursive: true });
   await writeFile(choicesFile(), `${JSON.stringify(project === undefined ? choices : { ...choices, [folderId(folder)]: project }, null, 2)}\n`);
 }
 
