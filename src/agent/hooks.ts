@@ -92,7 +92,7 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   if (fresh.length) {
     lines.push(`Attentry: this edit added ${plural(fresh.length, "problem")}:`, ...fresh.slice(0, PER_EDIT).map(briefLine));
     if (fresh.length > PER_EDIT) lines.push(`…and ${fresh.length - PER_EDIT} more.`);
-    lines.push("Fix them before moving on, or say why not. Full steps: `attentry explain <file:line>`.");
+    lines.push("Fix them before moving on, or say why not. Full steps: Attentry's explain tool with the file:line.");
   }
   // Maybe fine: Claude looks, and tells the person, so they know why it's (not) a problem.
   const check = newSince(task, findings).filter((f) => worthChecking(f) && !told.has(keyOf(f)));
@@ -128,7 +128,7 @@ function checkIn(task: Task, findings: Finding[], exists: (file: string) => bool
   return [
     head,
     ...(real.length ? ["Focus here:", ...real.slice(0, FOCUS).map((f) => `- ${briefLine(f)}`)] : []),
-    ...(cleanup ? [`Also ${plural(cleanup, "clean-up item")} (unused or copied code): \`attentry scan --changed\` lists them. Clean up in its own step, not mixed with the feature.`] : []),
+    ...(cleanup ? [`Also ${plural(cleanup, "clean-up item")} (unused or copied code): Attentry's check tool lists them. Clean up in its own step, not mixed with the feature.`] : []),
   ];
 }
 

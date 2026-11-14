@@ -52,7 +52,7 @@ test("every 10 edits, a check-in; at the end, the change card for the person", a
     "- Problems: 1 added (1 will break)",
     "- Clean-up: 2 added (unused or copied code)",
     "- Tests: not run",
-    "See them with `attentry scan --changed` or in the Attentry sidebar.",
+    "See them in the Attentry sidebar, or ask for Attentry's check.",
   ].join("\n"));
 });
 
@@ -122,7 +122,7 @@ test("a repo's tests run only once the person allowed them, and again only if th
     await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
     return JSON.parse((await sessions.handle({ hook_event_name: "Stop", session_id: "s1" })).stdout).systemMessage as string;
   };
-  assert.match(await card(), /- Tests: not run: allow npm test first \(Allow tests in the Attentry sidebar, or run `attentry init` here\)/, "a cloned repo's script doesn't run on its own");
+  assert.match(await card(), /- Tests: not run: allow npm test first \(Allow tests in the Attentry sidebar\)/, "a cloned repo's script doesn't run on its own");
   assert.equal(existsSync(join(root, "ran")), false);
   await allowTests(root, await findTests(root, undefined));
   assert.match(await card(), /- Tests: passed \(npm test/);
