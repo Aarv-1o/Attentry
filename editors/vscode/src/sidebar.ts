@@ -25,7 +25,7 @@ const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "allowTests" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string };
@@ -54,6 +54,15 @@ export class Sidebar implements vscode.WebviewViewProvider {
   private async agent(): Promise<void> {
     const info = await this.client()?.sendRequest("attentry/agent", {});
     if (info) void this.view?.webview.postMessage({ type: "agent", info });
+  }
+
+  // Check setup: the doctor's checks, shown in the panel until closed.
+  private setupShown = false;
+  private async setup(): Promise<void> {
+    this.setupShown = true;
+    void this.view?.webview.postMessage({ type: "setup", checks: null }); // checking
+    const checks = await this.client()?.sendRequest("attentry/setup", {});
+    void this.view?.webview.postMessage({ type: "setup", checks });
   }
 
   async update(status: Status): Promise<void> {
@@ -87,6 +96,7 @@ export class Sidebar implements vscode.WebviewViewProvider {
     const client = this.client();
     if (!client) return;
     const command = (name: string) => client.sendRequest("workspace/executeCommand", { command: name, arguments: [] });
+    if (m.type === "ready" && this.setupShown) void this.setup(); // a panel opened by the Check setup command
     if (m.type === "ready" && this.status) return this.update(this.status);
     if (m.type === "rescan") await command("attentry.server.rescan");
     if (m.type === "toggleShow") await command("attentry.server.toggleShow");
@@ -103,6 +113,9 @@ export class Sidebar implements vscode.WebviewViewProvider {
       void vscode.window.showInformationMessage(allowed.length ? `Attentry: it may run ${allowed.join(", ")} at check-ins now. If the command changes, it asks again.` : "Attentry: no test command found here.");
       await this.agent();
     }
+    // After a fix (from the list or not): the list as it is now.
+    if (m.type === "checkSetup" || (this.setupShown && ["connectAgent", "connectCodex", "allowTests"].includes(m.type))) await this.setup();
+    if (m.type === "closeSetup") this.setupShown = false;
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));
     if (m.type === "openGithub") await vscode.env.openExternal(vscode.Uri.parse(REPO));

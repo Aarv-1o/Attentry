@@ -7,6 +7,7 @@ const LIVE_MS = 90_000; // an agent that edited within this is "working now"
 let status;
 let data;
 let agent;
+let setup; // Check setup: undefined while closed, null while checking, then the checks
 let lastDone; // edits since the check-in at the last draw: the newest tick animates only when it changes
 const opened = new Map(); // groups the person opened or closed: kept across refreshes
 
@@ -111,12 +112,19 @@ function modeTabs() {
 const working = (live) => Date.now() - live.lastEditAt < LIVE_MS;
 const liveTask = (live) => (live.edits ? task(live, working(live)) : "") + checkInMeter(live);
 
+// [pill tone, pill text, note, button] for each state but connected.
+const CLAUDE = {
+  missing: ["off", "Not connected", "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time).", "Connect Claude Code"],
+  stale: ["warn", "Needs reconnecting", "It runs an old copy of Attentry from before the extension updated.", "Reconnect Claude Code"],
+  unheard: ["warn", "Not running", "Claude Code ran here since connecting, but never ran Attentry's hooks. Start a new Claude Code session (one open since before connecting doesn't have them). If this stays, run `/hooks` in Claude Code to see whether Attentry's are listed, and check that `node` runs in a terminal.", "Reconnect Claude Code"],
+};
+
 function claudeSection(state, busy, extras) {
-  const [tone, text] = state === "connected" ? (busy ? ["live", "Working now"] : ["ok", "Connected"]) : state === "stale" ? ["warn", "Needs reconnecting"] : ["off", "Not connected"];
-  if (state === "connected") return `<section class="agent">${head("Claude Code", tone, text)}${extras}</section>`;
+  if (state === "connected") return `<section class="agent">${head("Claude Code", busy ? "live" : "ok", busy ? "Working now" : "Connected")}${extras}</section>`;
+  const [tone, text, note, button] = CLAUDE[state] ?? CLAUDE.missing;
   return `<section class="agent">${head("Claude Code", tone, text)}
-      <p class="quiet">${state === "stale" ? "It runs an old copy of Attentry from before the extension updated." : "Connect adds Attentry to Claude Code, for all your projects. Then Attentry tells Claude about problems after each edit, and Claude can ask Attentry before it writes code (read-only, so Claude Code won't ask you each time)."}</p>
-      <button class="primary" data-act="connectAgent">${state === "stale" ? "Reconnect Claude Code" : "Connect Claude Code"}</button>
+      <p class="quiet">${words(note)}</p>
+      <button class="primary" data-act="connectAgent">${button}</button>
     </section>`;
 }
 
@@ -156,6 +164,22 @@ function agents() {
   return claudeSection(claude, busy("claude"), extras("claude")) + (codex === "absent" ? "" : codexSection(codex, busy("codex"), extras("codex")));
 }
 
+// ---- Check setup ----
+
+// The doctor's checks, each with its fix: a button where the panel can do it, else what to do.
+const MARK = { true: ["ok", "✓"], warn: ["warn", "!"], false: ["bad", "✗"] };
+const ACTIONS = { connectAgent: "Connect Claude Code", connectCodex: "Connect Codex", allowTests: "Allow tests" };
+function setupSection() {
+  if (setup === undefined) return "";
+  const line = (c) => {
+    const [tone, mark] = MARK[String(c.ok)];
+    const fix = c.action ? `<button class="primary" data-act="${c.action}">${ACTIONS[c.action]}</button>` : c.fix ? `<p class="quiet">${words(c.fix)}</p>` : "";
+    return `<li class="${tone}"><span class="mark">${mark}</span><div><p>${words(c.text)}</p>${fix}</div></li>`;
+  };
+  const body = setup === null ? `<p class="quiet">Checking…</p>` : `<ul class="checks">${setup.map(line).join("")}</ul>`;
+  return `<section class="setup"><div class="who"><h2>Setup</h2><a data-act="closeSetup">Close</a></div>${body}</section>`;
+}
+
 // ---- The last check ----
 
 function footer() {
@@ -167,7 +191,7 @@ function footer() {
     : `Up to date · checked ${status.lastScanAt ? ago(status.lastScanAt) : "just now"}${status.autoScan === false ? " · automatic checks off" : ""}`;
   // The project, when it's a folder inside the one the editor opened.
   const project = data?.project ? `${esc(data.project)} · ` : "";
-  return `<footer class="${busy ? "busy" : ""}"><i class="glyph ${status?.error ? "error" : busy ? "busy" : "ok"}"></i><span>${project}${line}</span><a data-act="settings" title="Hints, automatic checks">Settings</a></footer>`;
+  return `<footer class="${busy ? "busy" : ""}"><i class="glyph ${status?.error ? "error" : busy ? "busy" : "ok"}"></i><span>${project}${line}</span><a data-act="checkSetup" title="Is Attentry set up here, and working?">Check setup</a><a data-act="settings" title="Hints, automatic checks">Settings</a></footer>`;
 }
 
 // Attentry's site, passing it on, and the code.
@@ -180,7 +204,7 @@ const links = () => `<nav class="links" aria-label="Attentry">
 function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
-  app.innerHTML = findings() + agents() + footer() + links();
+  app.innerHTML = findings() + agents() + setupSection() + footer() + links();
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;
@@ -203,6 +227,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   const act = e.target.closest("[data-act]");
+  if (act?.dataset.act === "closeSetup") (setup = undefined), render();
   if (act) return vscode.postMessage({ type: act.dataset.act });
   const open = e.target.closest("[data-open]");
   // Findings' paths are the project's: inside the opened folder when the project is a folder in it.
@@ -215,6 +240,7 @@ window.addEventListener("message", ({ data: m }) => {
   if (m.type === "status") status = m.status;
   if (m.type === "findings") data = m.data;
   if (m.type === "agent") agent = m.info;
+  if (m.type === "setup") setup = m.checks;
   render();
 });
 render();

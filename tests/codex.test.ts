@@ -5,7 +5,8 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
-import { codexHome, codexHooks, installCodex, noteHeard, refreshCodex } from "../src/agent/codex.ts";
+import { codexHome, codexHooks, installCodex, refreshCodex } from "../src/agent/codex.ts";
+import { noteHeard } from "../src/agent/heard.ts";
 import { fakeAgent, makeRepo, withHome } from "./helpers.ts";
 
 // Codex: the extension's codex/ marketplace with attentry-hooks (fixed forever) and attentry (the
@@ -151,7 +152,7 @@ test("Codex's hooks: waiting until a session, running once Codex ran them, and s
     assert.equal(await codexHooks(), "waiting", "connected, no Codex session since");
     await codexSession(process.env.CODEX_HOME!, Date.now() + 1000);
     assert.equal(await codexHooks(), "approve", "a session ran, and the hooks didn't: not trusted yet");
-    await noteHeard();
+    await noteHeard("codex");
     assert.equal(await codexHooks(), "running");
   }
   using _codex = await fakeAgent("codex", listed("1.0.0"));

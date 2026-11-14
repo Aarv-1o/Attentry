@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { hooksHeard, noteInstalled, type HooksHeard } from "./heard.ts";
 import { removeHooks } from "./init.ts";
 import { claude, setupFailed, type Setup } from "./mcpSetup.ts";
 
@@ -11,6 +12,7 @@ import { claude, setupFailed, type Setup } from "./mcpSetup.ts";
 // the copy updated too.
 
 const PLUGIN = "attentry@attentry";
+const claudeDir = () => process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
 export type PluginState = { installed: false } | { installed: true; enabled: boolean; version: string };
 
@@ -48,6 +50,7 @@ export async function installPlugin(home: string, folder: string): Promise<Setup
   await removeHooks(folder);
   await claude(["mcp", "remove", "attentry", "--scope", "local"], folder).catch(() => undefined); // not there: fine
   await allowTools();
+  await noteInstalled("claude");
   return { ok: true };
 }
 
@@ -56,7 +59,7 @@ export async function installPlugin(home: string, folder: string): Promise<Setup
 // for the whole server. A settings file that isn't plain JSON is left alone (the tools then ask).
 export const TOOLS_RULE = "mcp__plugin_attentry_attentry";
 export async function allowTools(): Promise<boolean> {
-  const path = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"), "settings.json");
+  const path = join(claudeDir(), "settings.json");
   let settings: { permissions?: { allow?: string[] } & Record<string, unknown> } & Record<string, unknown> = {};
   try {
     settings = JSON.parse(await readFile(path, "utf8"));
@@ -79,3 +82,31 @@ export async function refreshPlugin(home: string, folder: string): Promise<Plugi
   await claude(["plugin", "update", PLUGIN], folder);
   return pluginState(folder);
 }
+
+// When the newest Claude Code session in one of `folders` started. Claude Code loads plugins when a
+// session starts, so one open since before connecting (or before an update) runs the old hooks, or
+// none: only sessions started since count. Each is a .jsonl file under projects/, in a folder named
+// after the session's folder: every character that isn't a letter or digit becomes "-" (D:\work\app
+// is D--work-app). Its creation time is the start; where the file system doesn't keep one, the
+// last change.
+async function lastSession(folders: string[]): Promise<number> {
+  const times = await Promise.all(folders.map(async (folder) => {
+    const dir = join(claudeDir(), "projects", folder.replace(/[^a-zA-Z0-9]/g, "-"));
+    const files = await readdir(dir).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return []; // no Claude Code session here yet
+      throw error;
+    });
+    const sessions = await Promise.all(files.filter((f) => f.endsWith(".jsonl")).map(async (f) => {
+      const { birthtimeMs, mtimeMs } = await stat(join(dir, f));
+      return birthtimeMs || mtimeMs;
+    }));
+    return Math.max(0, ...sessions);
+  }));
+  return Math.max(0, ...times);
+}
+
+// What to do when it doesn't: the panel and the doctor say the same.
+export const CLAUDE_UNHEARD_FIX = "Start a new Claude Code session (one open since before connecting doesn't have the hooks). If this stays, run /hooks in Claude Code to see whether Attentry's are listed, and check that `node` runs in a terminal: the hooks run with it.";
+
+// Does Claude Code run Attentry's hooks? Judged by its sessions in these folders since connecting.
+export const claudeHooks = (folders: string[]): Promise<HooksHeard> => hooksHeard("claude", () => lastSession(folders));

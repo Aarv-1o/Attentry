@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, extname, isAbsolute, relative, resolve } from "node:path";
 import type { Finding } from "../findings/types.ts";
@@ -126,6 +127,30 @@ export async function findExistingTool(args: Args, ctx: ToolContext): Promise<To
   return { text: searchByWords(query!, index) };
 }
 
+// The files an agent named that Attentry reads, and a line for each of the others saying why
+// not: findings filtered by a path it never read would make "no problems" a lie.
+function sortFiles(files: string[], root: string, sources: string[]): { read: Set<string>; skipped: string[] } {
+  const readable = new Set(sources);
+  const read = new Set<string>();
+  const outside: string[] = [], missing: string[] = [], unread: string[] = [];
+  for (const file of new Set(files)) {
+    const path = relativeFile(root, file);
+    if (path === ".." || path.startsWith("../") || isAbsolute(path)) outside.push(file);
+    else if (readable.has(path)) read.add(path);
+    else if (!existsSync(resolve(root, path))) missing.push(path);
+    else unread.push(path);
+  }
+  const name = basename(root);
+  return {
+    read,
+    skipped: [
+      ...(outside.length ? [`Not checked, outside ${name} (the project Attentry reads): ${outside.join(", ")}. To check them, open their folder in the editor.`] : []),
+      ...(missing.length ? [`Not checked, not found in ${name}: ${missing.join(", ")}.`] : []),
+      ...(unread.length ? [`Not checked, not code Attentry reads (a language it doesn't read, generated, or ignored): ${unread.join(", ")}.`] : []),
+    ],
+  };
+}
+
 // Problems in the given files, or in the current changes. Hints left out; what this task
 // added is marked, so the agent knows what's its own to fix.
 export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResult> {
@@ -133,10 +158,14 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
   const all = (await ctx.findings()).filter((f) => severityOf(f) !== "hint");
   let shown: Finding[];
   let scope: string;
+  let skipped: string[] = [];
   if (files.length) {
-    const wanted = new Set(files.map((f) => relativeFile(ctx.root, f)));
-    shown = all.filter((f) => wanted.has(f.file));
-    scope = `${plural(wanted.size, "file")} in ${basename(ctx.root)}`;
+    const sorted = sortFiles(files, ctx.root, (await ctx.index()).files);
+    skipped = sorted.skipped;
+    // Nothing it read: no "no problems", only why each wasn't read.
+    if (!sorted.read.size) return { text: [`Attentry didn't check any of these files.`, ...skipped].join("\n") };
+    shown = all.filter((f) => sorted.read.has(f.file));
+    scope = `${plural(sorted.read.size, "file")} in ${basename(ctx.root)}`;
   } else {
     const changes = await changedLines(ctx.root);
     shown = changes.ok ? all.filter((f) => isInChanges(f, changes)) : all;
@@ -147,7 +176,7 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
   // What the security checks can't see, so "no problems" isn't read as "checked and safe".
   const doors = uncheckedDoors((await ctx.index()).usage);
   const blind = doors.length ? [`Not checked for security yet: ${doors.map((d) => `${d.label} (${d.files.slice(0, 3).join(", ")})`).join("; ")}. Check who may call them (login, whose data) yourself.`] : [];
-  if (!shown.length) return { text: [`No problems in ${scope}.`, ...blind].join("\n") };
+  if (!shown.length) return { text: [`No problems in ${scope}.`, ...skipped, ...blind].join("\n") };
   const loud = shown.filter((f) => severityOf(f) !== "info");
   const cleanup = shown.filter((f) => severityOf(f) === "info");
   // The other copy or the caller is what the agent needs to act on, and it can't open a report.
@@ -164,6 +193,7 @@ export async function checkTool(args: Args, ctx: ToolContext): Promise<ToolResul
       `${plural(loud.length, "problem")} and ${plural(cleanup.length, "clean-up item")} in ${scope}.`,
       ...section("Problems:", loud),
       ...section("Clean-up (unused or copied code: do it in its own step, apart from the feature):", cleanup),
+      ...skipped,
       ...blind,
       "Full steps for one: the explain tool with its file:line.",
     ].join("\n"),

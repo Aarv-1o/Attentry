@@ -27,6 +27,6 @@ export function changeCard(task: Task, findings: Finding[], exists?: (file: stri
     ...(cleanup ? [`- Clean-up: ${cleanup} added (unused or copied code)`] : []),
     ...(check ? [`- To check: ${check} route${check === 1 ? "" : "s"} with no auth check of ${check === 1 ? "its" : "their"} own, in an app that sets up auth elsewhere`] : []),
     `- Tests: ${task.testing ? "still running (the sidebar shows the result)" : task.tests && task.tests.atEdit < task.edits ? `${describeTests(task.tests)}, before the last ${plural(task.edits - task.tests.atEdit, "edit")}` : describeTests(task.tests)}`,
-    ...(real.length || cleanup || check ? ["See them with `attentry scan --changed` or in the Attentry sidebar."] : []),
+    ...(real.length || cleanup || check ? ["See them in the Attentry sidebar, or ask for Attentry's check."] : []),
   ].join("\n");
 }

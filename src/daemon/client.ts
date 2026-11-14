@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createConnection } from "node:net";
+import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import type { HookInput, HookReply } from "../agent/hooks.ts";
 import { Sessions, type AgentStatus } from "../agent/session.ts";
@@ -50,9 +51,12 @@ export const backgroundFlags = (flags: string[]) =>
 
 // The same Attentry that's running now (same Node flags and entry file), in the background.
 function startBackground(root: string): void {
-  // From Attentry's own folder: Node flags like `--import tsx` resolve there, not in the repo.
+  // Node flags like `--import tsx` (running from source) resolve from Attentry's own folder. Without
+  // them (the built Attentry), from the home folder: on Windows a running process's folder can't
+  // be replaced, and an editor reinstalling the extension would wait on it.
   const entry = resolve(process.argv[1]!);
-  const child = spawn(process.execPath, [...backgroundFlags(process.execArgv), entry, "serve", root], { cwd: dirname(entry), detached: true, stdio: "ignore", windowsHide: true });
+  const flags = backgroundFlags(process.execArgv);
+  const child = spawn(process.execPath, [...flags, entry, "serve", root], { cwd: flags.length ? dirname(entry) : homedir(), detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
 

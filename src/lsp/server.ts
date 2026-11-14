@@ -4,9 +4,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
 import { loadConfig, writeMode } from "../agent/config.ts";
+import { checkSetup } from "../agent/doctor.ts";
 import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
-import { installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
+import { claudeHooks, installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
 import { agentStatus, repoFindings } from "../daemon/client.ts";
 import { collectFindings } from "../findings/collect.ts";
 import { markNotUseful } from "../findings/feedback.ts";
@@ -258,13 +259,16 @@ export function startServer(connection: Connection): void {
       // waiting for a first session, or need the person to trust them ("approve").
       codex: cx?.installed ? (cx.enabled ? await codexHooks() : "off") : codexUsed() && codexAt ? "missing" : "absent",
       // One state for the panel: Reconnect fixes either part pointing at an old Attentry.
-      claude: hooks === "stale" || mcp === "stale" ? "stale" : hooks === "connected" ? "connected" : "missing",
+      // Connected, but Claude Code sessions ran here without a word from the hooks: "unheard".
+      claude: hooks === "stale" || mcp === "stale" ? "stale" : hooks !== "connected" ? "missing" : (await claudeHooks([workspace, root])) === "unheard" ? "unheard" : "connected",
       hooks,
       mcp,
       mode: (await loadConfig(root)).mode,
       live: (await agentStatus(root)) ?? null,
     };
   });
+  // The panel's Check setup: the doctor's checks, with the fixes the panel can do itself.
+  connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
   connection.onRequest("attentry/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
     if (format === "agent") return formatAgent(root, shown(), options.hints);
     // Opened in a preview that has no file of its own: links name each file in full.

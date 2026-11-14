@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
-import { doctor } from "../src/agent/doctor.ts";
+import { checkSetup, doctor } from "../src/agent/doctor.ts";
 import type { CodexState } from "../src/agent/codex.ts";
 import type { PluginState } from "../src/agent/plugin.ts";
 import { makeRepo, withClaudeSettings, withHome } from "./helpers.ts";
@@ -14,7 +14,7 @@ test("doctor: the project, git, hooks, mode and MCP, with what to do", async () 
   const folder = await makeRepo({ "shop/README.md": "", "shop/src/app.ts": "export const a = 1;\n" });
   const project = join(folder, "shop");
   await withClaudeSettings({}, async () => {
-    const report = await doctor(folder, noPlugin);
+    const report = await doctor(folder, { plugin: noPlugin });
     assert.match(report, /^✓ Project: shop, inside the folder you're in \(1 file Attentry reads\)\n! Git: no/);
     assert.match(report, /! Tests: none found/);
     assert.match(report, /✗ Claude Code: not connected\n {2}→ Click Connect Claude Code in the Attentry sidebar/);
@@ -24,39 +24,56 @@ test("doctor: the project, git, hooks, mode and MCP, with what to do", async () 
   const attentry = join(await makeRepo({}), "attentry.mjs");
   await writeFile(attentry, "");
   await withClaudeSettings({ projects: { [project]: { mcpServers: { attentry: { command: "node", args: [attentry, "mcp"] } } } } }, async () => {
-    assert.match(await doctor(folder, noPlugin), /✓ MCP tools: added \(Claude Code, for .+shop\)/);
+    assert.match(await doctor(folder, { plugin: noPlugin }), /✓ MCP tools: added \(Claude Code, for .+shop\)/);
   });
   await withClaudeSettings({ mcpServers: { attentry: { command: "node", args: [join(project, "moved/attentry.mjs"), "mcp"] } } }, async () => {
-    assert.match(await doctor(project, noPlugin), /✗ MCP tools: added \(Claude Code, for every folder\), but .+moved[\\/]attentry\.mjs isn't there/);
+    assert.match(await doctor(project, { plugin: noPlugin }), /✗ MCP tools: added \(Claude Code, for every folder\), but .+moved[\\/]attentry\.mjs isn't there/);
   });
   await mkdir(join(project, ".git"));
-  await withClaudeSettings({}, async () => assert.match(await doctor(project, noPlugin), /✓ Git: yes/));
+  await withClaudeSettings({}, async () => assert.match(await doctor(project, { plugin: noPlugin }), /✓ Git: yes/));
 });
 
 test("doctor: with the plugin, one line for Claude Code, and no folder hooks or MCP to check", async () => {
   const folder = await makeRepo({ "src/app.ts": "export const a = 1;\n" });
   await withClaudeSettings({}, async () => {
-    const on = await doctor(folder, async () => ({ installed: true, enabled: true, version: "0.0.14" }));
+    const on = await doctor(folder, { plugin: async () => ({ installed: true, enabled: true, version: "0.0.14" }) });
     assert.match(on, /✓ Claude Code: connected \(the Attentry plugin, 0\.0\.14\)/);
     assert.doesNotMatch(on, /hooks|MCP tools/);
-    assert.match(await doctor(folder, async () => ({ installed: true, enabled: false, version: "0.0.14" })), /✗ Claude Code: the Attentry plugin is installed but turned off\n {2}→ Run `claude plugin enable attentry@attentry`/);
+    assert.match(await doctor(folder, { plugin: async () => ({ installed: true, enabled: false, version: "0.0.14" }) }), /✗ Claude Code: the Attentry plugin is installed but turned off\n {2}→ Click Connect Claude Code in the Attentry sidebar, or run `claude plugin enable attentry@attentry`/);
+  });
+  // Connected, then a Claude Code session here (Claude Code's file for it) without a word from the hooks.
+  const session = `.claude/projects/${folder.replace(/[^a-zA-Z0-9]/g, "-")}/1b2c.jsonl`;
+  await withHome({ ".attentry/claude.json": JSON.stringify({ installedAt: 1 }), [session]: "{}\n" }, async () => {
+    const unheard = await doctor(folder, { plugin: async () => ({ installed: true, enabled: true, version: "0.1.5" }) });
+    assert.match(unheard, /✗ Claude Code: connected \(the Attentry plugin, 0\.1\.5\), but Claude Code ran here since without running Attentry's hooks\n {2}→ Start a new Claude Code session/);
   });
 });
 
 test("doctor: a Codex line for someone who uses Codex, saying whether its hooks run", async () => {
   const folder = await makeRepo({ "src/app.ts": "export const a = 1;\n" });
   const plugin = async (version = "0.1.4"): Promise<CodexState> => ({ installed: true, enabled: true, version });
-  await withHome({}, async () => assert.doesNotMatch(await doctor(folder, noPlugin, plugin), /Codex/, "no Codex folder: no line"));
+  await withHome({}, async () => assert.doesNotMatch(await doctor(folder, { plugin: noPlugin, codex: plugin }), /Codex/, "no Codex folder: no line"));
   const session = JSON.stringify({ id: "1", thread_name: "a task", updated_at: "2026-11-13T10:00:00Z" });
   await withHome({ ".codex/session_index.jsonl": "" }, async () => {
-    assert.match(await doctor(folder, noPlugin, async () => ({ installed: false })), /! Codex: not connected\n {2}→ Click Connect Codex/);
-    assert.match(await doctor(folder, noPlugin, () => plugin()), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\. Codex asks you to trust its hooks when it next starts/);
+    assert.match(await doctor(folder, { plugin: noPlugin, codex: async () => ({ installed: false }) }), /! Codex: not connected\n {2}→ Click Connect Codex/);
+    assert.match(await doctor(folder, { plugin: noPlugin, codex: () => plugin() }), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\. Codex asks you to trust its hooks when it next starts/);
   });
   // Installed before the last Codex session, and never heard from: the person hasn't trusted the hooks.
   await withHome({ ".codex/session_index.jsonl": `${session}\n`, ".attentry/codex.json": JSON.stringify({ installedAt: Date.parse("2026-11-13T09:00:00Z") }) }, async () => {
-    assert.match(await doctor(folder, noPlugin, () => plugin()), /✗ Codex: the Attentry plugin is installed \(0\.1\.4\), but Codex hasn't run its hooks\n {2}→ In Codex, run \/hooks/);
+    assert.match(await doctor(folder, { plugin: noPlugin, codex: () => plugin() }), /✗ Codex: the Attentry plugin is installed \(0\.1\.4\), but Codex hasn't run its hooks\n {2}→ In Codex, run \/hooks/);
   });
   await withHome({ ".codex/session_index.jsonl": `${session}\n`, ".attentry/codex.json": JSON.stringify({ installedAt: 1, heardAt: 2 }) }, async () => {
-    assert.match(await doctor(folder, noPlugin, () => plugin()), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\n/);
+    assert.match(await doctor(folder, { plugin: noPlugin, codex: () => plugin() }), /✓ Codex: connected \(the Attentry plugin, 0\.1\.4\)\n/);
+  });
+});
+
+test("Check setup in the panel: from the extension, Connect is the fix, with the button for it", async () => {
+  const folder = await makeRepo({ "src/app.ts": "export const a = 1;\n", "package.json": JSON.stringify({ scripts: { test: "node --test" } }) });
+  await withHome({}, async () => {
+    const checks = await checkSetup(folder, { plugin: noPlugin, extension: true });
+    const claude = checks.find((c) => c.text.startsWith("Claude Code"));
+    assert.deepEqual(claude, { ok: false, text: "Claude Code: not connected", fix: "Click Connect Claude Code in the Attentry sidebar.", action: "connectAgent" });
+    assert.ok(!checks.some((c) => /MCP tools|hooks: set up/.test(c.text)), "not the setup for running Attentry from its source");
+    assert.equal(checks.find((c) => c.text.startsWith("Tests:"))?.action, "allowTests", "tests found but not allowed: the Allow tests button");
   });
 });
