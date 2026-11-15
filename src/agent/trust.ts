@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { writeFile } from "atomically";
 import { folderId } from "../index/project.ts";
 import type { TestCommand } from "./tests.ts";
 

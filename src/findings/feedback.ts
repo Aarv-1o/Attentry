@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { writeFile } from "atomically";
 import type { Finding } from "./types.ts";
 
 // "Not useful" clicks, kept in the repo (.attentry/feedback.json) so a team shares them. The
@@ -26,7 +27,6 @@ async function load(root: string): Promise<Feedback> {
 export async function markNotUseful(root: string, finding: Pick<Finding, "id" | "rule">): Promise<void> {
   const feedback = await load(root);
   feedback.notUseful[finding.id] = finding.rule;
-  await mkdir(dirname(join(root, FILE)), { recursive: true });
   await writeFile(join(root, FILE), `${JSON.stringify(feedback, null, 2)}\n`);
 }
 

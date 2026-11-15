@@ -2,7 +2,7 @@
   "name": "attentry",
   "displayName": "Attentry: Claude Code & Codex Checker - Security, Duplicate & Dead Code",
   "description": "Claude Code and Codex checker: catches security holes and crash risks right after each edit, points the agent to helpers the repo already has, and flags duplicate and dead code. Runs locally with no AI, so a clean edit costs zero tokens.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
   "homepage": "https://attentry.js.org",
@@ -72,6 +72,10 @@
       {
         "command": "attentry.checkSetup",
         "title": "Attentry: Check setup"
+      },
+      {
+        "command": "attentry.chooseProject",
+        "title": "Attentry: Choose project"
       }
     ],
     "configuration": {

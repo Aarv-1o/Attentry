@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { writeFile } from "atomically";
 
 // Installed isn't running: Codex runs a plugin's hooks only once the person trusts them, and Claude
 // Code's can fail to run (hooks turned off, no `node` on its PATH). So Attentry notes when it
@@ -24,7 +25,6 @@ async function readHeard(agent: Agent): Promise<Heard> {
 
 async function note(agent: Agent, change: Heard): Promise<void> {
   const now = await readHeard(agent);
-  await mkdir(dirname(heardFile(agent)), { recursive: true });
   await writeFile(heardFile(agent), `${JSON.stringify({ ...now, ...change })}\n`);
 }
 

@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { writeFile } from "atomically";
 
 // .attentry/config.json, written by the person (or `attentry init`): how strict hooks are, and the
 // tests to run.
@@ -41,7 +42,6 @@ export async function writeMode(root: string, mode: Config["mode"]): Promise<str
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; // unreadable: don't overwrite
   }
-  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify({ ...config, mode }, null, 2)}\n`);
   return path;
 }

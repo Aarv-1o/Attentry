@@ -67,7 +67,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await vscode.commands.executeCommand("attentry.panel.focus"); // the list shows in the panel
       await sidebar.run("checkSetup");
     }),
+    vscode.commands.registerCommand("attentry.chooseProject", () => chooseProject()),
   );
+
+  // The panel's project menu, from the command palette: the same list, and the same server command.
+  async function chooseProject(): Promise<void> {
+    const found = await client?.sendRequest<{ project?: string; projects: string[] }>("attentry/findings", {});
+    if (!found) return;
+    if (found.projects.length < 2) {
+      void vscode.window.showInformationMessage(`Attentry: this folder is one project, so there's nothing to choose. It checks ${found.project ?? "all of it"}. Open a folder that holds several projects to pick one.`);
+      return;
+    }
+    const current = found.project ?? "";
+    const items = [...found.projects.map((p) => ({ label: p, value: p })), { label: "All of them (the whole folder)", value: "" }]
+      .map((item) => ({ ...item, description: item.value === current ? "checking now" : undefined }));
+    const picked = await vscode.window.showQuickPick(items, { title: "Attentry: which project to check", placeHolder: "Your agent's checks follow this choice too" });
+    if (picked) await client?.sendRequest("workspace/executeCommand", { command: "attentry.server.chooseProject", arguments: [picked.value] });
+  }
   client.onNotification("attentry/status", (s: Status) => {
     [bar.text, bar.tooltip] = statusText(s);
     void sidebar.update(s);

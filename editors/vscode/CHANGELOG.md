@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.5
+
+- **Check setup.** A link at the bottom of the panel (or **Attentry: Check setup** in the command palette) checks that everything is connected and working, the same checks as `attentry doctor`, with a button for each fix the panel can do.
+- **A folder of several projects:** a menu at the top of the panel (or **Attentry: Choose project**) picks the one Attentry checks. Claude Code and Codex follow the same choice.
+- When an agent asks Attentry to check files it doesn't read (outside the project, missing, or not code it reads), it says so for each one, instead of "no problems".
+- When the agent edits code outside the project Attentry checks, it hears once that those edits aren't being checked, and how to fix that.
+- If Claude Code sessions ran without Attentry's hooks (hooks turned off, `node` not found, or a session opened before connecting), the panel shows Claude Code as not running and says what to do.
+- VS Code and Cursor on different versions of Attentry: the agents run the newer one, and neither editor downgrades the agents' plugins.
+- Reinstalling or updating the extension on Windows no longer waits on Attentry's background process.
+- If you connected Claude Code before 0.1.3, Claude can now call Attentry's tools without asking each time. Before, it asked at every call (and `claude -p` refused them).
+- A hook no longer fails when two run at the same moment.
+- Block mode for Codex moves to a later version.
+
 ## 0.1.4
 
 - **Codex support.** Click **Connect Codex** in the panel, start a new Codex session and trust **attentry-hooks** once. Codex then hears about the problems each edit adds, gets the change card at the end, and can call `find_existing`, `check`, `explain` and `check_plan`. Works in the Codex command line and the Codex extension for VS Code. Block mode for Codex comes in 0.1.5.

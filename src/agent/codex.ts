@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
+import { writeFile } from "atomically";
 import { hooksHeard, noteInstalled } from "./heard.ts";
 import { byVersion, codex, setupFailed, type Setup } from "./mcpSetup.ts";
 
@@ -30,7 +31,6 @@ async function pointAt(home: string): Promise<void> {
   });
   const newer = now && now.entry !== mine.entry && now.version && byVersion(now.version, mine.version!) > 0 && existsSync(now.entry);
   if (newer) return;
-  await mkdir(dirname(file), { recursive: true });
   await writeFile(file, `${JSON.stringify(mine)}\n`);
 }
 

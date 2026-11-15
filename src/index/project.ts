@@ -1,7 +1,8 @@
 import { existsSync, realpathSync, type Dirent } from "node:fs";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { writeFile } from "atomically";
 import { isSource } from "./files.ts";
 
 // The project in a folder. Agents and editors are often opened one folder too high (the
@@ -32,15 +33,16 @@ async function readChoices(): Promise<Record<string, string>> {
 // `project`: a folder inside `folder`, or `folder` itself for all of it; undefined forgets the choice.
 export async function chooseProject(folder: string, project: string | undefined): Promise<void> {
   const { [folderId(folder)]: _old, ...choices } = await readChoices();
-  await mkdir(dirname(choicesFile()), { recursive: true });
   await writeFile(choicesFile(), `${JSON.stringify(project === undefined ? choices : { ...choices, [folderId(folder)]: project }, null, 2)}\n`);
 }
 
 const subfolders = (folder: string, entries: Dirent[]) =>
   entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules").map((e) => join(folder, e.name));
 
-// The projects one level down: git checkouts, and folders that look like a project.
+// The projects one level down: git checkouts, and folders that look like a project. None in a git
+// repo: it's checked whole (projectRoot), so its packages aren't projects to choose from.
 export async function projectsIn(folder: string): Promise<string[]> {
+  if (isGit(folder)) return [];
   const dirs = subfolders(folder, await readdir(folder, { withFileTypes: true }).catch(() => []));
   const found = await Promise.all(dirs.map(async (dir) => isGit(dir) || (await looksLikeProject(dir))));
   return dirs.filter((_, i) => found[i]);

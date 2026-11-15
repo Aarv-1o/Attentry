@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { writeFile } from "atomically";
 import { projectRoot } from "../index/project.ts";
 import { loadConfig, writeMode } from "./config.ts";
 import { noteInstalled } from "./heard.ts";
@@ -69,7 +70,6 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
       throw new Error(`Can't read ${path} (${(error as Error).message}). Fix it or move it away, then run init again: Attentry won't overwrite it.`);
     }
   }
-  await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(withAttentryHooks(settings, command), null, 2)}\n`);
   await noteInstalled("claude");
   const done = [`Claude Code hooks: ${path} (session start, before and after each edit, at the end)`];

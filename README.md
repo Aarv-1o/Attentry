@@ -52,7 +52,7 @@ Codex support is new in 0.1.4. It works in the Codex command line and in the Cod
 VS Code. Two things to know:
 
 - Block mode (below) is tested with Claude Code only. With Codex, use suggest mode for now; block
-  mode for Codex comes in 0.1.5.
+  mode for Codex comes in a later version.
 - Attentry runs Codex's plugins with the Attentry inside the editor extension, so keep the
   extension installed.
 
@@ -82,7 +82,7 @@ Claude Code and Codex hear the same things.
 By default Attentry only makes suggestions: the agent hears about problems and decides what to do.
 In block mode it also refuses exact copies of existing functions, and won't let a task finish while
 it has added a security or crash problem. Switch modes in the panel. Block mode is for Claude Code
-for now (Codex in 0.1.5).
+for now (Codex in a later version).
 
 ### Tools the agent can call
 
@@ -162,6 +162,9 @@ findings as not useful, that rule drops to a hint.
 
 The Attentry panel shows what's wrong by category, whether Claude Code and Codex are connected,
 how the current task is going (under the agent doing it), and when the repo was last checked.
+**Check setup**, at the bottom of the panel, runs the same checks as `attentry doctor` and offers the
+fixes it can do. In a folder that holds several projects, a menu at the top of the panel (or
+**Attentry: Choose project**) picks the one Attentry checks, and the agents' hooks and tools follow it.
 
 The extension works in VS Code, Cursor, Windsurf and Antigravity. Other editors, such as JetBrains,
 Zed and Neovim, can run `attentry lsp` as a language server.
