@@ -1,7 +1,7 @@
 # Roadmap
 
-What's next for Attentry, in two releases. Each item says what goes wrong today, and what changes.
-(The stores only take three-part versions, so the second release is 0.1.6, not 0.1.5.1.)
+What's next for Attentry. Each item says what goes wrong today, and what changes. Items 1 to 7 were
+planned as two releases and shipped together in 0.1.5.
 
 ## 0.1.5: trust what Attentry tells you
 
@@ -57,7 +57,7 @@ Attentry from its source.
 fix for each line where the panel can do it (Connect, Allow tests). The messages stop pointing at a
 command the person doesn't have. This is where #3's "Claude Code never ran Attentry" shows up too.
 
-## 0.1.6: several projects and editors
+## Also in 0.1.5: several projects and editors
 
 How Attentry finds what to check, and which Attentry runs.
 

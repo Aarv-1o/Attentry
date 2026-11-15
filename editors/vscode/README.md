@@ -42,7 +42,7 @@ Attentry is added for all your projects, and the extension keeps it up to date.
   and whether the tests passed.
 
 By default Attentry only makes suggestions. In block mode, a task can't finish while it has added
-a security or crash problem. Block mode is for Claude Code for now; Codex gets it in 0.1.5.
+a security or crash problem. Block mode is for Claude Code for now; Codex gets it in a later version.
 
 ## What it finds
 
@@ -82,8 +82,12 @@ credits. The light bulb can delete unused code, copy the fix for your agent, or 
 you give a reason (`// attentry-ignore rule: reason`).
 
 The Attentry panel shows what's wrong by category, whether Claude Code and Codex are connected,
-and how the current task is going, under the agent doing it. If Codex hasn't run Attentry's hooks
-yet, the panel says so and what to do.
+and how the current task is going, under the agent doing it. If Claude Code or Codex hasn't run
+Attentry's hooks, the panel says so and what to do. **Check setup**, at the bottom of the panel,
+checks that everything is connected and working.
+
+Opened a folder that holds several projects? Pick the one Attentry checks from the menu at the top
+of the panel, or with **Attentry: Choose project**. Your agents follow the same choice.
 
 ## Tests
 
