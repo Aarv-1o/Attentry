@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "node:test";
-import { makeRepo } from "./helpers.ts";
+import { join } from "node:path";
+import { makeRepo, withHome } from "./helpers.ts";
 import { isSource, isTestFile, listRepoFiles } from "../src/index/files.ts";
 
 const sourceFiles = async (root: string) => (await listRepoFiles(root)).filter(isSource);
@@ -43,4 +44,23 @@ test("isTestFile: test folders, .test/.spec files, test.js, Python test_ and _te
     assert.ok(isTestFile(f), f);
   }
   for (const f of ["src/latest.js", "contest.py", "src/testing-utils.ts", "attestation.ts"]) assert.ok(!isTestFile(f), f);
+});
+
+test("the home folder isn't walked: the agent is told to open a project", () => withHome({ "notes/a.js": "" }, async (home) => {
+  await assert.rejects(listRepoFiles(home), /your home folder, not a project/);
+  // A home folder kept in git (dotfiles) lists only what git tracks: fine to read.
+  execFileSync("git", ["init", "-q"], { cwd: home });
+  assert.deepEqual(await listRepoFiles(home), ["notes/a.js"]);
+}));
+
+// A folder this user can't open, inside the project, is skipped instead of ending the scan.
+// Windows only: denying a folder needs icacls (chmod can't, and root ignores it elsewhere).
+test("a folder that can't be read is skipped", { skip: process.platform !== "win32" }, async () => {
+  const root = await makeRepo({ "app/server.js": "", "locked/a.js": "" });
+  execFileSync("icacls", [join(root, "locked"), "/deny", "*S-1-1-0:(OI)(CI)(RD)"]);
+  try {
+    assert.deepEqual(await listRepoFiles(root), ["app/server.js"]);
+  } finally {
+    execFileSync("icacls", [join(root, "locked"), "/remove:d", "*S-1-1-0"]);
+  }
 });

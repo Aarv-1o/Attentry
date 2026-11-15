@@ -1,5 +1,6 @@
 import { readdir } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { homedir } from "node:os";
+import { join, parse, relative, resolve, sep } from "node:path";
 import { detectLanguage } from "../parse/parse.ts";
 import { git } from "./git.ts";
 
@@ -41,7 +42,14 @@ async function gitFiles(root: string): Promise<string[] | undefined> {
 
 async function walk(root: string, dir = root): Promise<string[]> {
   const found: string[] = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
+  const entries = await readdir(dir, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    // A folder inside the project that this user may not open (another program's temp files,
+    // a locked system folder) isn't code anyone asked to check: skip it. The project folder
+    // itself unreadable is still an error.
+    if (dir !== root && (error.code === "EPERM" || error.code === "EACCES")) return [];
+    throw error;
+  });
+  for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!SKIP_DIRS.has(entry.name)) found.push(...(await walk(root, full)));
@@ -61,7 +69,17 @@ const TEST_FIXTURES = /(^|\/)(tests?|__tests__|spec)\/(.+\/)?(fixtures|__fixture
 
 // Every file in the repo (respecting .gitignore), as sorted repo-relative paths with "/" separators.
 export async function listRepoFiles(root: string): Promise<string[]> {
-  return ((await gitFiles(root)) ?? (await walk(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f)).sort();
+  return ((await gitFiles(root)) ?? (await walkProject(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f)).sort();
+}
+
+// An editor or agent opened on the home folder or a whole drive: walking it would read everything
+// on the machine and still not be a project. Said plainly, so the agent can tell the person.
+async function walkProject(root: string): Promise<string[]> {
+  const where = resolve(root);
+  if (where === resolve(homedir()) || where === parse(where).root) {
+    throw new Error(`${where} is ${where === parse(where).root ? "a whole drive" : "your home folder"}, not a project, so Attentry won't scan it. Open a project folder in the editor, or start the agent in one, and Attentry checks that.`);
+  }
+  return walk(root);
 }
 
 // The app a file belongs to: the deepest folder above it with a package.json or Python project file.
