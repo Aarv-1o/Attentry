@@ -72,6 +72,10 @@
       {
         "command": "attentry.checkSetup",
         "title": "Attentry: Check setup"
+      },
+      {
+        "command": "attentry.chooseProject",
+        "title": "Attentry: Choose project"
       }
     ],
     "configuration": {
