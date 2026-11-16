@@ -129,6 +129,15 @@ test("the language server shows your changes, explains them, and offers safe fix
     await server.request("workspace/executeCommand", { command: "attentry.server.setMode", arguments: ["block"] });
     if (server.bundled) assert.deepEqual(connected, { ok: true });
     assert.deepEqual(await server.request("attentry/agent", {}), { codex: "absent", claude: "connected", hooks: "connected", mcp: server.bundled ? "added" : "missing", mode: "block", live: null });
+    if (server.bundled) {
+      // Through the plugin copy Claude Code installed; no session since connecting, so: start one.
+      const claude = await server.request("attentry/testConnection", { agent: "claude" });
+      assert.deepEqual(claude, { ok: true, text: "A test edit with a planted secret went through Attentry's hook, and Attentry caught it. Start a new Claude Code session to use it." });
+      // Codex's launcher finds Attentry through the file an editor writes: none has, in this home.
+      const codex = await server.request("attentry/testConnection", { agent: "codex" });
+      assert.equal(codex.ok, false);
+      assert.match(codex.text, /^Attentry's hook failed: Attentry: open your editor with the Attentry extension once/);
+    }
 
     // Check setup: the doctor's checks, connected now.
     const setup = await server.request("attentry/setup", {});
