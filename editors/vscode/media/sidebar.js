@@ -55,16 +55,20 @@ function findings() {
   const of = (part) => items.filter((f) => f.part === part && f.rule !== "hotspot");
   const found = PARTS.filter(([part]) => of(part).length);
   const total = found.reduce((n, [part]) => n + of(part).length, 0);
+  // Clean-up is worth doing but isn't a problem: a list of only unused code shouldn't read "1 problem".
+  const tidy = of("cleanup").length;
+  const problems = total - tidy;
+  const tidyNote = tidy ? ` · ${plural(tidy, "thing")} to clean up` : "";
   // "Your changes" means everything when Attentry can't tell what changed: say so, not "in your changes".
   const where = show === "changes" && !data?.noChanges ? "in your changes" : "in this repo";
   const older = show === "changes" && data?.older ? ` <a data-act="toggleShow">${plural(data.older, "older finding")} →</a>` : "";
   // The headline answers "is anything wrong?"; the groups under it are the details.
+  const bar = total ? `<div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" style="flex:${of(part).length}"></i>`).join("")}</div>` : "";
   const headline = !data
     ? `<p class="headline quiet">Checking…</p>`
-    : total
-      ? `<p class="headline"><b>${plural(total, "problem")}</b> ${where}${older}</p>
-         <div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" style="flex:${of(part).length}"></i>`).join("")}</div>`
-      : `<p class="headline"><i class="glyph ok"></i>No problems ${where}${older}</p>`;
+    : problems
+      ? `<p class="headline"><b>${plural(problems, "problem")}</b> ${where}${tidyNote}${older}</p>${bar}`
+      : `<p class="headline"><i class="glyph ok"></i>No problems ${where}${tidyNote}${older}</p>${bar}`;
   // The four parts, always: what was checked, and how many of each (a click opens that group).
   const tally = data ? `<div class="tallies">${PARTS.map(([part, name, tone]) => `<button class="tally ${of(part).length ? "" : "zero"}" data-jump="${part}"><i class="glyph ${tone}"></i><b>${of(part).length}</b> ${esc(name)}</button>`).join("")}</div>` : "";
   const groups = found.map(([part, name, tone]) => `<details id="${part}" ${part !== "cleanup" || found.length === 1 ? "open" : ""}><summary><i class="glyph ${tone}"></i>${esc(name)}<span class="n">${of(part).length}</span></summary>${of(part).map(item).join("")}</details>`).join("");
