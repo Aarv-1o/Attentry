@@ -74,6 +74,14 @@ export async function backgroundRunning(root: string): Promise<boolean> {
   }
 }
 
+// Stops a folder's background Attentry, if one runs: a build that isn't its own makes it step down.
+export const stopBackground = (root: string) => new Promise<void>((done) => {
+  const socket = createConnection(addressFor(root), () => socket.write(`${JSON.stringify({ kind: "ping", build: "stop" })}\n`));
+  socket.on("data", () => socket.end());
+  socket.on("close", () => done());
+  socket.on("error", () => done()); // none running: nothing to stop
+});
+
 // The agent's task as the background Attentry sees it, without starting one: undefined when no
 // agent is working in this repo.
 export async function agentStatus(root: string): Promise<AgentStatus | undefined> {

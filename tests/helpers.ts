@@ -1,9 +1,7 @@
 import { existsSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addressFor } from "../src/daemon/address.ts";
 import type { FunctionInfo } from "../src/index/functions.ts";
 import { extractUsage } from "../src/index/usage.ts";
 import { detectLanguage, parseSource } from "../src/parse/parse.ts";
@@ -61,13 +59,7 @@ export async function withHome(files: Record<string, string>, run: (home: string
   }
 }
 
-// Asks the background Attentry to stop (a build it doesn't know makes it step aside).
-export const stopBackground = (root: string) => new Promise<void>((done) => {
-  const socket = createConnection(addressFor(root), () => socket.write(`${JSON.stringify({ kind: "ping", build: "test-cleanup" })}\n`));
-  socket.on("data", () => socket.end());
-  socket.on("close", () => done());
-  socket.on("error", () => done());
-});
+export { stopBackground } from "../src/daemon/client.ts";
 
 // A stand-in for an agent's own command (a .cmd on Windows): writes down each call, and answers
 // `plugin list --json` with `listed`. Named by ATTENTRY_CLAUDE or ATTENTRY_CODEX, so the real
