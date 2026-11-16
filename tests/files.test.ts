@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { symlinkSync } from "node:fs";
 import { test } from "node:test";
 import { join } from "node:path";
 import { makeRepo, withHome } from "./helpers.ts";
@@ -36,6 +37,13 @@ test("inside git: follows .gitignore, including untracked files", async () => {
   const root = await makeRepo({ ...FILES, ".gitignore": "dist/\nnode_modules/\ngenerated/\n", "generated/api.ts": "" });
   execFileSync("git", ["init", "-q"], { cwd: root });
   execFileSync("git", ["add", "src/app.ts"], { cwd: root });
+  assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
+});
+
+test("inside git: a folder link back up the repo isn't followed (each file once)", async () => {
+  const root = await makeRepo({ ...FILES, ".gitignore": "dist/\nnode_modules/\n" });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  symlinkSync(root, join(root, "src", "loop"), "junction"); // Git for Windows lists a junction like a folder
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 

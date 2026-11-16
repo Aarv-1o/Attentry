@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, parse, relative, resolve, sep } from "node:path";
 import { detectLanguage } from "../parse/parse.ts";
@@ -33,11 +33,32 @@ export function isSource(path: string): boolean {
 }
 
 async function gitFiles(root: string): Promise<string[] | undefined> {
+  let files: string[];
   try {
-    return (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
+    files = (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
   } catch {
     return undefined; // not a git repo, or git isn't installed: fall back to walking
   }
+  return withoutLinkedFolders(root, files);
+}
+
+// Git for Windows lists a folder link (a junction) like a folder, with every file in it: one that
+// points back up the repo lists them all again, deeper each time, until paths get too long. The
+// walk below never follows links, and neither does this. Each folder is looked at once.
+async function withoutLinkedFolders(root: string, files: string[]): Promise<string[]> {
+  const looked = new Map<string, Promise<boolean>>();
+  const isLink = (dir: string) => {
+    let link = looked.get(dir);
+    if (!link) looked.set(dir, (link = lstat(join(root, dir)).then((s) => s.isSymbolicLink(), () => false))); // gone since git listed it: not a link
+    return link;
+  };
+  const throughLink = async (file: string) => {
+    const folders = file.split("/").slice(0, -1);
+    for (let i = 1; i <= folders.length; i++) if (await isLink(folders.slice(0, i).join("/"))) return true;
+    return false;
+  };
+  const linked = await Promise.all(files.map(throughLink));
+  return files.filter((_, i) => !linked[i]);
 }
 
 async function walk(root: string, dir = root): Promise<string[]> {
