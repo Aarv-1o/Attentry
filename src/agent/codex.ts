@@ -34,7 +34,8 @@ async function pointAt(home: string): Promise<void> {
   await writeFile(file, `${JSON.stringify(mine)}\n`);
 }
 
-export type CodexState = { installed: false } | { installed: true; enabled: boolean; version: string };
+// `lost`: the plugins were there, from an extension folder that's gone (see `listed`).
+export type CodexState = { installed: false; lost?: boolean } | { installed: true; enabled: boolean; version: string };
 
 const codexDir = () => process.env.CODEX_HOME || join(homedir(), ".codex");
 
@@ -69,13 +70,29 @@ const versionAt = async (home: string) =>
   (JSON.parse(await readFile(join(home, "attentry", ".codex-plugin", "plugin.json"), "utf8")) as { version: string }).version;
 
 type Listed = { pluginId: string; enabled: boolean; version: string };
-const listed = async (folder: string) => (JSON.parse((await codex(["plugin", "list", "--json"], folder)).stdout) as { installed: Listed[] }).installed;
+
+// Codex fails every plugin command while Attentry's marketplace is a folder that's gone: the
+// extension uninstalled, or updated from the command line, which deletes the old folder at once.
+const LOST = new RegExp(`\`${MARKETPLACE}\` at [^\\n]*: marketplace root does not contain a supported manifest`);
+
+// The plugins Codex has. Attentry's marketplace lost that way is forgotten, which takes its plugins
+// with it: `lost` says they were there, so they're added again from this extension.
+async function listed(folder: string): Promise<{ plugins: Listed[]; lost: boolean }> {
+  const list = async () => (JSON.parse((await codex(["plugin", "list", "--json"], folder)).stdout) as { installed: Listed[] }).installed;
+  try {
+    return { plugins: await list(), lost: false };
+  } catch (error) {
+    if (!LOST.test(`${(error as Error).message}\n${(error as { stderr?: string }).stderr ?? ""}`)) throw error;
+    await codex(["plugin", "marketplace", "remove", MARKETPLACE], folder);
+    return { plugins: await list(), lost: true };
+  }
+}
 
 // Connected when both plugins are in: the version is the tools plugin's, which follows releases.
 export async function codexState(folder: string): Promise<CodexState> {
-  const plugins = await listed(folder);
+  const { plugins, lost } = await listed(folder);
   const [hooks, tools] = [HOOKS, TOOLS].map((id) => plugins.find((p) => p.pluginId === id));
-  return hooks && tools ? { installed: true, enabled: hooks.enabled && tools.enabled, version: tools.version } : { installed: false };
+  return hooks && tools ? { installed: true, enabled: hooks.enabled && tools.enabled, version: tools.version } : { installed: false, ...(lost ? { lost } : {}) };
 }
 
 // What to run by hand when `codex` can't be run from here.
@@ -86,7 +103,7 @@ const installCommands = (home: string) => `codex plugin marketplace add "${home}
 // version. The hooks plugin is the same one each time, so Codex keeps trusting it: only its
 // first install is one the person has to trust.
 async function addFrom(home: string, folder: string): Promise<void> {
-  const hadHooks = (await listed(folder)).some((p) => p.pluginId === HOOKS);
+  const hadHooks = (await listed(folder)).plugins.some((p) => p.pluginId === HOOKS);
   await codex(["plugin", "marketplace", "remove", MARKETPLACE], folder).catch(() => undefined); // not added yet: fine
   await codex(["plugin", "marketplace", "add", home], folder);
   await codex(["plugin", "add", HOOKS], folder);
@@ -110,6 +127,11 @@ export async function installCodex(home: string, folder: string): Promise<Setup>
 // a tools plugin older than this extension's is updated. Returns the plugins' state.
 export async function refreshCodex(home: string, folder: string): Promise<CodexState> {
   const state = await codexState(folder);
+  // Connected before, from a folder that's gone: connected again, from this one.
+  if (!state.installed && state.lost) {
+    await addFrom(home, folder);
+    return codexState(folder);
+  }
   if (!state.installed) return state;
   // Up to date, or newer from the other editor: only an older tools plugin is replaced.
   if (byVersion(state.version, await versionAt(home)) >= 0) {

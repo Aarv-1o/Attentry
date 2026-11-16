@@ -137,6 +137,32 @@ test("when the editor starts: the plugins point at this extension's Attentry, an
   }
 }));
 
+// Codex's own words when a marketplace's folder is gone (Codex 0.167).
+const LOST = "Error: failed to load configured marketplace snapshot(s):\n- `attentry` at \\\\?\\C:\\exts\\attentry.attentry-0.1.5\\codex: marketplace root does not contain a supported manifest\n";
+
+test("the extension's old folder gone (a command-line update, an uninstall): Codex is connected again from this one", () => withHome({}, async (me) => {
+  const root = await extension("1.1.0");
+  const home = join(root, "codex");
+  {
+    using codex = await fakeAgent("codex", { installed: [] }, { lost: LOST });
+    await refreshCodex(home, await makeRepo({}));
+    assert.deepEqual(await codex.calls(), ["plugin list --json", "plugin marketplace remove attentry", "plugin list --json", ...ADD(home), "plugin list --json"]);
+    assert.equal(await pointer(me), join(root, "claude", "attentry", "dist", "attentry.mjs"), "Codex's hooks run this extension's Attentry now");
+  }
+  {
+    // The same on Connect, which used to fail on the first `plugin list`.
+    using _codex = await fakeAgent("codex", { installed: [] }, { lost: LOST });
+    assert.deepEqual(await installCodex(home, await makeRepo({})), { ok: true });
+  }
+  {
+    // Another marketplace broken is Codex's business: Attentry's is left alone, and it says why.
+    using codex = await fakeAgent("codex", { installed: [] }, { lost: LOST.replace("`attentry`", "`someone-else`") });
+    const result = await installCodex(home, await makeRepo({}));
+    assert.ok(!result.ok);
+    assert.ok(!(await codex.calls()).includes("plugin marketplace remove attentry"));
+  }
+}));
+
 test("VS Code and Cursor on different versions: Codex runs the newest Attentry, and the older editor changes nothing", () => withHome({}, async (me) => {
   const [vscode, cursor] = [await extension("1.10.0"), await extension("1.9.0")];
   const folder = await makeRepo({});

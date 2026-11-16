@@ -66,13 +66,18 @@ export { stopBackground } from "../src/daemon/client.ts";
 // command on PATH is never the one run; and with its own config folder, so even that couldn't
 // touch the person's real Claude Code or Codex.
 const AGENT_ENV = { claude: ["ATTENTRY_CLAUDE", "CLAUDE_CONFIG_DIR"], codex: ["ATTENTRY_CODEX", "CODEX_HOME"] } as const;
-export async function fakeAgent(name: keyof typeof AGENT_ENV, listed: unknown) {
+// `lost`: Codex's error while Attentry's marketplace is a folder that's gone. Every `plugin list`
+// fails with it until the marketplace is removed, as the real `codex` does.
+export async function fakeAgent(name: keyof typeof AGENT_ENV, listed: unknown, { lost }: { lost?: string } = {}) {
   const dir = await makeRepo({ "listed.json": JSON.stringify(listed) });
   const log = join(dir, "calls.log");
+  const removed = join(dir, "removed");
   await writeFile(join(dir, "fake.mjs"), [
-    `import { appendFileSync, readFileSync } from "node:fs";`,
+    `import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";`,
     `const args = process.argv.slice(2).join(" ");`,
     `appendFileSync(${JSON.stringify(log)}, args + "\\n");`,
+    `if (args === "plugin marketplace remove attentry") writeFileSync(${JSON.stringify(removed)}, "");`,
+    `if (args === "plugin list --json" && ${JSON.stringify(lost ?? "")} && !existsSync(${JSON.stringify(removed)})) { process.stderr.write(${JSON.stringify(lost ?? "")}); process.exit(1); }`,
     `if (args === "plugin list --json") process.stdout.write(readFileSync(${JSON.stringify(join(dir, "listed.json"))}, "utf8"));`,
   ].join("\n"));
   await writeFile(join(dir, name), `#!/bin/sh\nexec node "${join(dir, "fake.mjs")}" "$@"\n`);
