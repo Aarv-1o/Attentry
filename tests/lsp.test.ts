@@ -122,6 +122,7 @@ test("the language server shows your changes, explains them, and offers safe fix
     // The agent section: not connected, connect it, change the mode. Codex is left out: this
     // server's Codex home doesn't exist.
     assert.deepEqual(await server.request("attentry/agent", {}), { codex: "absent", claude: "missing", hooks: "missing", mcp: "missing", mode: "suggest", live: null });
+    assert.deepEqual(await server.request("attentry/testConnection", { agent: "claude" }), { ok: false, text: "Connect Claude Code first." });
     // From the extension's plugin, Connect installs it (hooks and MCP tools in one), with the real
     // `claude` command; from Attentry's source, it adds hooks to the folder.
     const connected = await server.request("workspace/executeCommand", { command: "attentry.server.connectAgent", arguments: [] });

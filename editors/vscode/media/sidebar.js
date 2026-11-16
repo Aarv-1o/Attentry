@@ -135,12 +135,16 @@ const CLAUDE = {
   unheard: ["warn", "Not running", "Claude Code ran here since connecting, but never ran Attentry's hooks. Start a new Claude Code session (one open since before connecting doesn't have them). If this stays, run `/hooks` in Claude Code to see whether Attentry's are listed, and check that `node` runs in a terminal.", "Reconnect Claude Code"],
 };
 
+// Connected says the hooks are installed: this sends a planted edit through them.
+const testLink = (act) => `<p class="quiet"><a data-act="${act}" title="Send a test edit with a planted problem through Attentry's hook">Test connection</a></p>`;
+
 function claudeSection(state, busy, extras) {
-  if (state === "connected") return `<section class="agent">${head("Claude Code", busy ? "live" : "ok", busy ? "Working now" : "Connected")}${extras}</section>`;
+  if (state === "connected") return `<section class="agent">${head("Claude Code", busy ? "live" : "ok", busy ? "Working now" : "Connected")}${extras}${testLink("testClaude")}</section>`;
   const [tone, text, note, button] = CLAUDE[state] ?? CLAUDE.missing;
   return `<section class="agent">${head("Claude Code", tone, text)}
       <p class="quiet">${words(note)}</p>
       <button class="primary" data-act="connectAgent">${button}</button>
+      ${state === "unheard" ? testLink("testClaude") : ""}
     </section>`;
 }
 
@@ -161,6 +165,7 @@ function codexSection(state, busy, extras) {
       ${note ? `<p class="quiet">${words(note)}</p>` : ""}
       ${button ? `<button class="primary" data-act="connectCodex">${esc(button)}</button>` : ""}
       ${extras}
+      ${["running", "waiting", "approve"].includes(state) ? testLink("testCodex") : ""}
     </section>`;
 }
 

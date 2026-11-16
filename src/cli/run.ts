@@ -10,6 +10,7 @@ import { formatMarkdown } from "../report/markdown.ts";
 import { formatScan, scanToJson } from "../report/scan.ts";
 import { noteHeard } from "../agent/heard.ts";
 import type { HookInput } from "../agent/hooks.ts";
+import { TEST_EDIT } from "../agent/connection.ts";
 import { init, mcpSetup } from "../agent/init.ts";
 import { doctor } from "../agent/doctor.ts";
 import { mcpAddCommand } from "../agent/mcpSetup.ts";
@@ -125,8 +126,9 @@ async function hook(agent: string | undefined, out: Write): Promise<number> {
     const root = await projectRoot(resolve(process.env.CLAUDE_PROJECT_DIR ?? input.cwd ?? "."));
     const reply = await hookReply(root, input);
     out(reply.stdout);
-    // The agent runs Attentry's hooks: the panel shows it connected, not waiting or unheard.
-    await noteHeard(agent);
+    // The agent runs Attentry's hooks: the panel shows it connected, not waiting or unheard. Not
+    // the panel's Test connection, which runs them itself.
+    if (process.env[TEST_EDIT] !== "1") await noteHeard(agent);
     return reply.exitCode;
   } catch (error) {
     process.stderr.write(`Attentry hook failed: ${(error as Error).message}\n`);

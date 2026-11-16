@@ -25,7 +25,7 @@ const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "testClaude" | "testCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string }
@@ -90,6 +90,15 @@ export class Sidebar implements vscode.WebviewViewProvider {
     await this.agent();
   }
 
+  // A planted edit through the agent's hook, and whether its sessions run it. Takes a second or two.
+  private async testConnection(client: LanguageClient, agent: "claude" | "codex"): Promise<void> {
+    const name = agent === "codex" ? "Codex" : "Claude Code";
+    const result = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `Attentry: testing ${name}…` }, () =>
+      client.sendRequest<{ ok: boolean; text: string }>("attentry/testConnection", { agent }));
+    const say = result.ok ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
+    void say(`Attentry (${name}): ${result.text.replace(/`/g, "")}`);
+  }
+
   // The panel's title-bar buttons run these too.
   readonly run = (type: FromPanel["type"]) => this.handle({ type } as FromPanel);
 
@@ -109,6 +118,7 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (m.type === "connectAgent") await this.connect(client, "Claude Code", "attentry.server.connectAgent", [true], "Start a new Claude Code session to use it.");
     // Codex asks the person to trust a plugin's hooks before it runs them.
     if (m.type === "connectCodex") await this.connect(client, "Codex", "attentry.server.connectCodex", [], "Start a new Codex session, and trust Attentry's hooks when Codex asks (or run /hooks).");
+    if (m.type === "testClaude" || m.type === "testCodex") await this.testConnection(client, m.type === "testCodex" ? "codex" : "claude");
     if (m.type === "allowTests") {
       const allowed = await client.sendRequest<string[]>("workspace/executeCommand", { command: "attentry.server.allowTests", arguments: [] });
       void vscode.window.showInformationMessage(allowed.length ? `Attentry: it may run ${allowed.join(", ")} at check-ins now. If the command changes, it asks again.` : "Attentry: no test command found here.");

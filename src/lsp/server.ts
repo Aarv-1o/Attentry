@@ -7,7 +7,9 @@ import { loadConfig, writeMode } from "../agent/config.ts";
 import { checkSetup } from "../agent/doctor.ts";
 import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
-import { claudeHooks, installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
+import { testConnection, type ConnectionTest } from "../agent/connection.ts";
+import type { Agent } from "../agent/heard.ts";
+import { CLAUDE_UNHEARD_FIX, claudeHooks, installPlugin, pluginHome, refreshPlugin, type PluginState } from "../agent/plugin.ts";
 import { agentStatus, repoFindings } from "../daemon/client.ts";
 import { collectFindings } from "../findings/collect.ts";
 import { markNotUseful } from "../findings/feedback.ts";
@@ -45,6 +47,12 @@ export interface Status {
   reading?: string; // the first read of the repo, so far: "40% of 9,000 files, about 1 min left"
   error?: string;
 }
+
+// After a passing Test connection: do the agent's sessions run the hooks?
+const SESSIONS: Record<Agent, Record<string, string>> = {
+  claude: { running: "Claude Code runs it in your sessions.", waiting: "Start a new Claude Code session to use it.", unheard: `But Claude Code sessions here haven't run it. ${CLAUDE_UNHEARD_FIX}` },
+  codex: { running: "Codex runs it in your sessions.", waiting: "Start a new Codex session, and trust Attentry's hooks when Codex asks.", approve: "But Codex hasn't run it yet: run /hooks in Codex, trust Attentry's hooks, then start a new session." },
+};
 
 const SAVE_DELAY_MS = 400; // several files saved at once: one scan
 const READING_POLL_MS = 2_000; // while the background Attentry reads the repo, asked again this often
@@ -300,6 +308,18 @@ export function startServer(connection: Connection): void {
   });
   // The panel's Check setup: the doctor's checks, with the fixes the panel can do itself.
   connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
+  // Test connection: a planted edit through the hook the agent runs (Claude Code's own copy of the
+  // plugin; Codex's launcher never changes, so the extension's is the one Codex runs), then whether
+  // the agent's sessions run it, which the test alone can't show.
+  connection.onRequest("attentry/testConnection", async ({ agent }: { agent: Agent }): Promise<ConnectionTest> => {
+    const claudeAt = await plugin.then((p) => (p?.installed && p.path ? join(p.path, "dist", "attentry.mjs") : undefined));
+    const entry = agent === "codex" ? codexAt && join(codexAt, "attentry-hooks", "launch.mjs") : claudeAt;
+    if (!entry) return { ok: false, text: `Connect ${agent === "codex" ? "Codex" : "Claude Code"} first.` };
+    const test = await testConnection(agent, [entry, "hook", agent]);
+    if (!test.ok) return test;
+    const heard = agent === "codex" ? await codexHooks() : await claudeHooks([workspace, root]);
+    return { ok: heard !== "unheard" && heard !== "approve", text: `${test.text} ${SESSIONS[agent][heard]}` };
+  });
   connection.onRequest("attentry/report", ({ format }: { format: "agent" | "person" | "markdown" }) => {
     if (format === "agent") return formatAgent(root, shown(), options.hints);
     // Opened in a preview that has no file of its own: links name each file in full.

@@ -15,7 +15,8 @@ import { byVersion, claude, setupFailed, type Setup } from "./mcpSetup.ts";
 const PLUGIN = "attentry@attentry";
 const claudeDir = () => process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
 
-export type PluginState = { installed: false } | { installed: true; enabled: boolean; version: string };
+// `path`: Claude Code's copy of the plugin, the one its hooks run.
+export type PluginState = { installed: false } | { installed: true; enabled: boolean; version: string; path?: string };
 
 // The marketplace this Attentry is part of, when it runs from the extension's plugin
 // (claude/attentry/dist/attentry.mjs). Undefined when it runs from anywhere else.
@@ -28,9 +29,9 @@ const versionAt = async (home: string) =>
   (JSON.parse(await readFile(join(home, "attentry", ".claude-plugin", "plugin.json"), "utf8")) as { version: string }).version;
 
 export async function pluginState(folder: string): Promise<PluginState> {
-  const listed = JSON.parse((await claude(["plugin", "list", "--json"], folder)).stdout) as { id: string; enabled: boolean; version: string }[];
+  const listed = JSON.parse((await claude(["plugin", "list", "--json"], folder)).stdout) as { id: string; enabled: boolean; version: string; installPath?: string }[];
   const found = listed.find((p) => p.id === PLUGIN);
-  return found ? { installed: true, enabled: found.enabled, version: found.version } : { installed: false };
+  return found ? { installed: true, enabled: found.enabled, version: found.version, ...(found.installPath ? { path: found.installPath } : {}) } : { installed: false };
 }
 
 // What to run by hand when `claude` can't be run from here.
