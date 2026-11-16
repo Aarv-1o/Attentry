@@ -39,7 +39,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     synchronize: {
       fileEvents: [
         vscode.workspace.createFileSystemWatcher("**/*.{js,jsx,ts,tsx,mjs,cjs,py,astro,prisma,sql,json}"),
-        vscode.workspace.createFileSystemWatcher("*"),
+        // Relative to the folder: a string pattern is matched against the whole path.
+        ...(vscode.workspace.workspaceFolders ?? []).map((folder) => vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(folder, "*"))),
       ],
     },
   });
