@@ -24,6 +24,8 @@ async function plugin(source, out, manifest) {
 
 await rm(join(here, "dist"), { recursive: true, force: true }); // nothing left from an older build ships
 await build({ entryPoints: [join(here, "src/extension.ts")], outfile: join(here, "dist/extension.js"), bundle: true, platform: "node", format: "cjs", target: "node20", external: ["vscode"] });
+// Run by VS Code after an uninstall ("vscode:uninstall" in package.json).
+await build({ entryPoints: [join(here, "src/uninstall.ts")], outfile: join(here, "dist/uninstall.js"), bundle: true, platform: "node", format: "cjs", target: "node20" });
 await plugin("claude-plugin", claude, ".claude-plugin/plugin.json");
 await buildAttentry(join(claude, "attentry/dist/attentry.mjs"));
 // Codex runs the build above, wherever the extension is (its plugins find it through

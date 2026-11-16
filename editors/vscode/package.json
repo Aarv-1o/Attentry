@@ -154,7 +154,8 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "package": "node build.mjs && vsce package --no-dependencies"
+    "package": "node build.mjs && vsce package --no-dependencies",
+    "vscode:uninstall": "node ./dist/uninstall.js"
   },
   "devDependencies": {
     "@resvg/resvg-js": "2.6.2",

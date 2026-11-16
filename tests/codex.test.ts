@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { test } from "node:test";
 import { promisify } from "node:util";
-import { codexHome, codexHooks, installCodex, refreshCodex } from "../src/agent/codex.ts";
+import { codexHome, codexHooks, forgetExtension, installCodex, refreshCodex } from "../src/agent/codex.ts";
 import { noteHeard } from "../src/agent/heard.ts";
 import { fakeAgent, makeRepo, withHome } from "./helpers.ts";
 
@@ -161,6 +162,20 @@ test("the extension's old folder gone (a command-line update, an uninstall): Cod
     assert.ok(!result.ok);
     assert.ok(!(await codex.calls()).includes("plugin marketplace remove attentry"));
   }
+}));
+
+test("the extension uninstalled: Codex is disconnected if it ran that one, else left alone", () => withHome({}, async (me) => {
+  const root = await extension("1.1.0");
+  {
+    using codex = await fakeAgent("codex", listed("1.1.0"));
+    await refreshCodex(join(root, "codex"), await makeRepo({})); // Codex runs this extension's Attentry
+    assert.equal(await forgetExtension(await makeRepo({})), false, "another editor's extension: not the one Codex runs");
+    assert.ok(!(await codex.calls()).includes("plugin marketplace remove attentry"));
+    assert.equal(await forgetExtension(root), true);
+    assert.deepEqual((await codex.calls()).at(-1), "plugin marketplace remove attentry");
+    assert.equal(existsSync(join(me, ".attentry", "build.json")), false, "no pointer left at a deleted Attentry");
+  }
+  assert.equal(await forgetExtension(root), false, "nothing left to undo");
 }));
 
 test("VS Code and Cursor on different versions: Codex runs the newest Attentry, and the older editor changes nothing", () => withHome({}, async (me) => {

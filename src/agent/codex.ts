@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { writeFile } from "atomically";
 import { hooksHeard, noteInstalled } from "./heard.ts";
 import { byVersion, codex, setupFailed, type Setup } from "./mcpSetup.ts";
@@ -22,16 +22,30 @@ const MARKETPLACE = "attentry";
 const buildOf = (home: string) => resolve(home, "..", "claude", "attentry", "dist", "attentry.mjs");
 type Build = { entry: string; version?: string };
 
+const pointer = () => join(homedir(), ".attentry", "build.json");
+const pointedAt = () => readFile(pointer(), "utf8").then((text) => JSON.parse(text) as Build, (error: NodeJS.ErrnoException) => {
+  if (error.code === "ENOENT") return undefined; // Codex isn't pointed anywhere yet
+  throw error;
+});
+
 async function pointAt(home: string): Promise<void> {
-  const file = join(homedir(), ".attentry", "build.json");
   const mine: Build = { entry: buildOf(home), version: await versionAt(home) };
-  const now = await readFile(file, "utf8").then((text) => JSON.parse(text) as Build, (error: NodeJS.ErrnoException) => {
-    if (error.code === "ENOENT") return undefined; // Codex isn't pointed anywhere yet
-    throw error;
-  });
+  const now = await pointedAt();
   const newer = now && now.entry !== mine.entry && now.version && byVersion(now.version, mine.version!) > 0 && existsSync(now.entry);
   if (newer) return;
-  await writeFile(file, `${JSON.stringify(mine)}\n`);
+  await writeFile(pointer(), `${JSON.stringify(mine)}\n`);
+}
+
+// The extension in `extension` was uninstalled. If Codex runs its Attentry, Codex is disconnected
+// (the pointer, and the marketplace with its plugins): left, every Codex hook would fail on a file
+// that's gone. Another editor's Attentry (VS Code and Cursor both) is left alone.
+export async function forgetExtension(extension: string): Promise<boolean> {
+  const now = await pointedAt();
+  const from = now && relative(extension, now.entry);
+  if (!from || from.startsWith("..") || isAbsolute(from)) return false;
+  await rm(pointer(), { force: true });
+  await codex(["plugin", "marketplace", "remove", MARKETPLACE], homedir()).catch(() => undefined); // no `codex`, or already removed
+  return true;
 }
 
 // `lost`: the plugins were there, from an extension folder that's gone (see `listed`).
