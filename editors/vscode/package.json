@@ -1,7 +1,7 @@
 {
   "name": "attentry",
   "displayName": "Attentry: Claude Code & Codex Checker - Security, Duplicate & Dead Code",
-  "description": "Claude Code and Codex checker: catches security holes and crash risks right after each edit, points the agent to helpers the repo already has, and flags duplicate and dead code. Runs locally with no AI, so a clean edit costs zero tokens.",
+  "description": "Your AI writes the code. Attentry checks it, without AI. Claude Code and Codex checker: catches security holes and crash risks right after each edit, points the agent to helpers the repo already has, and flags duplicate and dead code. Not a wrapper: its own static analyzer, on your machine, with no API key, and a clean edit costs zero tokens.",
   "version": "0.1.5",
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },

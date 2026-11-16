@@ -1,13 +1,16 @@
 # Attentry
 
+**Your AI writes the code. Attentry checks it, without AI.**
+
 You ask an AI agent for a feature, and a minute later it has written a few hundred lines. They
 run, they look right, and nobody reads them. Somewhere in there is a route anyone can call without
 logging in, a `JSON.parse` that crashes on bad input, or a third copy of a helper the repo already
 had.
 
-Attentry reads that code for you, while the agent is still working. It runs on your machine, uses
-no AI, and talks to the agent directly: when an edit adds a security hole or a crash risk, the
-agent hears about it right away and fixes it before moving on. When the task is done, you get a
+Attentry reads that code for you, while the agent is still working. It isn't a wrapper around
+another model. It's its own static analyzer: it runs on your machine, needs no API key, and talks
+to the agent directly. When an edit adds a security hole or a crash risk, the agent hears about
+it right away and fixes it before moving on. When the task is done, you get a
 short card that says what changed and whether anything new went wrong. A clean edit costs
 nothing: the agent hears nothing at all.
 

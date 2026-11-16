@@ -1,12 +1,15 @@
 # Attentry
 
+**Your AI writes the code. Attentry checks it, without AI.**
+
 You ask an AI agent for a feature, and a minute later it has written a few hundred lines that
 nobody reads. Somewhere in there is a route anyone can call without logging in, a crash waiting
 for bad input, or another copy of a helper the repo already had.
 
-Attentry reads that code while the agent works. It runs on your machine, uses no AI, and tells
-the agent the moment an edit adds a security hole or a crash risk, so it fixes it straight away.
-When the task is done you get a short summary of what changed. A clean edit costs no tokens: the
+Attentry reads that code while the agent works. It isn't a wrapper around another model: it's
+its own static analyzer, it runs on your machine, needs no API key, and tells the agent the
+moment an edit adds a security hole or a crash risk, so it fixes it straight away. When the
+task is done you get a short summary of what changed. A clean edit costs no tokens: the
 agent hears nothing at all.
 
 Works with **Claude Code** and **Codex**.
