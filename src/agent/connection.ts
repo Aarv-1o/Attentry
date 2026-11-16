@@ -1,7 +1,8 @@
-import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { stopBackground } from "../daemon/client.ts";
 import type { Agent } from "./heard.ts";
 
@@ -16,6 +17,7 @@ const FILE = "server.js";
 const PLANTED = `const jwtSecret = process.env.JWT_SECRET || "attentry-test-secret";\nmodule.exports = { jwtSecret };\n`;
 const SESSION = "attentry-test-connection";
 const HOOK_TIMEOUT_MS = 60_000; // what the agents give a hook
+const run = promisify(execFile);
 
 export type ConnectionTest = { ok: boolean; text: string };
 
@@ -27,21 +29,18 @@ function editInput(agent: Agent, folder: string) {
   return { ...common, tool_name: "apply_patch", tool_input: { command: patch } };
 }
 
-type Ran = { code: number | null; stdout: string; stderr: string; missing?: boolean };
+type Ran = { code: number | string | null; stdout: string; stderr: string; missing?: boolean };
 
 // `node` from the PATH, as the agents start their hooks.
-function runHook(args: string[], input: object, folder: string): Promise<Ran> {
-  return new Promise((done) => {
-    const env = { ...process.env, [TEST_EDIT]: "1", CLAUDE_PROJECT_DIR: folder };
-    const child = spawn("node", args, { cwd: folder, env, windowsHide: true, timeout: HOOK_TIMEOUT_MS });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (c) => (stdout += c));
-    child.stderr.on("data", (c) => (stderr += c));
-    child.on("error", (error) => done({ code: null, stdout, stderr: error.message, missing: (error as NodeJS.ErrnoException).code === "ENOENT" }));
-    child.on("close", (code) => done({ code, stdout, stderr }));
-    child.stdin.end(JSON.stringify(input));
-  });
+async function runHook(args: string[], input: object, folder: string): Promise<Ran> {
+  const running = run("node", args, { cwd: folder, env: { ...process.env, [TEST_EDIT]: "1", CLAUDE_PROJECT_DIR: folder }, windowsHide: true, timeout: HOOK_TIMEOUT_MS });
+  running.child.stdin?.end(JSON.stringify(input));
+  try {
+    return { code: 0, ...(await running) };
+  } catch (error) {
+    const e = error as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
+    return { code: e.code ?? null, stdout: e.stdout ?? "", stderr: e.stderr || e.message, missing: e.code === "ENOENT" };
+  }
 }
 
 const told = (stdout: string): string => {
