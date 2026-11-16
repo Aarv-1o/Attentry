@@ -24,8 +24,10 @@ async function plugin(source, out, manifest) {
 
 await rm(join(here, "dist"), { recursive: true, force: true }); // nothing left from an older build ships
 await build({ entryPoints: [join(here, "src/extension.ts")], outfile: join(here, "dist/extension.js"), bundle: true, platform: "node", format: "cjs", target: "node20", external: ["vscode"] });
-// Run by VS Code after an uninstall ("vscode:uninstall" in package.json).
-await build({ entryPoints: [join(here, "src/uninstall.ts")], outfile: join(here, "dist/uninstall.js"), bundle: true, platform: "node", format: "cjs", target: "node20" });
+// Run by VS Code after an uninstall ("vscode:uninstall" in package.json). An ES module, as Attentry's
+// own code needs; bundled CommonJS packages get a require(), and the script its own folder.
+await build({ entryPoints: [join(here, "src/uninstall.ts")], outfile: join(here, "dist/uninstall.mjs"), bundle: true, platform: "node", format: "esm", target: "node20",
+  banner: { js: "import { createRequire as __r } from 'node:module'; import { dirname as __d } from 'node:path'; import { fileURLToPath as __f } from 'node:url'; const require = __r(import.meta.url); const __dirname = __d(__f(import.meta.url));" } });
 await plugin("claude-plugin", claude, ".claude-plugin/plugin.json");
 await buildAttentry(join(claude, "attentry/dist/attentry.mjs"));
 // Codex runs the build above, wherever the extension is (its plugins find it through
