@@ -191,12 +191,13 @@ export function startServer(connection: Connection): void {
     if (home) askPlugin(() => refreshPlugin(home, workspace)); // after an extension update: the agent's copy too
     if (codexAt && codexUsed()) askCodex(() => refreshCodex(codexAt, workspace));
   });
-  // A save in the editor, or a file changed on disk (an agent's edit, a git checkout). A repo cloned
-  // into the opened folder can make another project the one to check.
+  // A repo cloned or moved into the opened folder can make another project the one to check.
+  const recheck = () => pickRoot().then((other) => (other ? switched() : rescan()));
+  // A save in the editor, or a file changed on disk (an agent's edit, a git checkout).
   const changed = () => {
     if (!options.autoScan) return;
     clearTimeout(timer);
-    timer = setTimeout(() => void pickRoot().then((other) => (other ? switched() : rescan())), SAVE_DELAY_MS);
+    timer = setTimeout(() => void recheck(), SAVE_DELAY_MS);
   };
   connection.onDidSaveTextDocument(changed);
   connection.onDidChangeWatchedFiles(changed);
@@ -230,7 +231,8 @@ export function startServer(connection: Connection): void {
       if (typeof set.autoScan === "boolean") options.autoScan = set.autoScan;
       return catchUp ? rescan() : publish();
     }
-    if (command === "attentry.server.rescan") return rescan();
+    // The refresh button: with automatic checks off, it's the only way a new clone gets noticed.
+    if (command === "attentry.server.rescan") return recheck();
     // From the extension: install its plugin (hooks and MCP tools in one), and say how it went.
     // Run from anywhere else (Attentry's own source), there's no plugin: hooks in the folder, and
     // with `true` the MCP tools. init's own messages are for the terminal, not the editor.

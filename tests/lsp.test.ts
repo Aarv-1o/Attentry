@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -167,6 +167,41 @@ test("a folder of several projects: the panel lists them, and choosing one check
     const after = await server.request("attentry/findings", {});
     assert.equal(after.project, "shop");
     assert.ok(after.items.every((i: any) => i.file === "index.js"), "the shop's files, named from the shop");
+  } finally {
+    server.stop();
+    for (const repo of [folder, join(folder, "shop")]) await stopBackground(repo);
+  }
+});
+
+test("a repo cloned in while the editor is open is checked, without a reload", { timeout: 60_000 }, async () => {
+  const folder = await makeRepo({});
+  const server = startServer(await makeRepo({}));
+  const findings = () => server.request("attentry/findings", {});
+  try {
+    await server.request("initialize", { processId: null, rootUri: pathToFileURL(folder).href, capabilities: {}, initializationOptions: { clientCommands: true } });
+    server.notify("initialized", {});
+    await server.waitFor("attentry/status", (p) => !p.scanning);
+    assert.equal((await findings()).project, undefined);
+
+    // A repo moved in: the editor reports only the folder, not the files in it.
+    await mkdir(join(folder, "shop"));
+    await writeFile(join(folder, "shop", "index.js"), OLD);
+    git(join(folder, "shop"), "init", "-q");
+    let mark = server.count();
+    server.notify("workspace/didChangeWatchedFiles", { changes: [{ uri: pathToFileURL(join(folder, "shop")).href, type: 1 }] });
+    await server.waitFor("attentry/status", (p) => !p.scanning, mark);
+    assert.equal((await findings()).project, "shop", "the one checkout in the folder is the project now");
+
+    // Automatic checks off: the refresh button notices a second clone (two now, so the whole folder).
+    await server.request("workspace/executeCommand", { command: "attentry.server.set", arguments: [{ autoScan: false }] });
+    await mkdir(join(folder, "blog"));
+    git(join(folder, "blog"), "init", "-q");
+    mark = server.count();
+    await server.request("workspace/executeCommand", { command: "attentry.server.rescan", arguments: [] });
+    await server.waitFor("attentry/status", (p) => !p.scanning, mark);
+    const after = await findings();
+    assert.equal(after.project, undefined);
+    assert.deepEqual(after.projects, ["blog", "shop"]);
   } finally {
     server.stop();
     for (const repo of [folder, join(folder, "shop")]) await stopBackground(repo);
