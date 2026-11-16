@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.6
+
+- **Test connection.** A link under each connected agent in the panel sends a test edit with a planted secret through that agent's own hook, and says whether Attentry caught it, then whether the agent's sessions run the hooks.
+- The panel no longer counts clean-up as problems: "No problems in your changes · 2 things to clean up".
+- A repo cloned or moved into the open folder is checked right away, without reloading the window. With automatic checks off, the refresh button finds it.
+- The editor opened on your home folder or a whole drive: Attentry doesn't scan it, and says to open a project folder. Folders it isn't allowed to read are skipped instead of failing the scan.
+- Codex keeps working when the extension's old folder is gone (updated from the command line, or uninstalled): Attentry connects Codex again from the current extension. Before, Codex's hooks failed, and so did Connect Codex.
+- Uninstalling the extension disconnects Codex from it, so Codex's hooks don't fail on a deleted file.
+- On Windows, a folder link in a git repo that points back up the repo no longer makes Attentry read every file many times over (edits could take 15 seconds).
+- The store page says up front what Attentry is: its own static analyzer, not a wrapper around another AI.
+
 ## 0.1.5
 
 - **Check setup.** A link at the bottom of the panel (or **Attentry: Check setup** in the command palette) checks that everything is connected and working, the same checks as `attentry doctor`, with a button for each fix the panel can do.
