@@ -69,7 +69,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .lead { font-size: clamp(17px, 1.6vw, 19px); line-height: 1.6; color: var(--body); max-width: 62ch; }
 .note { font-size: 13px; color: var(--mute); }
 .note a { text-decoration: underline; text-underline-offset: 2px; text-decoration-color: var(--hairline-strong); }
-.note a:hover { text-decoration-color: #39ff9f; }
+.note a:hover { text-decoration-color: var(--teal); }
 .source { font-size: 12px; color: var(--mute); }
 .source a { color: var(--mute); text-decoration: underline; text-underline-offset: 2px; }
 .source a:hover { color: var(--ink); }
@@ -97,18 +97,18 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .nav { display: flex; align-items: center; gap: var(--space-5); margin-left: auto; font-size: 14px; font-weight: 500; }
 .nav a:not(.btn) { color: var(--mute); transition: color 0.2s; }
 .nav a:not(.btn):hover { color: var(--ink); text-decoration: none; }
-/* Top bar links: a neon underline draws out from the centre on hover, and stays under the
+/* Top bar links: a teal underline draws out from the centre on hover, and stays under the
    section being read (app.js marks it .current). */
 .top .nav a:not(.btn) { position: relative; padding-block: var(--space-2); }
 .top .nav a:not(.btn)::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px;
-  background: #39ff9f; box-shadow: 0 0 8px rgba(57, 255, 159, 0.8), 0 0 16px rgba(57, 255, 159, 0.4);
+  background: var(--teal); box-shadow: 0 0 8px rgba(31, 200, 164, 0.8), 0 0 16px rgba(31, 200, 164, 0.4);
   transform: scaleX(0); transition: transform 0.3s var(--ease);
 }
 .top .nav a:not(.btn):hover::after, .top .nav a:not(.btn):focus-visible::after, .top .nav a.current::after { transform: scaleX(1); }
 .top .nav a.current { color: var(--ink); }
 .top .nav .btn-primary { transition: background 0.2s, box-shadow 0.2s; }
-.top .nav .btn-primary:hover { box-shadow: 0 0 16px rgba(57, 255, 159, 0.45); }
+.top .nav .btn-primary:hover { box-shadow: 0 0 16px rgba(31, 200, 164, 0.45); }
 .nav .btn { min-height: 36px; padding-inline: var(--space-4); }
 .top .nav .btn + .btn { margin-left: calc(var(--space-2) - var(--space-5)); }
 /* An icon, not a word: no underline under it, just the colour change. */
@@ -284,7 +284,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 
 
 /* 5 · Ask it what it catches: a chat that answers with the categories */
-.chat { --neon: #39ff9f; margin-top: var(--space-7); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
+.chat { margin-top: var(--space-7); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); overflow: hidden; }
 .chat-head { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--hairline); background: var(--surface-2); }
 .chat-who { display: grid; line-height: 1.3; }
 .chat-who b { color: var(--ink); font-weight: 500; font-size: 15px; }
@@ -292,7 +292,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .online::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: blink 2.4s ease-in-out infinite; }
 .chat-tags { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-left: auto; }
 .replay { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 36px; padding: 0 var(--space-4); border-radius: 999px; border: 1px solid var(--hairline-strong); background: var(--surface-3); color: var(--ink); font-size: 13px; transition: background 0.2s, border-color 0.2s; }
-.replay:hover { background: var(--surface); border-color: var(--neon); }
+.replay:hover { background: var(--surface); border-color: var(--teal); }
 .replay svg { transition: transform 0.5s var(--ease); }
 .replay:hover svg { transform: rotate(-180deg); }
 .replay[hidden] { display: none; }
@@ -327,12 +327,12 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .field { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: 0 var(--space-3) 0 var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--hairline); background: var(--canvas); }
 .field input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); font: 15px Inter, sans-serif; outline: none; }
 .field kbd { padding: 2px var(--space-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius-sm); font: 11px/1.6 var(--mono); color: var(--mute); }
-/* The send button: neon green border, glowing while it waits for a press. */
-.send { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: var(--radius-md); border: 1.5px solid var(--neon); background: rgba(57, 255, 159, 0.08); color: var(--neon); box-shadow: 0 0 0 0 rgba(57, 255, 159, 0); transition: background 0.2s, transform 0.15s, box-shadow 0.2s; }
-.send:hover { background: rgba(57, 255, 159, 0.16); box-shadow: 0 0 18px rgba(57, 255, 159, 0.35); }
+/* The send button: teal border, glowing while it waits for a press. */
+.send { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: var(--radius-md); border: 1.5px solid var(--teal); background: rgba(31, 200, 164, 0.08); color: var(--teal); box-shadow: 0 0 0 0 rgba(31, 200, 164, 0); transition: background 0.2s, transform 0.15s, box-shadow 0.2s; }
+.send:hover { background: rgba(31, 200, 164, 0.16); box-shadow: 0 0 18px rgba(31, 200, 164, 0.35); }
 .send:active { transform: scale(0.95); }
 .send:disabled { border-color: var(--hairline-strong); background: none; color: var(--mute); box-shadow: none; cursor: default; animation: none; }
-.chat.ready .send { animation: neon 1.8s ease-in-out infinite; }
+.chat.ready .send { animation: glow 1.8s ease-in-out infinite; }
 .chat-foot { padding: var(--space-2) var(--space-5) var(--space-4); background: var(--surface-2); font-size: 12px; color: var(--mute); }
 
 /* 6 · The ending: the monitor holds up the change card */
@@ -347,7 +347,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .install li::before { counter-increment: n; content: counter(n); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--hairline-strong); color: var(--ink); font-size: 13px; }
 .install b { color: var(--ink); font-weight: 500; }
 .install a { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--hairline-strong); }
-.install a:hover { text-decoration-color: #39ff9f; }
+.install a:hover { text-decoration-color: var(--teal); }
 
 /* Footer */
 .foot { margin-top: var(--section); border-top: 1px solid var(--hairline); padding-block: var(--space-6) var(--space-7); font-size: 14px; color: var(--mute); }
@@ -363,7 +363,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes think { 0%, 60%, 100% { opacity: 0.3; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
-@keyframes neon { 0%, 100% { box-shadow: 0 0 4px rgba(57, 255, 159, 0.25); } 50% { box-shadow: 0 0 20px rgba(57, 255, 159, 0.6), 0 0 0 4px rgba(57, 255, 159, 0.12); } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 4px rgba(31, 200, 164, 0.25); } 50% { box-shadow: 0 0 20px rgba(31, 200, 164, 0.6), 0 0 0 4px rgba(31, 200, 164, 0.12); } }
 @keyframes chip { 0% { opacity: 0; transform: translateY(10px) scale(0.94); } 6%, 52% { opacity: 1; transform: none; } 60%, 100% { opacity: 0; transform: translateY(-8px) scale(0.98); } }
 @keyframes steam { 0% { opacity: 0; transform: translateY(6px); } 40% { opacity: 0.9; } 100% { opacity: 0; transform: translateY(-10px); } }
 
