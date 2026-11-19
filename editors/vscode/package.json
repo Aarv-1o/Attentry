@@ -2,7 +2,7 @@
   "name": "attentry",
   "displayName": "Attentry: Claude Code & Codex Checker - Security, Duplicate & Dead Code",
   "description": "Your AI writes the code. Attentry checks it, without AI. Catches security holes, crash risks, duplicate and dead code in Claude Code and Codex edits. Free, open source, runs locally, no tokens.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "icon": "dist/icon.png",
   "galleryBanner": { "color": "#0E1116", "theme": "dark" },
   "homepage": "https://attentry.js.org",

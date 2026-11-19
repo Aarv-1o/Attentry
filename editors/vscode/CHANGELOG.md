@@ -2,7 +2,10 @@
 
 ## 0.1.7
 
-- The store page starts with what the agent actually hears after an edit, has a shorter description and a lighter demo GIF (1.9 MB, was 8.2 MB), and no longer says it works in Antigravity, which hasn't been tested.
+- The store page starts with what the agent actually hears after an edit, and has a shorter description.
+- A still from a real session that links to the 46-second video, and a new demo GIF from the same session (1.7 MB, was 8.2 MB).
+- Screenshots of the change card and the panel, a note on how Attentry keeps quiet (only problems the agent's own edits added, ignore with a reason), and links to the articles that covered it.
+- No longer says it works in Antigravity, which hasn't been tested.
 
 ## 0.1.6
 
