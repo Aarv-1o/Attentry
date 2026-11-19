@@ -50,31 +50,29 @@
     <div class="wrap">
       <div class="hero-grid">
         <div class="hero-copy">
-          <p class="pill reveal"><i></i>For Claude Code and Codex, in VS Code</p>
+          <p class="pill reveal"><i></i>For Claude Code and Codex, in VS Code, Cursor and Windsurf</p>
           <h1 id="hero-title" class="reveal" data-delay="1">Your AI writes the code. Attentry checks it, without AI.</h1>
           <p class="prompt reveal" data-delay="2" aria-label="Things people ask their coding agent"><span id="typed">build me an Uber clone</span><span class="caret" aria-hidden="true"></span></p>
-        </div>
-        <div class="globe-stage reveal" aria-hidden="true">
-          <canvas id="globe" width="520" height="520"></canvas>
-          <div class="face face-a"><img src="assets/figure-a.png" alt="" width="320" height="312"></div>
-          <div class="face face-b"><img src="assets/figure-b.png" alt="" width="320" height="292"></div>
-          <div class="face face-c"><img src="assets/figure-c.png" alt="" width="280" height="286"></div>
-          <span class="bubble bubble-a">add login with JWT</span>
-          <span class="bubble bubble-b">fix the checkout bug</span>
-          <span class="bubble bubble-c">make it realtime</span>
-        </div>
-      </div>
-
-      <div class="hero-row">
-        <div class="hero-more">
-          <p class="lead reveal">Not a wrapper around another model. Attentry is its own static analyzer: it learns your repo's routes, functions and imports, checks every edit for security holes, copied code and dead code, and tells the agent so it can fix them before anything ships. No API key, no tokens, nothing leaves your machine.</p>
-          <div class="reveal" data-delay="1">
+          <!-- Under the headline, so the way in is on screen before any scrolling. -->
+          <div class="reveal" data-delay="3">
             <div class="actions">
               <a class="btn btn-primary" href="vscode:extension/attentry.attentry">Install in VS Code</a>
               <a class="btn btn-quiet" href="#watch">See it work</a>
             </div>
             <p class="source install-alt">Or get it from the <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Marketplace</a>, or <a href="https://open-vsx.org/extension/attentry/attentry">Open VSX</a> for Cursor and Windsurf.</p>
           </div>
+        </div>
+        <div class="globe-stage reveal" aria-hidden="true">
+          <canvas id="globe" width="520" height="520"></canvas>
+          <div class="face face-a"><img src="assets/figure-a.png" alt="" width="320" height="312"></div>
+          <div class="face face-b"><img src="assets/figure-b.png" alt="" width="320" height="292"></div>
+          <div class="face face-c"><img src="assets/figure-c.png" alt="" width="280" height="286"></div>
+        </div>
+      </div>
+
+      <div class="hero-row">
+        <div class="hero-more">
+          <p class="lead reveal">Not a wrapper around another model. Attentry is its own static analyzer: it learns your repo's routes, functions and imports, checks every edit for security holes, copied code and dead code, and tells the agent so it can fix them before anything ships. No API key, no tokens, nothing leaves your machine.</p>
           <div class="stats reveal" data-delay="2">
             <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
             <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>

@@ -1,4 +1,4 @@
-// The site's motion: things reveal as they scroll in (and hide again as they leave), the prompt
+// The site's motion: things reveal the first time they scroll in, the prompt
 // types and erases what people ask agents, the globe turns with developers lighting up, problems
 // pop up around the frustrated developer, the agent edits a file in a small VS Code, and the
 // editor scene loops: Claude writes, Attentry spots, Claude fixes.
@@ -58,19 +58,29 @@ async function fadeRound(el) {
   el.style.opacity = "1";
 }
 
-// ---- Reveal, in and out ----
-for (const el of document.querySelectorAll(".reveal")) {
-  if (still) el.classList.add("in");
-  else whenVisible(el, (seen) => el.classList.toggle("in", seen), 0.12);
+// Calls on() the first time the element comes into view, then stops watching it.
+function onceVisible(el, on, threshold) {
+  const watcher = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    watcher.disconnect();
+    on();
+  }, { threshold });
+  watcher.observe(el);
 }
 
-// ---- Numbers count up each time they come into view ----
+// ---- Reveal, once ----
+for (const el of document.querySelectorAll(".reveal")) {
+  if (still) el.classList.add("in");
+  else onceVisible(el, () => el.classList.add("in"), 0.12);
+}
+
+// ---- Numbers count up the first time they come into view ----
 for (const el of document.querySelectorAll("[data-count]")) {
   if (still) continue;
   const target = Number(el.dataset.count);
   const suffix = el.dataset.suffix ?? "";
-  whenVisible(el, (seen) => {
-    if (!seen) return void (el.textContent = `0${suffix}`);
+  el.textContent = `0${suffix}`;
+  onceVisible(el, () => {
     const start = performance.now();
     const tick = (now) => {
       const p = Math.min(1, (now - start) / 1200);
@@ -92,16 +102,6 @@ if (typed && !still) {
       await wait(1800);
     }
   })();
-}
-
-// ---- Speech bubbles around the globe, one at a time ----
-const bubbles = [...document.querySelectorAll(".bubble")];
-if (bubbles.length && !still) {
-  let b = 0;
-  setInterval(() => {
-    bubbles.forEach((el, i) => el.classList.toggle("show", i === b));
-    b = (b + 1) % bubbles.length;
-  }, 2200);
 }
 
 // ---- The developer types: the finger goes down to the key and back up, while on screen ----
