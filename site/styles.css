@@ -110,6 +110,10 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .top .nav .btn-primary { transition: background 0.2s, box-shadow 0.2s; }
 .top .nav .btn-primary:hover { box-shadow: 0 0 16px rgba(57, 255, 159, 0.45); }
 .nav .btn { min-height: 36px; padding-inline: var(--space-4); }
+.top .nav .btn + .btn { margin-left: calc(var(--space-2) - var(--space-5)); }
+/* An icon, not a word: no underline under it, just the colour change. */
+.top .nav .icon-link { display: inline-flex; padding: var(--space-2); }
+.top .nav .icon-link::after { content: none; }
 
 /* Reveal on scroll: in, and out again when it leaves. */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
@@ -381,7 +385,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .end { padding: var(--space-6); }
 }
 @media (max-width: 640px) {
-  .top .nav a:not(.btn) { display: none; }
+  /* Phones keep the logo and one button; Cursor and Windsurf are under the hero's buttons. */
+  .top .nav a:not(.btn), .top .nav .store-alt { display: none; }
   .answer-grid, .stats { grid-template-columns: minmax(0, 1fr); }
   .chat-log { padding: var(--space-4); }
   .chat-tags { display: none; }
