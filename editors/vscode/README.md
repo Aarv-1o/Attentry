@@ -5,12 +5,20 @@
 [![GitHub stars](https://img.shields.io/github/stars/Aarv-1o/Attentry)](https://github.com/Aarv-1o/Attentry)
 [![MIT licence](https://img.shields.io/github/license/Aarv-1o/Attentry)](https://github.com/Aarv-1o/Attentry/blob/main/LICENSE)
 
+[Website](https://attentry.js.org) · [Try the demo repo](https://github.com/Aarv-1o/attentry-demo) · [Report a problem](https://github.com/Aarv-1o/Attentry/issues) · [Discussions](https://github.com/Aarv-1o/Attentry/discussions)
+
 **Your AI writes the code. Attentry checks it, without AI.**
 
 Free and open source. It reads the code with its own rules, not another AI model, so your code
 stays on your laptop and there are no tokens to pay for.
 
 Works with **Claude Code** and **Codex**, in VS Code, Cursor and Windsurf.
+
+[![Claude reports Attentry's finding in a real session: nothing calls the new route yet, so it wires up the delete button](https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/demo-session.jpg)](https://youtube.com/shorts/tD_574AHFkE)
+
+▶ [Watch the 46-second session](https://youtube.com/shorts/tD_574AHFkE)
+
+**Written up by** [SmartScope](https://smartscope.blog/en/blog/attentry-preview-local-checks-claude-code-edits-catch-2026/) and [Emergent](https://emergent.sh/news/attentry-local-checker-reviews-every-claude).
 
 ## What the agent hears
 
@@ -26,7 +34,13 @@ Fix them before moving on, or say why not. Full steps: Attentry's explain tool w
 
 So it fixes them while the code is still fresh. A clean edit gets no message at all.
 
-![A real Claude Code session with Attentry: the agent adds a route, Attentry checks each edit, and the change card shows no problems added](https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/demo-short.gif)
+**Built to stay quiet.** The agent only hears about problems its own edits added, never the old
+ones. If a rule is wrong for your code, silence it with a reason
+(`// attentry-ignore rule: reason`), and a rule you mark as not useful more than 10% of the time
+drops to a hint. If your framework isn't one Attentry reads, it says it couldn't check, instead
+of "all fine".
+
+![A real Claude Code session with Attentry: Claude adds a route, Attentry tells it nothing calls the route yet, Claude wires up the frontend, and the change card shows no problems added](https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/demo-short.gif)
 
 Try it on [attentry-demo](https://github.com/Aarv-1o/attentry-demo), a small notes app with
 problems planted on purpose. Website: [attentry.js.org](https://attentry.js.org).
@@ -53,6 +67,8 @@ Attentry is added for all your projects, and the extension keeps it up to date.
 - **Every 10 edits:** a short check-in with your tests, copies and unused code.
 - **End of the task:** a change card with the files changed, problems added or fixed, and whether
   the tests passed.
+
+![The change card at the end of a task in Claude Code: 3 files changed, no problems added, 1 clean-up item, no tests found](https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/change-card.png)
 
 By default Attentry only suggests. In block mode, a task can't finish while it has added a security
 or crash problem (Claude Code for now; Codex in a later version).
@@ -95,6 +111,8 @@ The panel shows what's wrong by category, whether Claude Code and Codex are conn
 current task is going. **Check setup**, at the bottom, checks that everything works. In a folder of
 several projects, pick one from the menu at the top (or **Attentry: Choose project**).
 
+<img src="https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/panel.png" width="300" alt="The Attentry panel: problems by category, Claude Code connected, and the current task: 4 edits to 3 files, no problems added">
+
 ## Tests
 
 Attentry runs your tests at check-ins, but only commands you've allowed, because a test script can
@@ -109,3 +127,6 @@ its own approval settings.
 
 Free and open source under the MIT licence. Source on
 [GitHub](https://github.com/Aarv-1o/Attentry).
+
+If Attentry caught something for you, a rating helps other people find it:
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=attentry.attentry&ssr=false#review-details) · [Open VSX](https://open-vsx.org/extension/attentry/attentry/reviews)
