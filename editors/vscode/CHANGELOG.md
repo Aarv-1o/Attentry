@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- The store page starts with what the agent actually hears after an edit, has a shorter description and a lighter demo GIF (1.9 MB, was 8.2 MB), and no longer says it works in Antigravity, which hasn't been tested.
+
 ## 0.1.6
 
 - **Test connection.** A link under each connected agent in the panel sends a test edit with a planted secret through that agent's own hook, and says whether Attentry caught it, then whether the agent's sessions run the hooks.
