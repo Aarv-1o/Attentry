@@ -464,7 +464,8 @@ if (scene && code) {
   }
 }
 
-// ---- Ask it what it catches: press send, the answer pops up; "Ask again" replays it ----
+// ---- Ask it what it catches: the answer is there from the start, so nobody has to click to
+// read it; "Ask again" clears it and lets them press send to watch it come in ----
 const chat = document.getElementById("chat");
 if (chat) {
   const log = document.getElementById("chat-log");
@@ -503,7 +504,7 @@ if (chat) {
     chat.classList.add("ready");
   };
 
-  const ask = async () => {
+  const ask = async (instant = false) => {
     if (busy || !input.value) return;
     busy = true;
     chat.classList.remove("ready");
@@ -511,7 +512,7 @@ if (chat) {
     const question = input.value;
     input.value = "";
     log.replaceChildren(welcome, fromYou(question));
-    if (!still) {
+    if (!still && !instant) {
       const thinking = document.createElement("span");
       thinking.className = "thinking";
       thinking.setAttribute("aria-label", "Attentry is answering");
@@ -544,6 +545,7 @@ if (chat) {
     send.focus();
   });
   reset();
+  void ask(true);
 }
 
 // ---- The top bar underlines the section being read ----
