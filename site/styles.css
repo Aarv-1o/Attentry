@@ -221,7 +221,9 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .cost-card p { font-size: 15px; color: var(--body); }
 
 /* 3 · The editor scene: Claude writes, Attentry watches, Claude fixes */
-.session { display: grid; gap: var(--space-3); max-width: 640px; margin: var(--space-7) 0 0; }
+/* The words on the left, the video beside them; stacked on narrower screens. */
+.watch-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-8); align-items: center; }
+.session { display: grid; gap: var(--space-3); max-width: 560px; margin: 0; justify-self: end; width: 100%; }
 .session video { width: 100%; height: auto; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); }
 .scene-title { margin-top: var(--space-8); max-width: 640px; }
 .scene { margin-top: var(--space-5); display: grid; gap: var(--space-4); }
@@ -373,7 +375,9 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .duo { grid-template-columns: minmax(0, 1fr); }
   .duo-arrow { justify-self: center; transform: rotate(90deg); }
   .duo-dev { max-width: 420px; justify-self: center; width: 100%; }
-  .hero-grid, .cost, .end { grid-template-columns: minmax(0, 1fr); }
+  .hero-grid, .cost, .end, .watch-intro { grid-template-columns: minmax(0, 1fr); }
+  .watch-intro { gap: var(--space-7); }
+  .session { justify-self: start; }
   .globe-stage { max-width: 420px; }
   .editor-body { grid-template-columns: 40px minmax(0, 1fr); }
   .panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--hairline); }
