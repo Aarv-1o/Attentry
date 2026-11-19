@@ -1,6 +1,14 @@
 # Attentry
 
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-install-007ACC?logo=visualstudiocode)](https://marketplace.visualstudio.com/items?itemName=attentry.attentry)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/attentry/attentry?label=Open%20VSX%20downloads)](https://open-vsx.org/extension/attentry/attentry)
+[![GitHub stars](https://img.shields.io/github/stars/Aarv-1o/Attentry)](https://github.com/Aarv-1o/Attentry/stargazers)
+[![MIT licence](https://img.shields.io/github/license/Aarv-1o/Attentry)](LICENSE)
+
 **Your AI writes the code. Attentry checks it, without AI.**
+
+Free and open source. It reads the code with its own rules, not another AI model, so your code
+stays on your laptop and there are no tokens to pay for.
 
 You ask an AI agent for a feature, and a minute later it has written a few hundred lines. They
 run, they look right, and nobody reads them. Somewhere in there is a route anyone can call without
@@ -14,7 +22,7 @@ it right away and fixes it before moving on. When the task is done, you get a
 short card that says what changed and whether anything new went wrong. A clean edit costs
 nothing: the agent hears nothing at all.
 
-It works with **Claude Code** and **Codex**, in VS Code, Cursor, Windsurf and Antigravity.
+It works with **Claude Code** and **Codex**, in VS Code, Cursor and Windsurf.
 
 ![A real Claude Code session with Attentry: the agent adds a route, Attentry checks each edit, and the change card shows no problems added and 10 fixed](site/assets/demo.gif)
 
@@ -169,7 +177,7 @@ how the current task is going (under the agent doing it), and when the repo was 
 fixes it can do. In a folder that holds several projects, a menu at the top of the panel (or
 **Attentry: Choose project**) picks the one Attentry checks, and the agents' hooks and tools follow it.
 
-The extension works in VS Code, Cursor, Windsurf and Antigravity. Other editors, such as JetBrains,
+The extension works in VS Code, Cursor and Windsurf. Other editors, such as JetBrains,
 Zed and Neovim, can run `attentry lsp` as a language server.
 
 ## Command line
