@@ -73,11 +73,7 @@
       <div class="hero-row">
         <div class="hero-more">
           <p class="lead reveal">Not a wrapper around another model. Attentry is its own static analyzer: it learns your repo's routes, functions and imports, checks every edit for security holes, copied code and dead code, and tells the agent so it can fix them before anything ships. No API key, no tokens, nothing leaves your machine.</p>
-          <div class="stats reveal" data-delay="2">
-            <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
-            <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
-          </div>
-          <p class="source reveal" data-delay="2">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
+          <p class="press reveal" data-delay="1">Written up by <a href="https://smartscope.blog/en/blog/attentry-preview-local-checks-claude-code-edits-catch-2026/">SmartScope</a> and <a href="https://emergent.sh/news/attentry-local-checker-reviews-every-claude">Emergent</a></p>
         </div>
 
       <figure class="duo reveal" data-delay="1">
@@ -129,6 +125,11 @@
         <h2 id="story-title">Fast code. Messy code.</h2>
         <p class="lead">The agent writes it in seconds. Nobody reads every line, and the agent never looks back: it doesn't know the repo already had that helper, or that the route it just added lets anyone in.</p>
       </div>
+      <div class="stats reveal" data-delay="1">
+        <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
+        <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
+      </div>
+      <p class="source stats-source reveal" data-delay="1">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
       <div class="cost">
         <div class="cost-art reveal" id="cost-art" aria-hidden="true">
           <img class="desk" src="assets/desk-stressed.png" alt="" width="760" height="745">
@@ -153,10 +154,20 @@
     <div class="wrap">
       <div class="heading reveal">
         <p class="eyebrow">See it work</p>
-        <h2 id="watch-title">Claude writes. Attentry watches. Claude fixes.</h2>
-        <p class="lead">Attentry doesn't take the wheel. It points at what's wrong the moment it's written, and the agent cleans it up before you ever see it.</p>
+        <h2 id="watch-title">One real session. Nothing staged.</h2>
+        <p class="lead">Claude Code adds a route to a small notes app. Attentry checks every edit, tells Claude what the edit left out, and the change card comes back with no problems added.</p>
       </div>
 
+      <!-- No autoplay: it plays when someone asks it to. -->
+      <figure class="session reveal">
+        <video controls preload="none" playsinline width="1080" height="1080" poster="assets/demo-session.jpg">
+          <source src="assets/demo-session.mp4" type="video/mp4">
+          <a href="assets/demo-session.mp4">Watch the session (MP4, 46 seconds)</a>
+        </video>
+        <figcaption class="source">46 seconds, sped up while Claude types. Recorded on <a href="https://github.com/Aarv-1o/attentry-demo">attentry-demo</a>, which you can try yourself.</figcaption>
+      </figure>
+
+      <h3 class="scene-title reveal">The same loop, slowed down: Claude writes, Attentry watches, Claude fixes.</h3>
       <div class="scene reveal" id="scene" data-step="write">
         <div class="editor" role="img" aria-label="An editor: Claude writes server.js, Attentry flags a hard-coded secret, a copied helper and dead code, Claude fixes all three, and the change card reads Problems: none added.">
           <div class="editor-bar"><b></b><b></b><b></b><span>server.js · chat-app</span></div>
