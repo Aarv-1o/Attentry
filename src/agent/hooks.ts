@@ -4,7 +4,7 @@ import { isProblem as matters, severityOf, worthChecking } from "../findings/sev
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
-import { changeCard } from "./card.ts";
+import { changeCard, type PlannedTests } from "./card.ts";
 import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import { applyHunks, patchEdits, type Hunk } from "./patch.ts";
 import type { ExistingMatch } from "./reuse.ts";
@@ -151,7 +151,7 @@ function checkIn(task: Task, findings: Finding[], exists: (file: string) => bool
 
 // When the agent wants to finish: the change card for the person; in block mode, not done
 // while the task has added security or crash problems.
-export function atStop(input: HookInput, root: string, task: Task, findings: Finding[], config: Config): HookReply {
+export function atStop(input: HookInput, root: string, task: Task, findings: Finding[], config: Config, planned?: PlannedTests): HookReply {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const errors = real.filter((f) => severityOf(f) === "error");
@@ -160,7 +160,7 @@ export function atStop(input: HookInput, root: string, task: Task, findings: Fin
     return json({ decision: "block", reason: [`Attentry: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
   }
   if (!task.edits) return SILENT;
-  return json({ systemMessage: changeCard(task, findings, inRepo(root)) });
+  return json({ systemMessage: changeCard(task, findings, inRepo(root), planned) });
 }
 
 // The file as it will be after this edit, or undefined if the edit can't be applied to it as it

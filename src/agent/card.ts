@@ -9,7 +9,10 @@ import { plural } from "../report/common.ts";
 
 const MAX_FILES = 5;
 
-export function changeCard(task: Task, findings: Finding[], exists?: (file: string) => boolean): string {
+// The routes the plan check suggested tests for, and how many now have one written in this task.
+export interface PlannedTests { done: number; total: number; missing: string[] }
+
+export function changeCard(task: Task, findings: Finding[], exists?: (file: string) => boolean, planned?: PlannedTests): string {
   const added = newSince(task, findings).filter((f) => severityOf(f) !== "hint");
   const real = added.filter((f) => severityOf(f) !== "info");
   const cleanup = added.length - real.length;
@@ -27,6 +30,7 @@ export function changeCard(task: Task, findings: Finding[], exists?: (file: stri
     ...(cleanup ? [`- Clean-up: ${cleanup} added (unused or copied code)`] : []),
     ...(check ? [`- To check: ${check} route${check === 1 ? "" : "s"} with no auth check of ${check === 1 ? "its" : "their"} own, in an app that sets up auth elsewhere`] : []),
     `- Tests: ${task.testing ? "still running (the sidebar shows the result)" : task.tests && task.tests.atEdit < task.edits ? `${describeTests(task.tests)}, before the last ${plural(task.edits - task.tests.atEdit, "edit")}` : describeTests(task.tests)}`,
+    ...(planned ? [`- Tests for the plan: ${planned.done} of ${plural(planned.total, "route")}${planned.missing.length ? ` (none yet for ${planned.missing.slice(0, 3).join(", ")})` : ""}`] : []),
     ...(real.length || cleanup || check ? ["See them in the Attentry sidebar, or ask for Attentry's check."] : []),
   ].join("\n");
 }

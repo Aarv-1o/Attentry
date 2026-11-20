@@ -8,7 +8,7 @@ import { makeRepo } from "./helpers.ts";
 
 async function suggest(files: Record<string, string>, plan: string): Promise<string[]> {
   const scan = await scanRepo(await makeRepo(files));
-  return suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(scan.index.root, scan.index.files));
+  return suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(scan.index.root, scan.index.files)).lines;
 }
 
 const APP = {

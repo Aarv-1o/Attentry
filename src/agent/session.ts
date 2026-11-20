@@ -14,7 +14,7 @@ import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
 import { routeCoverage } from "../testing/coverage.ts";
 import { planSteps, type PlanStep } from "../testing/steps.ts";
-import { suggestTests } from "../testing/suggest.ts";
+import { plannedWritten, suggestTests, type PlannedRoute } from "../testing/suggest.ts";
 import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions, type ExistingMatch } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
@@ -216,18 +216,20 @@ export class Sessions {
     const review = await this.reviewPlan(plan);
     // A new plan starts its steps over; one without steps keeps the 10-edit check-ins only.
     if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
+    if (review.planned.length) task.plannedTests = review.planned;
     const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));
     const unheard = { notes: fresh(review.notes), tests: fresh(review.tests) };
     for (const line of [...unheard.notes, ...unheard.tests]) told.add(`plan:${line}`);
     return beforePlan(unheard, event);
   }
 
-  private async reviewPlan(plan: string): Promise<PlanReview & { steps: PlanStep[] }> {
+  private async reviewPlan(plan: string): Promise<PlanReview & { steps: PlanStep[]; planned: PlannedRoute[] }> {
     const scan = await scanRepo(this.root, this.cache);
-    const texts = await readTexts(this.root, scan.index.files);
+    const suggested = suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(this.root, scan.index.files));
     return {
       notes: reviewPlan(plan, scan, await collectFindings(scan)),
-      tests: suggestTests(plan, scan, routeCoverage(scan.index), texts),
+      tests: suggested.lines,
+      planned: suggested.routes,
       steps: planSteps(plan, new Set(scan.index.allFiles)),
     };
   }
@@ -310,7 +312,10 @@ export class Sessions {
       if (this.background && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);
       }
-      return atStop(input, this.root, entry.task, await this.findings(), config);
+      const scan = await scanRepo(this.root, this.cache);
+      const { plannedTests } = entry.task;
+      const planned = plannedTests ? { ...plannedWritten(plannedTests, routeCoverage(scan.index), entry.task.editedFiles), total: plannedTests.length } : undefined;
+      return atStop(input, this.root, entry.task, await collectFindings(scan), config, planned);
     }
     return SILENT;
   }

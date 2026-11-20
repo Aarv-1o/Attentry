@@ -17,6 +17,9 @@ const WHOLE_BODY = /\.\.\.\s*req\.body|\b(create|update|insert|insertOne|updateO
 const FOR_ADMINS = /\badmins?\b|\bstaff\b|\bsuperusers?\b/i;
 
 interface Suggestion { rank: number; text: string }
+// The lines for Claude, and the routes they're for: the change card says which got tests.
+export interface PlannedRoute { method: string; path: ApiPath }
+export interface TestPlan { lines: string[]; routes: PlannedRoute[] }
 interface PlanRoute { method: string; path: ApiPath; said: string; route?: FullRoute }
 
 // The test client each framework is tested with, by what the route's file imports.
@@ -52,7 +55,7 @@ function nearTo(path: ApiPath, routes: FullRoute[]): FullRoute[] {
 }
 
 // `texts`: the repo's source files, to read handlers named in a route (a controller).
-export function suggestTests(plan: string, scan: ScanResult, coverage: TestedRoute[], texts: Map<string, string>): string[] {
+export function suggestTests(plan: string, scan: ScanResult, coverage: TestedRoute[], texts: Map<string, string>): TestPlan {
   const routes = coverage.map((c) => c.route);
   const testsOf = (r: FullRoute) => coverage.find((c) => c.route === r)?.tests ?? [];
   const code = (r: FullRoute) => handlerCode(r, scan.index.functions, texts);
@@ -80,9 +83,17 @@ export function suggestTests(plan: string, scan: ScanResult, coverage: TestedRou
     if (r.route && r.method !== "GET" && WHOLE_BODY.test(code(r.route))) found.push({ rank: 2, text: `${label(r)}: an extra field in the body (\`role\`, \`isAdmin\`) isn't saved.` });
     found.push({ rank: 3, text: `${label(r)}: the normal case works (status and the data it returns).` });
   }
-  if (!found.length) return [];
+  if (!found.length) return { lines: [], routes: [] };
   const lines = found.sort((a, b) => a.rank - b.rank).slice(0, MAX).map((s) => s.text);
-  return [...lines, ...where(untested.length ? untested : named, coverage, scan)];
+  return { lines: [...lines, ...where(untested.length ? untested : named, coverage, scan)], routes: untested.map(({ method, path }) => ({ method, path })) };
+}
+
+// At the end of the task: which planned routes now have a test from a file this task edited.
+export function plannedWritten(planned: PlannedRoute[], coverage: TestedRoute[], editedFiles: Set<string>): { done: number; missing: string[] } {
+  const written = (p: PlannedRoute) => coverage.some((c) =>
+    (c.route.method === p.method || c.route.method === "ALL") && reaches(p.path, c.route.path, "exact") && c.tests.some((t) => editedFiles.has(t.file)));
+  const missing = planned.filter((p) => !written(p)).map((p) => `${p.method} ${p.path.text}`);
+  return { done: planned.length - missing.length, missing };
 }
 
 // Where the tests go: the file that tests the routes next to each one, else the framework's client.

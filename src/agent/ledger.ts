@@ -1,4 +1,5 @@
 import type { PlanStep } from "../testing/steps.ts";
+import type { PlannedRoute } from "../testing/suggest.ts";
 import { isProblem } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import type { TestRun } from "./tests.ts";
@@ -30,6 +31,7 @@ export interface Task {
   // step is a check-in, with the tests.
   steps?: PlanStep[];
   step: number;
+  plannedTests?: PlannedRoute[]; // routes the plan check suggested tests for: the card counts them
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Sessions } from "../src/agent/session.ts";
@@ -108,4 +108,27 @@ test("plan steps: passing steps that share a file names them together", async ()
   await hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "1. New route in server.js.\n2. Seed data in server.js.\n3. The page in public/list.js.\n" } });
   await edit("server.js", "export const a = 2;\n");
   assert.match(await edit("public/list.js", "export const list = 2;\n") ?? "", /^Attentry check-in after steps 1-2 of 3: /);
+});
+
+test("change card: how many routes the plan asked tests for now have one written in this task", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ dependencies: { express: "4" } }),
+    "src/app.js": `import express from "express";\nexport const app = express();\napp.get("/api/notes", requireAuth, list);\n`,
+  });
+  const sessions = new Sessions(root);
+  const hook = async (event: string, extra: object = {}) => {
+    const reply = await sessions.handle({ hook_event_name: event, session_id: "s1", ...extra });
+    return reply.stdout ? JSON.parse(reply.stdout) : undefined;
+  };
+  const edit = async (file: string, text: string) => {
+    await mkdir(join(root, file, ".."), { recursive: true });
+    await writeFile(join(root, file), text);
+    return hook("PostToolUse", { tool_name: "Write", tool_input: { file_path: join(root, file) } });
+  };
+  await hook("SessionStart");
+  await hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "Add DELETE /api/notes/:id and PUT /api/notes/:id.\n" } });
+  await edit("src/app.js", `import express from "express";\nexport const app = express();\napp.get("/api/notes", requireAuth, list);\napp.delete("/api/notes/:id", requireAuth, remove);\napp.put("/api/notes/:id", requireAuth, update);\n`);
+  await edit("tests/notes.test.js", `import { app } from "../src/app.js";\nawait request(app).delete("/api/notes/1");\n`);
+  const card = (await hook("Stop", { stop_hook_active: false })).systemMessage;
+  assert.match(card, /\n- Tests for the plan: 1 of 2 routes \(none yet for PUT \/api\/notes\/:id\)/);
 });
