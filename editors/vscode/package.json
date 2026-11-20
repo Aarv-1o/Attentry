@@ -38,7 +38,8 @@
     "code review",
     "mcp",
     "cursor",
-    "windsurf"
+    "windsurf",
+    "antigravity"
   ],
   "activationEvents": [
     "onStartupFinished"

@@ -12,7 +12,7 @@
 Free and open source. It reads the code with its own rules, not another AI model, so your code
 stays on your laptop and there are no tokens to pay for.
 
-Works with **Claude Code** and **Codex**, in VS Code, Cursor and Windsurf.
+Works with **Claude Code** and **Codex**, in VS Code, Cursor, Windsurf and Antigravity.
 
 [![Claude reports Attentry's finding in a real session: nothing calls the new route yet, so it wires up the delete button](https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/demo-session.jpg)](https://youtube.com/shorts/tD_574AHFkE)
 

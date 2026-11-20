@@ -99,6 +99,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .nav a:not(.btn):hover { color: var(--ink); text-decoration: none; }
 /* Top bar links: a teal underline draws out from the centre on hover, and stays under the
    section being read (app.js marks it .current). */
+.top .nav a { white-space: nowrap; }
 .top .nav a:not(.btn) { position: relative; padding-block: var(--space-2); }
 .top .nav a:not(.btn)::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px;
@@ -372,6 +373,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .duo { grid-template-columns: minmax(0, 0.6fr) auto minmax(0, 1.5fr); }
 }
 @media (max-width: 960px) {
+  /* Three store buttons need the room; the hero has its own See it work button. */
+  .top .nav a:not(.btn):not(.icon-link) { display: none; }
   .duo { grid-template-columns: minmax(0, 1fr); }
   .duo-arrow { justify-self: center; transform: rotate(90deg); }
   .duo-dev { max-width: 420px; justify-self: center; width: 100%; }
@@ -386,7 +389,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .end { padding: var(--space-6); }
 }
 @media (max-width: 640px) {
-  /* Phones keep the logo and one button; Cursor and Windsurf are under the hero's buttons. */
+  /* Phones keep the logo and one button; Cursor, Windsurf and Antigravity are under the hero's buttons. */
   .top .nav a:not(.btn), .top .nav .store-alt { display: none; }
   .answer-grid, .stats { grid-template-columns: minmax(0, 1fr); }
   .chat-log { padding: var(--space-4); }

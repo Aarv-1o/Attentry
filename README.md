@@ -22,7 +22,7 @@ it right away and fixes it before moving on. When the task is done, you get a
 short card that says what changed and whether anything new went wrong. A clean edit costs
 nothing: the agent hears nothing at all.
 
-It works with **Claude Code** and **Codex**, in VS Code, Cursor and Windsurf.
+It works with **Claude Code** and **Codex**, in VS Code, Cursor, Windsurf and Antigravity.
 
 ![A real Claude Code session with Attentry: the agent adds a route, Attentry checks each edit, and the change card shows no problems added and 10 fixed](site/assets/demo.gif)
 
@@ -38,8 +38,8 @@ agent was thinking. Nothing in it is staged.*
 
 Install the extension from the
 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=attentry.attentry), or
-from [Open VSX](https://open-vsx.org/extension/attentry/attentry) if you use Cursor, Windsurf or
-another VS Code fork. Then open the **Attentry** panel in the sidebar and connect your agent.
+from [Open VSX](https://open-vsx.org/extension/attentry/attentry) if you use Cursor, Windsurf,
+Antigravity or another VS Code fork. Then open the **Attentry** panel in the sidebar and connect your agent.
 
 ### Claude Code
 
@@ -177,7 +177,7 @@ how the current task is going (under the agent doing it), and when the repo was 
 fixes it can do. In a folder that holds several projects, a menu at the top of the panel (or
 **Attentry: Choose project**) picks the one Attentry checks, and the agents' hooks and tools follow it.
 
-The extension works in VS Code, Cursor and Windsurf. Other editors, such as JetBrains,
+The extension works in VS Code, Cursor, Windsurf and Antigravity. Other editors, such as JetBrains,
 Zed and Neovim, can run `attentry lsp` as a language server.
 
 ## Command line
