@@ -1,7 +1,7 @@
 import type { Node } from "web-tree-sitter";
 import { HOLE } from "../rules/crossStack/paths.ts";
 import { HTTP_METHODS, type FileApi } from "../rules/crossStack/types.ts";
-import { stringValues } from "./jsValues.ts";
+import { declaration, stringValues } from "./jsValues.ts";
 import { descendants, unquote } from "./nodes.ts";
 
 // Routes and mounts for the frameworks that declare routes as method calls:
@@ -89,12 +89,50 @@ function mountTarget(node: Node): string | undefined {
   return fn?.type === "identifier" ? fn.text : undefined;
 }
 
+// The array a loop variable walks: `routes.forEach((route) => ...)` or `for (const route of routes)`.
+function loopedArray(variable: string, at: Node): Node | undefined {
+  for (let n = at.parent; n; n = n.parent) {
+    if (n.type === "for_in_statement" && n.childForFieldName("left")?.text.replace(/^(const|let|var)\s+/, "") === variable) {
+      const right = n.childForFieldName("right");
+      return right?.type === "identifier" ? declaration(right.text, n) : undefined;
+    }
+    if (n.type !== "arrow_function" && n.type !== "function_expression") continue;
+    const params = n.childForFieldName("parameters")?.namedChildren ?? (n.childForFieldName("parameter") ? [n.childForFieldName("parameter")!] : []);
+    if (params[0]?.text !== variable) continue;
+    const call = n.parent?.parent;
+    const fn = call?.type === "call_expression" ? call.childForFieldName("function") : undefined;
+    const list = fn?.type === "member_expression" && fn.childForFieldName("property")?.text === "forEach" ? fn.childForFieldName("object") : undefined;
+    return list?.type === "identifier" ? declaration(list.text, n) : undefined;
+  }
+  return undefined;
+}
+
+// `router.use(route.path, route.route)` in a loop over [{ path: "/users", route: userRoute }]:
+// one mount per entry. Popular Express boilerplates list their routers this way.
+function loopMounts(prefixNode: Node, targetNode: Node): { prefix: string; target: string }[] {
+  if (prefixNode.type !== "member_expression" || targetNode.type !== "member_expression") return [];
+  const variable = prefixNode.childForFieldName("object")?.text;
+  if (!variable || targetNode.childForFieldName("object")?.text !== variable) return [];
+  const list = loopedArray(variable, prefixNode);
+  if (list?.type !== "array") return [];
+  const [pathKey, routeKey] = [prefixNode, targetNode].map((n) => n.childForFieldName("property")?.text ?? "");
+  return list.namedChildren.flatMap((entry) => {
+    const prefix = stringProp(entry, pathKey!);
+    const target = objectProp(entry, routeKey!);
+    const name = target ? mountTarget(target) : undefined;
+    return prefix !== undefined && name ? [{ prefix, target: name }] : [];
+  });
+}
+
 // Mounting a router: use() (Express, Koa), route() with a path and a sub-app (Hono), or
 // register() with a prefix option (Fastify).
 export function mountOf(on: string, prop: string, call: Node, api: FileApi): boolean {
   const all = args(call);
   const line = call.startPosition.row + 1;
   if (prop === "use") {
+    const looped = all.length === 2 ? loopMounts(all[0]!, all[1]!) : [];
+    for (const { prefix, target } of looped) api.mounts.push({ prefix, on, target, line, guards: [] });
+    if (looped.length) return true;
     const target = all.length ? mountTarget(all.at(-1)!) : undefined;
     const hasPrefix = all[0]?.type === "string" && all.length > 1;
     const prefix = hasPrefix ? unquote(all[0]!) : "";

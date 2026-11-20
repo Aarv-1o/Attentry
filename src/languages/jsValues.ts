@@ -18,7 +18,7 @@ const reassigned = (name: string, scope: Node) =>
 
 // `const NAME = value` visible from `at`: the nearest enclosing block that declares it, before `at`.
 // A `let` or `var` counts only if nothing in that block sets it again.
-function declaration(name: string, at: Node): Node | undefined {
+export function declaration(name: string, at: Node): Node | undefined {
   for (let scope = at.parent; scope; scope = scope.parent) {
     if (scope.type !== "statement_block" && scope.type !== "program") continue;
     let found: Node | undefined;

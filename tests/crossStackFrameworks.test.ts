@@ -75,3 +75,27 @@ test("frontend: client base URLs from another file, Vite's proxy rewrite, supera
     "web/src/notes.ts": `const cache = new Map();\nexport const note = () => cache.get("/users/1");\n`,
   }), ["missing-route GET /user/me web/src/users.ts:3", "routes 4"]);
 });
+
+test("Express: routers mounted in a loop over a list of { path, route }", async () => {
+  assert.deepEqual(await crossStack({
+    "src/app.js": `const routes = require("./routes");\nconst app = express();\napp.use("/v1", routes);\n`,
+    "src/routes/index.js": `const authRoute = require("./auth");
+const userRoute = require("./user");
+const router = express.Router();
+const defaultRoutes = [
+  { path: "/auth", route: authRoute },
+  { path: "/users", route: userRoute },
+];
+defaultRoutes.forEach((route) => {
+  router.use(route.path, route.route);
+});
+const adminRoutes = [{ path: "/admin", route: require("./admin") }];
+for (const r of adminRoutes) router.use(r.path, r.route);
+module.exports = router;
+`,
+    "src/routes/auth.js": `const router = express.Router();\nrouter.post("/login", login);\nmodule.exports = router;\n`,
+    "src/routes/user.js": `const router = express.Router();\nrouter.route("/:userId").get(show).delete(remove);\nmodule.exports = router;\n`,
+    "src/routes/admin.js": `const router = express.Router();\nrouter.get("/stats", stats);\nmodule.exports = router;\n`,
+    "web/api.js": `fetch("/v1/auth/login", { method: "POST" });\nfetch(\`/v1/users/\${id}\`);\nfetch("/v1/admin/stats");\nfetch("/v1/user/1");\n`,
+  }), ["missing-route GET /v1/user/1 web/api.js:4", "routes 4", "unused DELETE /v1/users/:userId"]);
+});
