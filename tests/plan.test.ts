@@ -105,3 +105,8 @@ test("plan check: the hook tells Claude before it starts, and says nothing for a
   assert.match(told.additionalContext, /^Attentry read the plan\. Before you start:\n- `formatTimeAgo`: the repo already has `timeAgo`/);
   assert.equal(await hook("Rename the README title."), undefined);
 });
+
+test("plan check: a route at the end of a sentence is the route, not the route and its full stop", async () => {
+  const scan = await scanRepo(await makeRepo(REPO));
+  assert.deepEqual(reviewPlan("Add GET /api/users/:id.", scan, []), ["GET /api/users/:id already exists (server.js:3): extend it rather than adding another."]);
+});

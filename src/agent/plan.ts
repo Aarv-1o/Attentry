@@ -28,7 +28,8 @@ function plannedRoutes(plan: string) {
   const lines = plan.split("\n");
   const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean }>();
   lines.forEach((line, i) => {
-    for (const [, method, raw] of line.matchAll(ROUTE)) {
+    for (const [, method, written] of line.matchAll(ROUTE)) {
+      const raw = written!.replace(/[.;:!?]+$/, ""); // "Add DELETE /api/notes/:id." ends a sentence
       const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false };
       seen.adds ||= ADDS.test(line);
       seen.known ||= KNOWN.test(lines.slice(Math.max(0, i - 1), i + 2).join("\n"));
