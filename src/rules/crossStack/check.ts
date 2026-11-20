@@ -92,7 +92,9 @@ export function findCrossStack(
   apis: Map<string, FileApi>, imports: Map<string, ImportInfo[]>, extraCalls: (ApiCall & { file: string })[] = [],
 ): CrossStack {
   const repo = { apis, imports, files: new Set(apis.keys()) };
-  const routes = fullRoutes(repo).filter((r) => !isCatchAll(r.path));
+  // A test that builds its own app (`app.use("/notes", notes)`) doesn't add routes to the product.
+  const product = new Map([...apis].filter(([file]) => !isTestFile(file)));
+  const routes = fullRoutes({ ...repo, apis: product }).filter((r) => !isCatchAll(r.path));
   const calls = [...[...apis].flatMap(([file, api]) => api.calls.map((c) => ({ ...c, file }))), ...extraCalls]
     .map((call) => {
       const url = callUrl(call, call.file, repo);

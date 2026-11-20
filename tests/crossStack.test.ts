@@ -155,3 +155,12 @@ export const remove = (id) => fetch(\`/api/shared/\${id}\`, { method: "DELETE" }
   assert.deepEqual(wrong?.methods?.sort(), ["GET", "PUT"]);
   assert.equal(takes(wrong!), "The route takes GET and PUT");
 });
+
+test("a test that builds its own app around a router adds no routes", async () => {
+  assert.deepEqual(await crossStack({
+    "src/app.ts": `import notes from "./notes";\nconst app = express();\napp.use("/api/notes", notes);\n`,
+    "src/notes.ts": `const router = Router();\nrouter.get("/", list);\nrouter.delete("/:id", remove);\nexport default router;\n`,
+    "tests/notes.test.ts": `import notes from "../src/notes";\nconst app = express();\napp.use("/notes", notes);\nawait request(app).delete("/notes/1");\n`,
+    "web/api.ts": `fetch("/api/notes");\nfetch(\`/api/notes/\${id}\`, { method: "DELETE" });\n`,
+  }), []);
+});
