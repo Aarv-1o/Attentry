@@ -121,6 +121,14 @@ export function fullRoutes(repo: Repo): FullRoute[] {
       const sameMethod = g.method === "ALL" || g.method === route.method;
       return !!want && !!have && sameMethod && want.segments.length === have.segments.length && want.segments.every((s, i) => s === have.segments[i] || s === "*" || have.segments[i] === "*");
     }).flatMap((g) => g.names);
+  // @fastify/autoload: a route file's folders under the loaded dir are its prefix.
+  const autoloads = [...apis].flatMap(([f, a]) => a.autoloads.map((l) => ({ dir: posix.join(posix.dirname(f), l.dir), prefix: l.prefix })));
+  const autoloaded = (file: string): string | undefined => {
+    const load = autoloads.find((l) => file.startsWith(`${l.dir}/`));
+    if (!load) return undefined;
+    const folder = posix.dirname(posix.relative(load.dir, file));
+    return joinPaths(load.prefix, folder === "." ? "" : folder);
+  };
   const inFolder = (file: string) => folderGuards.filter((g) => file.startsWith(`${g.dir}/`)).map((g) => g.name);
   const mountedAt = new Map<Key, { on: Key; prefix: string; line: number; guards: string[] }[]>();
   // app.use(requireAuth), router.use("/admin", isAdmin): middleware, not routers.
@@ -170,7 +178,8 @@ export function fullRoutes(repo: Repo): FullRoute[] {
   for (const [file, api] of apis) {
     for (const route of api.routes) {
       const key = keyOf(file, route.router);
-      const found = reaches(key) ?? [{ path: HOLE, chain: [{ key, path: HOLE, line: 0, guards: [] }] }];
+      const loaded = autoloaded(file);
+      const found = reaches(key) ?? [{ path: loaded ?? HOLE, chain: [{ key, path: loaded ?? HOLE, line: 0, guards: [] }] }];
       const view = route.handler ? views.get(route.handler) : undefined;
       for (const reach of found) {
         // A prefix with an unknown part (a setting): only what comes after it is known.

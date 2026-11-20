@@ -124,6 +124,8 @@ function loopMounts(prefixNode: Node, targetNode: Node): { prefix: string; targe
   });
 }
 
+const AUTOLOAD = /^(fastify)?[Aa]uto[Ll]oad$/;
+
 // Mounting a router: use() (Express, Koa), route() with a path and a sub-app (Hono), or
 // register() with a prefix option (Fastify).
 export function mountOf(on: string, prop: string, call: Node, api: FileApi): boolean {
@@ -152,6 +154,13 @@ export function mountOf(on: string, prop: string, call: Node, api: FileApi): boo
   if (prop === "route" && all.length === 2 && all[0]?.type === "string") {
     const target = mountTarget(all[1]!);
     if (target) api.mounts.push({ prefix: unquote(all[0]), on, target, line, guards: [] });
+    return true;
+  }
+  if (prop === "register" && all[0] && AUTOLOAD.test(all[0].text)) {
+    // dir: path.join(import.meta.dirname, "routes") -> "routes"
+    const dir = objectProp(all[1], "dir");
+    const parts = dir?.type === "call_expression" ? args(dir).filter((a) => a.type === "string").map(unquote) : [];
+    if (parts.length) api.autoloads.push({ dir: parts.join("/"), prefix: stringProp(objectProp(all[1], "options"), "prefix") ?? "" });
     return true;
   }
   if (prop === "register" && all[0]) {

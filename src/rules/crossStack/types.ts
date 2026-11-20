@@ -56,6 +56,9 @@ export interface FileApi {
   pathGuards: { path: string; method: string; names: string[] }[];
   folderGuards: string[];
   autohooks?: boolean; // an @fastify/autoload autohooks file
+  // @fastify/autoload of a routes folder (relative to this file): each folder under it is a
+  // prefix, so routes/api/tasks/index.ts serves /api/tasks.
+  autoloads: { dir: string; prefix: string }[];
   clients: Map<string, string>; // HTTP client instances and their base URL: { api: "http://localhost:8000" }
   // Dev-server proxies (Vite): calls under `prefix` reach the backend with it replaced by `to`.
   proxies: { prefix: string; to: string }[];
@@ -65,4 +68,4 @@ export interface FileApi {
   mentions: string[];
 }
 
-export const emptyApi = (): FileApi => ({ routes: [], mounts: [], routers: new Map(), clients: new Map(), proxies: [], calls: [], mentions: [], globalGuards: [], views: new Map(), pathGuards: [], folderGuards: [] });
+export const emptyApi = (): FileApi => ({ routes: [], mounts: [], routers: new Map(), clients: new Map(), proxies: [], calls: [], mentions: [], globalGuards: [], views: new Map(), pathGuards: [], folderGuards: [], autoloads: [] });

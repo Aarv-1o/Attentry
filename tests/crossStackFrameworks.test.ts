@@ -122,3 +122,18 @@ def logout(): ...
     "web/app.js": `fetch("/auth/login", { method: "POST" });\nfetch("/auth/signout");\n`,
   }), ["missing-route GET /auth/signout web/app.js:2", "routes 2", "unused GET /auth/logout"]);
 });
+
+test("Fastify: @fastify/autoload makes each folder under routes/ a prefix", async () => {
+  assert.deepEqual(await crossStack({
+    "src/app.ts": `import fastifyAutoload from "@fastify/autoload";
+export default async function app(fastify, opts) {
+  fastify.register(fastifyAutoload, { dir: path.join(import.meta.dirname, "routes"), autoHooks: true, options: { ...opts } });
+  fastify.register(fastifyAutoload, { dir: path.join(import.meta.dirname, "admin"), options: { prefix: "/admin" } });
+}
+`,
+    "src/routes/home.ts": `export default async function (fastify) {\n  fastify.get("/", home);\n}\n`,
+    "src/routes/api/tasks/index.ts": `export default async function (fastify) {\n  fastify.get("/:id", show);\n  fastify.post("/:id/assign", assign);\n}\n`,
+    "src/admin/stats.ts": `export default async function (fastify) {\n  fastify.get("/stats", stats);\n}\n`,
+    "web/api.ts": `fetch(\`/api/tasks/\${id}\`);\nfetch("/admin/stats");\nfetch("/api/task/1");\n`,
+  }), ["missing-route GET /api/task/1 web/api.ts:3", "routes 4", "unused POST /api/tasks/:id/assign"]);
+});
