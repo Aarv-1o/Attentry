@@ -242,3 +242,24 @@ await app.injectWithLogin("basic@example.com", { method: "GET" });
     "GET /tasks untested",
   ]);
 });
+
+test("a test that builds its own app around a router counts for the real routes", async () => {
+  assert.deepEqual(await coverage({
+    "src/app.ts": `import notes from "./notes";\nconst app = express();\napp.use("/api/notes", notes);\napp.use("/v2/notes", notes);\n`,
+    "src/notes.ts": `const router = Router();\nrouter.get("/", list);\nrouter.delete("/:id", remove);\nexport default router;\n`,
+    "tests/notes.test.ts": `import notes from "../src/notes";
+const app = express();
+app.use("/notes", notes);
+await request(app).delete("/notes/1");
+const bare = express();
+bare.use(notes);
+await request(bare).get("/");
+`,
+    "tests/v2.test.ts": `import { app } from "../src/app";\nawait request(app).get("/v2/notes");\n`,
+  }), [
+    "DELETE /api/notes/:id <- tests/notes.test.ts:4",
+    "DELETE /v2/notes/:id <- tests/notes.test.ts:4",
+    "GET /api/notes <- tests/notes.test.ts:7",
+    "GET /v2/notes <- tests/notes.test.ts:7, tests/v2.test.ts:2",
+  ]);
+});

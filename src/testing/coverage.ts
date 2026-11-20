@@ -56,14 +56,28 @@ function importedHandlers(repo: Repo, file: string, routes: FullRoute[]) {
 export function routeCoverage(index: RepoIndex): TestedRoute[] {
   const apis = new Map<string, FileApi>([...index.scans].map(([file, s]) => [file, s.api]));
   const repo: Repo = { apis, imports: new Map([...index.usage].map(([file, u]) => [file, u.imports])), files: new Set(apis.keys()) };
-  const routes = fullRoutes(repo).filter((r) => !isCatchAll(r.path));
-  const reached = new Map<FullRoute, { file: string; line: number }[]>(routes.map((r) => [r, []]));
+  const product = fullRoutes({ ...repo, apis: new Map([...apis].filter(([file]) => !isTestFile(file))) }).filter((r) => !isCatchAll(r.path));
+  // A test may build its own app around a router: `app.use("/notes", notes)` in the test file.
+  // Paths through those apps are matched too, and count for the real route they stand for.
+  const keyOf = (r: FullRoute) => `${r.file}:${r.line}:${r.method}`;
+  const real = new Map<string, FullRoute[]>();
+  for (const r of product) real.set(keyOf(r), [...(real.get(keyOf(r)) ?? []), r]);
+  // The same route mounted twice is two real routes: a real path counts for its own, a path
+  // through a test's app for both.
+  const standsFor = (hit: FullRoute) => {
+    const all = real.get(keyOf(hit))!;
+    const same = all.filter((r) => r.path.text === hit.path.text);
+    return same.length ? same : all;
+  };
+  const paths = fullRoutes(repo).filter((r) => real.has(keyOf(r)));
+  const reached = new Map<FullRoute, { file: string; line: number }[]>(product.map((r) => [r, []]));
   for (const [file, scan] of index.scans) {
     if (!isTestFile(file)) continue;
     for (const call of scan.testCalls) {
-      for (const route of routesReached(call, file, routes, repo)) reached.get(route)!.push({ file, line: call.line });
+      const hits = new Set(routesReached(call, file, paths, repo).flatMap(standsFor));
+      for (const route of hits) reached.get(route)!.push({ file, line: call.line });
     }
-    for (const { route, at } of importedHandlers(repo, file, routes)) reached.get(route)!.push(at);
+    for (const { route, at } of importedHandlers(repo, file, product)) reached.get(route)!.push(at);
   }
   return [...reached].map(([route, tests]) => ({ route, tests }));
 }
