@@ -13,7 +13,8 @@ const MAX_NOTES = 8;
 const BIG_PLAN = 12; // files: past this, a plan is better done and checked in steps
 // `formatDate` or `formatDate(value)`.
 const NAME = /`([A-Za-z_$][\w$]*)(?:\([^`]*\))?`/g;
-const FILE = /(?<![\w/.-])((?:[\w.-]+\/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/])/g;
+// Not after a colon: localhost:3000/history.html is a URL, not the file 3000/history.html.
+const FILE = /(?<![\w/.:-])((?:[\w.-]+\/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/])/g;
 const ROUTE = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`'",)]*)/g;
 
 // Two words or more: `id` or `data` could be anything.

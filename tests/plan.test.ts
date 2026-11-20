@@ -130,3 +130,9 @@ test("plan check: a route at the end of a sentence is the route, not the route a
   const scan = await scanRepo(await makeRepo(REPO));
   assert.deepEqual(reviewPlan("Add GET /api/users/:id.", scan, []), ["GET /api/users/:id already exists (server.js:3): extend it rather than adding another."]);
 });
+
+test("plan check: a URL in the plan isn't a file it changes", async () => {
+  const scan = await scanRepo(await makeRepo(REPO));
+  const hot = { ...hotspot, file: "3000/history.html" };
+  assert.deepEqual(reviewPlan("Open http://localhost:3000/history.html to check it.", scan, [hot]), []);
+});
