@@ -153,3 +153,65 @@ def test_create():
     "ALL /api/notes/<int:pk> <- notes/tests.py:3",
   ]);
 });
+
+test("an unknown prefix on both sides: a real word in common, and same length first", async () => {
+  assert.deepEqual(await coverage({
+    "app/api/routes/items.py": `router = APIRouter(prefix="/items")
+
+@router.get("/{id}")
+def read_item(id): ...
+`,
+    "app/api/routes/users.py": `router = APIRouter(prefix="/users")
+
+@router.post("/")
+def create_user(): ...
+`,
+    "app/api/routes/private.py": `router = APIRouter(prefix="/private")
+
+@router.post("/users/")
+def create_private_user(): ...
+`,
+    "app/main.py": `from app.api.routes import items, users, private
+app = FastAPI()
+app.include_router(items.router, prefix=settings.API_V1_STR)
+app.include_router(users.router, prefix=settings.API_V1_STR)
+app.include_router(private.router, prefix=settings.API_V1_STR)
+`,
+    "tests/test_api.py": `def test_items(client):
+    client.get(f"{settings.API_V1_STR}/stats/")
+    client.post(f"{settings.API_V1_STR}/users/")
+    client.post(f"{settings.API_V1_STR}/private/users/")
+`,
+  }), [
+    "GET …/items/{id} untested",
+    "POST …/private/users <- tests/test_api.py:4",
+    "POST …/users <- tests/test_api.py:3",
+  ]);
+});
+
+test("the most specific route wins: /users/me isn't also /users/:id", async () => {
+  assert.deepEqual(await coverage({
+    "src/app.ts": `const app = express();\napp.get("/users/me", me);\napp.get("/users/:id", show);\n`,
+    "src/app.test.ts": `import { app } from "./app";\nawait request(app).get("/users/me");\n`,
+  }), [
+    "GET /users/:id untested",
+    "GET /users/me <- src/app.test.ts:2",
+  ]);
+});
+
+test("a sub-app tested on its own reaches its routes under the prefix it's mounted at", async () => {
+  assert.deepEqual(await coverage({
+    "src/index.ts": `import api from "./api";\nconst app = new Hono();\napp.route("/api", api);\napp.get("/", home);\n`,
+    "src/api.ts": `const api = new Hono();\napi.get("/posts", list);\napi.delete("/posts/:id", remove);\nexport default api;\n`,
+    "src/api.test.ts": `import worker from "./api";
+await worker.request("/posts", {}, env);
+// A local app isn't the imported one: its paths stay as written.
+const other = new Hono();
+await other.request("/posts/1", { method: "DELETE" });
+`,
+  }), [
+    "DELETE /api/posts/:id untested",
+    "GET / untested",
+    "GET /api/posts <- src/api.test.ts:2",
+  ]);
+});

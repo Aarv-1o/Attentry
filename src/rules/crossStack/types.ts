@@ -33,6 +33,9 @@ export interface ApiCall {
   // Called on an object (`api.get("/users")`): its base URL, if it's a client, is added later.
   // `client`: named like one, so it's a call even if Attentry can't find where it was made.
   via?: { name: string; client: boolean };
+  // A test's request: the app or router variable it was sent to. A test may send to one router
+  // on its own, without the prefix it's mounted under.
+  app?: string;
 }
 
 export interface FileApi {

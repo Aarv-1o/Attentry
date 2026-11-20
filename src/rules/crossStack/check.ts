@@ -69,7 +69,7 @@ export function routesFor(path: ApiPath, routes: FullRoute[]): FullRoute[] {
 
 // Does the match rest on a real word in the path? `…/uppercase` "reaching" `/post/:id` only
 // because `:id` takes anything says nothing.
-const hasWordInCommon = (call: ApiPath, route: ApiPath) =>
+export const hasWordInCommon = (call: ApiPath, route: ApiPath) =>
   call.segments.some((s, i) => s !== "*" && route.segments[route.segments.length - call.segments.length + i] === s);
 
 function checkCall(call: ApiCall & { file: string }, hits: FullRoute[], path: ApiPath, routes: FullRoute[]): MissingRoute | undefined {
