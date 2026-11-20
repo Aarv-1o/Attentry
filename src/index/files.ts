@@ -89,9 +89,14 @@ const AGENT_TOOLING = /(^|\/)\.(agents|claude|cursor|codex|gemini|windsurf|cline
 // Test fixtures: sample code for tests, often wrong on purpose.
 const TEST_FIXTURES = /(^|\/)(tests?|__tests__|spec)\/(.+\/)?(fixtures|__fixtures__)\/|(^|\/)__fixtures__\//;
 
+// Installed packages: skipped even in git, where .gitignore usually hides them. A new project is
+// often `git init` and `npm install` before it has a .gitignore, and scanning express's code
+// there buried the project's own findings under a thousand that aren't its.
+const INSTALLED = /(^|\/)(node_modules|\.venv|venv|site-packages|__pycache__)\//;
+
 // Every file in the repo (respecting .gitignore), as sorted repo-relative paths with "/" separators.
 export async function listRepoFiles(root: string): Promise<string[]> {
-  return ((await gitFiles(root)) ?? (await walkProject(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f)).sort();
+  return ((await gitFiles(root)) ?? (await walkProject(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f) && !INSTALLED.test(f)).sort();
 }
 
 // An editor or agent opened on the home folder or a whole drive: walking it would read everything

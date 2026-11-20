@@ -40,6 +40,12 @@ test("inside git: follows .gitignore, including untracked files", async () => {
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 
+test("inside git with no .gitignore yet: installed packages are still skipped", async () => {
+  const root = await makeRepo({ ...FILES, ".venv/lib/site.py": "" });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  assert.deepEqual(await sourceFiles(root), ["dist/bundle.js", "server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
+});
+
 test("inside git: a folder link back up the repo isn't followed (each file once)", async () => {
   const root = await makeRepo({ ...FILES, ".gitignore": "dist/\nnode_modules/\n" });
   execFileSync("git", ["init", "-q"], { cwd: root });
