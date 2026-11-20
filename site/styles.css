@@ -111,6 +111,7 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .top .nav .btn-primary { transition: background 0.2s, box-shadow 0.2s; }
 .top .nav .btn-primary:hover { box-shadow: 0 0 16px rgba(31, 200, 164, 0.45); }
 .nav .btn { min-height: 36px; padding-inline: var(--space-4); }
+.top .nav .phone-only { display: none; }
 .top .nav .btn + .btn { margin-left: calc(var(--space-2) - var(--space-5)); }
 /* An icon, not a word: no underline under it, just the colour change. */
 .top .nav .icon-link { display: inline-flex; padding: var(--space-2); }
@@ -390,7 +391,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 }
 @media (max-width: 640px) {
   /* Phones keep the logo and one button; Cursor, Windsurf and Antigravity are under the hero's buttons. */
-  .top .nav a:not(.btn), .top .nav .store-alt { display: none; }
+  .top .nav a:not(.btn), .top .nav .store-alt, .top .nav .not-phone { display: none; }
+  .top .nav .phone-only { display: inline-flex; }
   .answer-grid, .stats { grid-template-columns: minmax(0, 1fr); }
   .chat-log { padding: var(--space-4); }
   .chat-tags { display: none; }

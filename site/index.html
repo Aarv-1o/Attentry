@@ -39,7 +39,9 @@
       <!-- Named by editor, not by store: people know which editor they use, not which store it reads. -->
       <a class="btn btn-quiet store-alt" href="https://open-vsx.org/extension/attentry/attentry">Cursor · Windsurf</a>
       <a class="btn btn-quiet store-alt" href="antigravity-ide:extension/attentry.attentry">Antigravity</a>
-      <a class="btn btn-primary" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get for VS Code</a>
+      <!-- Opens VS Code itself; phones have no VS Code, so they get the Marketplace page instead. -->
+      <a class="btn btn-primary not-phone" href="vscode:extension/attentry.attentry">Get for VS Code</a>
+      <a class="btn btn-primary phone-only" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get for VS Code</a>
     </nav>
   </div>
 </header>
