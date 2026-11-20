@@ -64,7 +64,10 @@ function runOne({ cwd, command, label }: TestCommand, timeoutMs: number): Promis
   const started = Date.now();
   return new Promise((done) => {
     // A shell, since the command is a line like `npm test`. CI=1: test runners don't wait in watch mode.
-    const child = spawn(command, { cwd, shell: true, env: { ...process.env, CI: "1", FORCE_COLOR: "0" }, windowsHide: true });
+    // Without NODE_TEST_CONTEXT: inherited from a node --test run, it makes the project's own
+    // node --test report to that run and exit 0, even when its tests fail.
+    const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+    const child = spawn(command, { cwd, shell: true, env: { ...env, CI: "1", FORCE_COLOR: "0" }, windowsHide: true });
     let output = "";
     let timedOut = false;
     const keep = (chunk: Buffer) => (output = (output + chunk.toString()).slice(-20_000));

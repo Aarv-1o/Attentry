@@ -214,3 +214,12 @@ test("auth set up in Next.js middleware: a route with no check of its own is 'wo
   assert.match(card, /Problems: none added/);
   assert.match(card, /To check: 1 route with no auth check of its own/);
 });
+
+test("a project's failing node --test is a failure, also when Attentry runs inside a test run", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ scripts: { test: "node --test \"tests/*.test.js\"" } }),
+    "tests/a.test.js": `require("node:test")("a", () => { throw new Error("no"); });\n`,
+  });
+  assert.ok(process.env.NODE_TEST_CONTEXT, "this test itself runs under node --test");
+  assert.equal((await runTests(await findTests(root, undefined), 60_000)).state, "failed");
+});
