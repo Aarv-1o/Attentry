@@ -6,7 +6,8 @@ import { extractUsage, type FileUsage } from "./usage.ts";
 import { supportFor } from "../languages/index.ts";
 import { parseFile } from "../parse/parse.ts";
 import { indentComplexity, stringRows, type FileSize } from "../rules/codebase/hotspots.ts";
-import type { FileApi } from "../rules/crossStack/types.ts";
+import type { ApiCall, FileApi } from "../rules/crossStack/types.ts";
+import { isTestFile } from "./files.ts";
 import { runLineRules, type LineFinding } from "../rules/line/index.ts";
 
 // What Attentry learns from one file on its own: 95% of a scan's time. Kept in memory between
@@ -20,6 +21,7 @@ export interface FileScan {
   syntaxError: boolean;
   lines: LineFinding[];
   api: FileApi;
+  testCalls: ApiCall[]; // a test file's requests to the app; empty for other files
   size: FileSize;
   facts: FunctionFacts[];
 }
@@ -38,6 +40,7 @@ async function scanFile(path: string, file: string, stamp: string): Promise<File
       syntaxError: parsed.tree.rootNode.hasError,
       lines: await runLineRules(parsed, file, usage.imports.map((i) => i.source)),
       api: supportFor(parsed.language).extractApi(parsed.tree.rootNode, file),
+      testCalls: isTestFile(file) ? (supportFor(parsed.language).extractTestCalls?.(parsed.tree.rootNode) ?? []) : [],
       // The file as written: an Astro template's nesting is complexity too.
       size: indentComplexity(parsed.original ?? parsed.source, stringRows(parsed.tree.rootNode)),
       facts: functionFacts(parsed, file),

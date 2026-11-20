@@ -42,9 +42,12 @@ Each step is one small commit (AGENTS.md: about 200 lines, one idea).
 1. **Route coverage** (`src/testing/coverage.ts`): which routes a test file calls. Same matching
    as frontend calls to routes (`src/rules/crossStack`: `fullRoutes`, `callUrl`), applied to
    test-client calls: `request(app).delete("/api/notes/1")`, `client.get("/items/3")`,
-   `self.client.post(...)`. Output: each route → the tests that call it. Fixtures for Express +
-   supertest, FastAPI + TestClient, Django test client, each with routes covered and not
-   covered, and false alarms that must not count (a URL in a comment, a mocked fetch).
+   `self.client.post(...)`, Fastify `app.inject`, Hono `app.request`; Next.js tests reach a
+   route by importing its handler. Output: each route → the tests that call it. Tests in
+   `tests/testCoverage.test.ts`, inline repos like the cross-stack tests: routes covered and
+   not, and false alarms that must not count (a URL in a comment, a mocked fetch, a script
+   that isn't a test). Not yet: Django `reverse("name")` URLs, and tests that mount one router
+   on a bare app (the path then lacks the real prefix).
 2. **Tests for one file** (`src/testing/select.ts`): the test files that import a source file,
    directly or through other files (the index already has imports), and the command line for
    each runner to run just those (`vitest run a b`, `jest a b`, `pytest a b`).
@@ -78,8 +81,7 @@ Each step is one small commit (AGENTS.md: about 200 lines, one idea).
 ## How we'll know it works
 
 - Unit tests per step (`tests/testCoverage.test.ts`, `tests/testSelect.test.ts`,
-  `tests/testSuggest.test.ts`, `tests/testSteps.test.ts`) against the fixtures in
-  `tests/fixtures/testing/`.
+  `tests/testSuggest.test.ts`, `tests/testSteps.test.ts`), with inline repos (`makeRepo`).
 - A real run on `attentry-demo`: plan "add DELETE /api/notes/:id", check the plan message names
   the 3–4 tests, Claude writes them, the panel shows the route as covered, the card counts them.
 - The noise check: on 3 real repos, how many suggestions would a developer act on? Under 10%
@@ -88,5 +90,3 @@ Each step is one small commit (AGENTS.md: about 200 lines, one idea).
 ## Folders created on this branch
 
 - `src/testing/`: the new module (steps 1–4).
-- `tests/fixtures/testing/express-supertest/`, `fastapi-testclient/`, `django-client/`: fixture
-  projects for route coverage.
