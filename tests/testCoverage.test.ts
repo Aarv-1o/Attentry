@@ -215,3 +215,18 @@ await other.request("/posts/1", { method: "DELETE" });
     "GET /api/posts <- src/api.test.ts:2",
   ]);
 });
+
+test("a let set again later isn't its first value; a var never set again still is", async () => {
+  assert.deepEqual(await coverage({
+    "src/app.ts": `const app = express();\napp.get("/posts", list);\napp.delete("/posts/:id", remove);\n`,
+    "src/app.test.ts": `import { app } from "./app";
+var BASE = "/posts";
+let newPostId = "";
+test("create", async () => { newPostId = (await request(app).get(BASE)).body.id; });
+test("delete", async () => { await request(app).delete(\`/posts/\${newPostId}\`); });
+`,
+  }), [
+    "DELETE /posts/:id <- src/app.test.ts:5",
+    "GET /posts <- src/app.test.ts:4",
+  ]);
+});
