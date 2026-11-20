@@ -99,3 +99,26 @@ module.exports = router;
     "web/api.js": `fetch("/v1/auth/login", { method: "POST" });\nfetch(\`/v1/users/\${id}\`);\nfetch("/v1/admin/stats");\nfetch("/v1/user/1");\n`,
   }), ["missing-route GET /v1/user/1 web/api.js:4", "routes 4", "unused DELETE /v1/users/:userId"]);
 });
+
+test("Flask: blueprints imported with `from . import auth` inside an app factory", async () => {
+  assert.deepEqual(await crossStack({
+    "flaskr/__init__.py": `from flask import Flask
+
+def create_app():
+    app = Flask(__name__)
+    from . import auth
+    app.register_blueprint(auth.bp)
+    return app
+`,
+    "flaskr/auth.py": `from flask import Blueprint
+bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+@bp.route("/login", methods=["POST"])
+def login(): ...
+
+@bp.route("/logout")
+def logout(): ...
+`,
+    "web/app.js": `fetch("/auth/login", { method: "POST" });\nfetch("/auth/signout");\n`,
+  }), ["missing-route GET /auth/signout web/app.js:2", "routes 2", "unused GET /auth/logout"]);
+});

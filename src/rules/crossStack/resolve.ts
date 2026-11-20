@@ -71,7 +71,8 @@ export function definedIn(file: string, target: string, { imports, files }: Repo
     const bound = from.bound[local!]!;
     if (attribute) {
       // chat.router, after `from app.api import chat` or `import app.api.chat as chat`
-      source = bound === "*" ? from.source : `${from.source}.${bound}`;
+      // `from . import auth`: the module is ".auth", not "..auth".
+      source = bound === "*" ? from.source : from.source.endsWith(".") ? from.source + bound : `${from.source}.${bound}`;
       name = attribute;
     } else [source, name] = [from.source, bound];
   }
