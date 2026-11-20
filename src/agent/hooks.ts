@@ -160,11 +160,17 @@ export function contentAfter(edit: FileEdit, before: string): string | undefined
   return changes.length ? text : undefined;
 }
 
-// Before Claude starts on a plan: what the repo already has that it should know. Never a block.
-export const planMessage = (notes: string[]) => ["Attentry read the plan. Before you start:", ...notes.map((n) => `- ${n}`)].join("\n");
-export function beforePlan(notes: string[], event: "PreToolUse" | "PostToolUse" = "PreToolUse"): HookReply {
-  if (!notes.length) return SILENT;
-  return json({ hookSpecificOutput: { hookEventName: event, additionalContext: planMessage(notes) } });
+// Before Claude starts on a plan: what the repo already has that it should know, and the tests
+// the plan needs (src/testing/suggest.ts). Never a block.
+export interface PlanReview { notes: string[]; tests: string[] }
+export function planMessage({ notes, tests }: PlanReview): string {
+  const lines = [notes.length ? "Attentry read the plan. Before you start:" : "Attentry read the plan.", ...notes.map((n) => `- ${n}`)];
+  if (tests.length) lines.push("Tests this plan needs (write them with the code they test):", ...tests.map((t) => `- ${t}`));
+  return lines.join("\n");
+}
+export function beforePlan(review: PlanReview, event: "PreToolUse" | "PostToolUse" = "PreToolUse"): HookReply {
+  if (!review.notes.length && !review.tests.length) return SILENT;
+  return json({ hookSpecificOutput: { hookEventName: event, additionalContext: planMessage(review) } });
 }
 
 // Claude Code keeps plans as Markdown in ~/.claude/plans. A plan written there is checked as it's

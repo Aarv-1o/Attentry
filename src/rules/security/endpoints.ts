@@ -12,14 +12,14 @@ import { nextMiddlewareCoverage } from "./nextMiddleware.ts";
 // procedures, GraphQL resolvers, server actions: see doors.ts), named by their label.
 
 // Middleware, dependencies and decorators that authenticate.
-const AUTH_GUARD = /auth|protect|require_?(login|user|session|admin)|ensure_?(auth|logged|login)|logged_?in|is_?authenticated|verify_?(token|jwt|user|session)|jwt|passport|login_required|current_\w*user|currentuser|superuser|permission|guard|session|clerk|bearer/i;
+export const AUTH_GUARD = /auth|protect|require_?(login|user|session|admin)|ensure_?(auth|logged|login)|logged_?in|is_?authenticated|verify_?(token|jwt|user|session)|jwt|passport|login_required|current_\w*user|currentuser|superuser|permission|guard|session|clerk|bearer/i;
 // Checks written inside the handler.
-const AUTH_INLINE = /jwt\.verify|verify_?token|verifyIdToken|getServerSession|getSession\(|\bauth\(\)|currentUser\(|getToken\(|headers\.authorization|headers\[["']authorization|supabase\.auth\.getUser|request\.user\b|req\.user\b|ctx\.state\.user|get_current_user|current_user|ctx\.(session|user|auth)\b|context\.(session|user|auth)\b|socket\.(data\.)?user\b|\b(require|ensure|assert)_?(auth|user|session|login|admin)\w*\(|getCurrentUser\(|validateRequest\(/i;
-const ADMIN = /admin|role|staff|superuser|Roles\(/i;
+export const AUTH_INLINE = /jwt\.verify|verify_?token|verifyIdToken|getServerSession|getSession\(|\bauth\(\)|currentUser\(|getToken\(|headers\.authorization|headers\[["']authorization|supabase\.auth\.getUser|request\.user\b|req\.user\b|ctx\.state\.user|get_current_user|current_user|ctx\.(session|user|auth)\b|context\.(session|user|auth)\b|socket\.(data\.)?user\b|\b(require|ensure|assert)_?(auth|user|session|login|admin)\w*\(|getCurrentUser\(|validateRequest\(/i;
+export const ADMIN = /admin|role|staff|superuser|Roles\(/i;
 // Explicitly public: a decision, not an oversight.
-const PUBLIC_MARK = /AllowAny|@?Public\(|permitAll|allow_?anonymous|skip_?auth/i;
+export const PUBLIC_MARK = /AllowAny|@?Public\(|permitAll|allow_?anonymous|skip_?auth/i;
 // Routes meant to be called without logging in.
-const PUBLIC_PATH = /\/(login|log-in|signin|sign-in|signup|sign-up|register|logout|forgot|reset|verify|confirm|callback|oauth|webhooks?|health|healthz|status|ping|public|contact|subscribe|newsletter|waitlist|track|docs|openapi|robots|sitemap|feed|rss|tick|cron|token|refresh|google|github|magic-link|otp)(\/|$)/i;
+export const PUBLIC_PATH = /\/(login|log-in|signin|sign-in|signup|sign-up|register|logout|forgot|reset|verify|confirm|callback|oauth|webhooks?|health|healthz|status|ping|public|contact|subscribe|newsletter|waitlist|track|docs|openapi|robots|sitemap|feed|rss|tick|cron|token|refresh|google|github|magic-link|otp)(\/|$)/i;
 // Reads that are private data when they're open.
 const PRIVATE_READ = /\/(users?|admin|orders?|payments?|invoices?|messages?|export|accounts?|customers?|me|profile|settings|keys|tokens|secrets|billing|transactions?)(\/|$)/i;
 const LOGIN_PATH = /\/(login|log-in|signin|sign-in|signup|sign-up|register|forgot|reset|otp|verify|magic-link|password)(\/|$|-)/i;
@@ -53,7 +53,7 @@ export interface EndpointInput {
 }
 
 // The code that handles a route: inline, or the named function (controller) it points at.
-function handlerCode(route: FullRoute, functions: FunctionInfo[], texts: Map<string, string>): string {
+export function handlerCode(route: FullRoute, functions: FunctionInfo[], texts: Map<string, string>): string {
   if (route.body) return route.body;
   const name = route.handler?.split(".").at(-1);
   if (!name) return "";

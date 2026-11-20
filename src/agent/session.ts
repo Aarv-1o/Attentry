@@ -9,8 +9,11 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
+import { readTexts } from "../index/texts.ts";
+import { routeCoverage } from "../testing/coverage.ts";
+import { suggestTests } from "../testing/suggest.ts";
 import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions, type ExistingMatch } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
@@ -209,14 +212,17 @@ export class Sessions {
   private async planCheck(session: string, plan: string | undefined, event: "PreToolUse" | "PostToolUse"): Promise<HookReply> {
     if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
     const { told } = await this.taskOf(session);
-    const notes = (await this.reviewPlan(plan)).filter((note) => !told.has(`plan:${note}`));
-    for (const note of notes) told.add(`plan:${note}`);
-    return beforePlan(notes, event);
+    const review = await this.reviewPlan(plan);
+    const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));
+    const unheard = { notes: fresh(review.notes), tests: fresh(review.tests) };
+    for (const line of [...unheard.notes, ...unheard.tests]) told.add(`plan:${line}`);
+    return beforePlan(unheard, event);
   }
 
-  private async reviewPlan(plan: string): Promise<string[]> {
+  private async reviewPlan(plan: string): Promise<PlanReview> {
     const scan = await scanRepo(this.root, this.cache);
-    return reviewPlan(plan, scan, await collectFindings(scan));
+    const texts = await readTexts(this.root, scan.index.files);
+    return { notes: reviewPlan(plan, scan, await collectFindings(scan)), tests: suggestTests(plan, scan, routeCoverage(scan.index), texts) };
   }
 
   // A request from the person: the related code Claude hasn't heard about yet this session, so it

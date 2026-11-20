@@ -23,21 +23,25 @@ const twoWords = (name: string) => nameWords(name).includes(" ");
 const ADDS = /\b(add|adds|adding|new|create|creates|creating|implement|introduce)\b/i;
 const KNOWN = /\balready\b|\bexist(s|ing)?\b/i;
 
-// Each route the plan names, once: whether a line naming it adds it, and whether it knows it's there.
-function plannedRoutes(plan: string) {
+// Each route the plan names, once: whether a line naming it adds it, whether it knows it's there,
+// and the lines that name it (what the plan says about it: "for admins").
+export function namedRoutes(plan: string) {
   const lines = plan.split("\n");
-  const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean }>();
+  const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean; said: string }>();
   lines.forEach((line, i) => {
     for (const [, method, written] of line.matchAll(ROUTE)) {
       const raw = written!.replace(/[.;:!?]+$/, ""); // "Add DELETE /api/notes/:id." ends a sentence
-      const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false };
+      const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false, said: "" };
+      seen.said += `${line}\n`;
       seen.adds ||= ADDS.test(line);
       seen.known ||= KNOWN.test(lines.slice(Math.max(0, i - 1), i + 2).join("\n"));
       routes.set(`${method} ${raw}`, seen);
     }
   });
-  return [...routes.values()].filter((r) => r.adds && !r.known);
+  return [...routes.values()];
 }
+
+const plannedRoutes = (plan: string) => namedRoutes(plan).filter((r) => r.adds && !r.known);
 
 export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]): string[] {
   const { index } = scan;

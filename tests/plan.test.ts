@@ -106,6 +106,26 @@ test("plan check: the hook tells Claude before it starts, and says nothing for a
   assert.equal(await hook("Rename the README title."), undefined);
 });
 
+test("plan check: the tests a plan needs come after the notes, and aren't said twice", async () => {
+  const sessions = new Sessions(await makeRepo({
+    "package.json": JSON.stringify({ dependencies: { express: "4" } }),
+    "server.js": `const express = require("express");\nconst app = express();\napp.get("/api/notes", requireAuth, list);\napp.listen(3000);\n`,
+  }));
+  const hook = async () => {
+    const reply = await sessions.handle({ hook_event_name: "PreToolUse", session_id: "s1", tool_name: "ExitPlanMode", tool_input: { plan: "Add DELETE /api/notes/:id." } });
+    return reply.stdout ? JSON.parse(reply.stdout).hookSpecificOutput.additionalContext : undefined;
+  };
+  assert.equal(await hook(), [
+    "Attentry read the plan.",
+    "Tests this plan needs (write them with the code they test):",
+    "- `DELETE /api/notes/:id`: no login → 401.",
+    "- `DELETE /api/notes/:id`: if only the owner may do this, another user's id → 403 or 404.",
+    "- `DELETE /api/notes/:id`: the normal case works (status and the data it returns).",
+    "- No route tests next to these yet: write them with supertest (`request(app)`), so they run without starting the server.",
+  ].join("\n"));
+  assert.equal(await hook(), undefined, "already heard");
+});
+
 test("plan check: a route at the end of a sentence is the route, not the route and its full stop", async () => {
   const scan = await scanRepo(await makeRepo(REPO));
   assert.deepEqual(reviewPlan("Add GET /api/users/:id.", scan, []), ["GET /api/users/:id already exists (server.js:3): extend it rather than adding another."]);
