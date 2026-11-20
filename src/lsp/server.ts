@@ -3,7 +3,7 @@ import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
-import { loadConfig, writeMode } from "../agent/config.ts";
+import { loadConfig, writeConfig } from "../agent/config.ts";
 import { checkSetup } from "../agent/doctor.ts";
 import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
@@ -189,7 +189,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.chooseProject"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.setTestSuggestions", "attentry.server.chooseProject"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -271,7 +271,8 @@ export function startServer(connection: Connection): void {
       if (await pickRoot()) await switched();
       return;
     }
-    if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
+    if (command === "attentry.server.setMode") return void (await writeConfig(root, { mode: args?.[0] === "block" ? "block" : "suggest" }));
+    if (command === "attentry.server.setTestSuggestions") return void (await writeConfig(root, { testSuggestions: args?.[0] !== false }));
     return undefined;
   });
 

@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "node:test";
+import { writeConfig } from "../src/agent/config.ts";
+import { Sessions } from "../src/agent/session.ts";
 import { readTexts } from "../src/index/texts.ts";
 import { scanRepo } from "../src/scan/scan.ts";
 import { routeCoverage } from "../src/testing/coverage.ts";
@@ -105,4 +109,14 @@ test("a plan that says the route is for admins gets the admin test; tests go nex
     "Put the `DELETE /api/notes/:id` tests in tests/notes.test.js, next to the tests of the routes beside it.",
     "Put the `POST /api/auth/logout` tests in tests/auth.test.js, next to the tests of the routes beside it.",
   ]);
+});
+
+test("the switch: testSuggestions off in .attentry/config.json means no tests in the plan message", async () => {
+  const root = await makeRepo({ ...APP, ".attentry/config.json": JSON.stringify({ checkInEvery: 5 }) });
+  const sessions = new Sessions(root);
+  const plan = async () => (await sessions.tool("check_plan", { plan: "Add DELETE /api/notes/:id.\n" })).text;
+  assert.match(await plan(), /Tests this plan needs/);
+  await writeConfig(root, { testSuggestions: false });
+  assert.equal(await plan(), "Nothing in the plan clashes with what the repo has: go ahead.");
+  assert.deepEqual(JSON.parse(await readFile(join(root, ".attentry/config.json"), "utf8")), { checkInEvery: 5, testSuggestions: false }, "the rest kept");
 });

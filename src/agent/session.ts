@@ -225,7 +225,10 @@ export class Sessions {
 
   private async reviewPlan(plan: string): Promise<PlanReview & { steps: PlanStep[]; planned: PlannedRoute[] }> {
     const scan = await scanRepo(this.root, this.cache);
-    const suggested = suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(this.root, scan.index.files));
+    // Switched off in the panel or .attentry/config.json: no tests in the plan message or on the card.
+    const suggested = (await loadConfig(this.root)).testSuggestions
+      ? suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(this.root, scan.index.files))
+      : { lines: [], routes: [] };
     return {
       notes: reviewPlan(plan, scan, await collectFindings(scan)),
       tests: suggested.lines,
