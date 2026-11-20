@@ -1,6 +1,19 @@
-# Tests in Attentry: plan (draft, 2026-11-20)
+# Tests in Attentry: plan (2026-11-20, built)
 
-Branch: `Test`. Nothing here is merged or released. The research behind it is in
+Branch: `Test`. Nothing here is merged or released.
+
+**Status (2026-11-20): all seven steps are built and tested**, each against real open-source repos
+(node-express-boilerplate, fastify/demo, full-stack-fastapi-template, Flask's tutorial,
+Django-Styleguide-Example, nestjs-realworld, Hono's examples). Changes from the plan below:
+- Step 1 also reads Django's `reverse("name")`, tests that build their own app around a router,
+  and a project's own inject helper.
+- Step 2: jest and vitest find related tests themselves (`--findRelatedTests`, `vitest related`);
+  Attentry's own import walk is for pytest and `node --test`.
+- Step 3: the owner check is worded "if only the owner may do this", since anyone may like a post.
+- Step 7 was built before step 6: the panel's switch needs it.
+- Testing it found and fixed: a crash on wrapped Django views (in 0.1.7), test-built apps counted
+  as product routes, and several route-reading gaps (Express routers mounted in a loop,
+  `@fastify/autoload`, `from . import auth`, every Django `include()` form). The research behind it is in
 `D:\detron\books\test\reading-notes.md` (six testing books, read in three passes).
 
 ## The idea in one paragraph
