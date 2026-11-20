@@ -42,3 +42,23 @@ test("panel: Test connection under each agent that's connected", () => {
   assert.deepEqual(links({ claude: "missing", codex: "missing" }), [], "nothing to test before connecting");
   assert.deepEqual(links({ claude: "connected", codex: "absent" }), ["testClaude"]);
 });
+
+test("panel: the Tests section, under the findings, with untested routes, the last run and the switch", () => {
+  const p = panel();
+  p.send("findings", { data: { show: "changes", items: [] } });
+  p.send("agent", { info: { claude: "connected", mode: "suggest", live: null } });
+  const view = (last: object | null, suggestions = true) => ({ data: { suggestions, routes: 4, last,
+    untested: [{ method: "DELETE", path: "/api/notes/:id", file: "src/notes.js", line: 9, open: true }, { method: "GET", path: "/api/tags", file: "src/tags.js", line: 3, open: false }] } });
+  p.send("tests", view(null));
+  const text = p.text();
+  assert.match(text, /Tests 2 of 4 routes tested/);
+  assert.ok(text.indexOf("Tests") < text.indexOf("Claude Code"), "under the findings, above the agents");
+  assert.match(text, /Routes with no test 2 .* DELETE \/api\/notes\/:id notes\.js:9 GET \/api\/tags tags\.js:3/);
+  assert.match(p.html(), /data-run="all"[^>]*>Run all<\/button><button data-run="file"/);
+  p.send("tests", view({ state: "failed", label: "tests for money.js", seconds: 2, tail: ["✖ cents", "Expected 100"], scope: "src/money.js", at: Date.now() }, false));
+  assert.match(p.text(), /money\.js: failed \(tests for money\.js, 2s\), just now ✖ cents Expected 100/);
+  assert.match(p.html(), /data-suggest="off" aria-selected="true" disabled/);
+  p.send("testsRunning", {});
+  assert.match(p.text(), /Running…/);
+  assert.match(p.html(), /data-run="all" disabled/);
+});

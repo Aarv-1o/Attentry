@@ -22,6 +22,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { scanRepo } from "../scan/scan.ts";
+import { runFromPanel, testsView, type TestsView } from "../testing/panel.ts";
 import { chooseProject, projectRoot, projectsIn } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
@@ -72,6 +73,7 @@ export function startServer(connection: Connection): void {
   let folderUri = ""; // the editor's spelling of `workspace`
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
+  let lastTestRun: TestsView["last"] = null; // Run all / Run for this file, from the panel
   let all: Finding[] = [];
   const files: FileCache = new Map(); // only when no background Attentry can start: then this one reads
   let changes: Changes = { ok: false, reason: "not scanned yet" };
@@ -189,7 +191,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.setTestSuggestions", "attentry.server.chooseProject"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.setTestSuggestions", "attentry.server.runTests", "attentry.server.chooseProject"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -273,6 +275,14 @@ export function startServer(connection: Connection): void {
     }
     if (command === "attentry.server.setMode") return void (await writeConfig(root, { mode: args?.[0] === "block" ? "block" : "suggest" }));
     if (command === "attentry.server.setTestSuggestions") return void (await writeConfig(root, { testSuggestions: args?.[0] !== false }));
+    if (command === "attentry.server.runTests") {
+      // The editor's open file, as a full path: the project's own path for it, if it's in the project.
+      const file = typeof args?.[0] === "string" ? relative(root, args[0]).replace(/\\/g, "/") : undefined;
+      if (file?.startsWith("..")) return { state: "none", label: "that file isn't in the project Attentry checks", seconds: 0, tail: [], scope: file, at: Date.now() };
+      const run = await runFromPanel(root, files, file);
+      lastTestRun = { ...run, at: Date.now() };
+      return lastTestRun;
+    }
     return undefined;
   });
 
@@ -309,6 +319,8 @@ export function startServer(connection: Connection): void {
   });
   // The panel's Check setup: the doctor's checks, with the fixes the panel can do itself.
   connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
+  // The panel's Tests section: untested routes and the last run.
+  connection.onRequest("attentry/tests", () => testsView(root, files, lastTestRun));
   // Test connection: a planted edit through the hook the agent runs (Claude Code's own copy of the
   // plugin; Codex's launcher never changes, so the extension's is the one Codex runs), then whether
   // the agent's sessions run it, which the test alone can't show.

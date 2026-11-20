@@ -141,3 +141,11 @@ footer.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Tests: Run all and Run for this file side by side; a failure's last lines under the result. */
+.actions { display: flex; gap: 6px; margin-top: 10px; }
+.actions button { flex: 1; margin-top: 0; padding: 6px 10px; border-radius: 4px; }
+.actions button:not(.primary) { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.actions button:not(.primary):hover { background: var(--vscode-button-secondaryHoverBackground); }
+.actions button:disabled { opacity: 0.6; cursor: default; }
+.tail { margin: 4px 0 0; padding: 6px 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-family: var(--vscode-editor-font-family); font-size: 0.85em; background: var(--vscode-textCodeBlock-background); }

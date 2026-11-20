@@ -27,6 +27,8 @@ const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it
 type FromPanel =
   | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "testClaude" | "testCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
   | { type: "setMode"; mode: "suggest" | "block" }
+  | { type: "runTests"; file: boolean } // file: only the tests for the file open in the editor
+  | { type: "setSuggestions"; on: boolean }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string }
   | { type: "chooseProject"; project: string };
@@ -52,6 +54,10 @@ export class Sidebar implements vscode.WebviewViewProvider {
     view.onDidDispose(() => clearInterval(poll));
   }
 
+  private async tests(): Promise<void> {
+    void this.view?.webview.postMessage({ type: "tests", data: await this.client()?.sendRequest("attentry/tests", {}) });
+  }
+
   private async agent(): Promise<void> {
     const info = await this.client()?.sendRequest("attentry/agent", {});
     if (info) void this.view?.webview.postMessage({ type: "agent", info });
@@ -70,7 +76,10 @@ export class Sidebar implements vscode.WebviewViewProvider {
     this.status = status;
     if (!this.view) return;
     void this.view.webview.postMessage({ type: "status", status });
-    if (!status.scanning && !status.error) void this.view.webview.postMessage({ type: "findings", data: await this.client()?.sendRequest("attentry/findings", {}) });
+    if (!status.scanning && !status.error) {
+      void this.view.webview.postMessage({ type: "findings", data: await this.client()?.sendRequest("attentry/findings", {}) });
+      await this.tests();
+    }
     await this.agent();
   }
 
@@ -128,6 +137,17 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (m.type === "checkSetup" || (this.setupShown && ["connectAgent", "connectCodex", "allowTests"].includes(m.type))) await this.setup();
     if (m.type === "closeSetup") this.setupShown = false;
     // Another project: the server checks it, and its status and findings follow.
+    if (m.type === "runTests") {
+      const file = m.file ? vscode.window.activeTextEditor?.document.uri.fsPath : undefined;
+      if (m.file && !file) return void vscode.window.showInformationMessage("Attentry: open a file first, then Run for this file.");
+      void this.view?.webview.postMessage({ type: "testsRunning" });
+      await client.sendRequest("workspace/executeCommand", { command: "attentry.server.runTests", arguments: file ? [file] : [] });
+      await this.tests();
+    }
+    if (m.type === "setSuggestions") {
+      await client.sendRequest("workspace/executeCommand", { command: "attentry.server.setTestSuggestions", arguments: [m.on] });
+      await this.tests();
+    }
     if (m.type === "chooseProject") await client.sendRequest("workspace/executeCommand", { command: "attentry.server.chooseProject", arguments: [m.project] });
     if (m.type === "settings") await vscode.commands.executeCommand("workbench.action.openSettings", "attentry");
     if (m.type === "openSite") await vscode.env.openExternal(vscode.Uri.parse(SITE));

@@ -1,5 +1,5 @@
 // The panel's page: draws what it's sent (status, findings, agent) and sends back what's clicked.
-// Three parts, top to bottom: the findings, the agents (Claude Code, Codex), and one line on the last check.
+// Parts, top to bottom: the findings, the tests, the agents (Claude Code, Codex), and one line on the last check.
 const vscode = acquireVsCodeApi();
 const app = document.getElementById("app");
 const PARTS = [["security", "Security", "error"], ["breaks", "Will break", "warning"], ["database", "Database", "warning"], ["cleanup", "Clean-up", "info"]];
@@ -8,6 +8,8 @@ let status;
 let data;
 let agent;
 let setup; // Check setup: undefined while closed, null while checking, then the checks
+let tests; // the Tests section: untested routes, the last run
+let testsRunning = false;
 let lastDone; // edits since the check-in at the last draw: the newest tick animates only when it changes
 const opened = new Map(); // groups the person opened or closed: kept across refreshes
 
@@ -105,6 +107,50 @@ function task(live, working) {
   const allow = live.tests?.state === "blocked" ? ` <a data-act="allowTests">Allow tests</a>` : "";
   const tests = live.tests ? `<p class="tests ${esc(live.tests.state)}"><i class="glyph ${tone}"></i>Tests: ${esc(live.tests.text)}${allow}</p>` : "";
   return `<p class="task">${working ? "This task" : "Last task"}: ${plural(live.edits, "edit")} to ${plural(live.files ?? 0, "file")}, ${live.added ? `<b>${plural(live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(live.lastEditAt)}`}.</p>${tests}`;
+}
+
+// ---- Tests ----
+
+const SHOWN_ROUTES = 8;
+const RUN_TEXT = {
+  passed: (r) => `passed (${r.label}, ${r.seconds}s)`, failed: (r) => `failed (${r.label}, ${r.seconds}s)`,
+  timeout: (r) => `didn't finish in time (${r.label})`, none: (r) => r.label || "no tests found",
+  blocked: (r) => `not run: allow ${r.label} first`, off: () => "off in .attentry/config.json",
+};
+
+function lastRun(r) {
+  if (testsRunning) return `<p class="tests running"><i class="glyph busy"></i>Running…</p>`;
+  if (!r) return `<p class="quiet">Run the project's tests from here. Attentry also runs them at the agent's check-ins.</p>`;
+  const tone = { passed: "ok", failed: "error", timeout: "error" }[r.state] ?? "hint";
+  const allow = r.state === "blocked" ? ` <a data-act="allowTests">Allow tests</a>` : "";
+  const tail = r.state === "failed" && r.tail.length ? `<pre class="tail">${esc(r.tail.slice(-5).join("\n"))}</pre>` : "";
+  return `<p class="tests ${esc(r.state)}"><i class="glyph ${tone}"></i>${r.scope === "all" ? "All tests" : esc(r.scope.split("/").pop())}: ${esc((RUN_TEXT[r.state] ?? RUN_TEXT.none)(r))}, ${ago(r.at)}${allow}</p>${tail}`;
+}
+
+function untestedRoutes(t) {
+  if (!t.routes) return "";
+  if (!t.untested.length) return `<p class="quiet">Every route has a test that calls it.</p>`;
+  const rows = t.untested.slice(0, SHOWN_ROUTES).map((r) => `<div class="row" tabindex="0" data-open="${esc(r.file)}" data-line="${r.line}" title="${r.open ? "No auth check on this route" : ""}">
+      <i class="glyph ${r.open ? "warning" : "hint"}"></i><span class="title">${esc(r.method)} ${esc(r.path)}</span><span class="loc">${esc(r.file.split("/").pop())}:${r.line}</span></div>`).join("");
+  const more = t.untested.length > SHOWN_ROUTES ? `<p class="quiet">…and ${t.untested.length - SHOWN_ROUTES} more.</p>` : "";
+  return `<details id="tests-untested"><summary><i class="glyph hint"></i>Routes with no test<span class="n">${t.untested.length}</span></summary><p class="quiet">No test calls these yet. A route with no auth check is marked and comes first.</p>${rows}${more}</details>`;
+}
+
+function testsSection() {
+  if (!tests) return "";
+  const on = tests.suggestions;
+  return `<section class="agent">${head("Tests", tests.untested.length ? "warn" : "ok", tests.routes ? `${tests.routes - tests.untested.length} of ${tests.routes} routes tested` : "No routes found")}
+      ${lastRun(tests.last)}
+      <div class="actions"><button class="primary" data-run="all" ${testsRunning ? "disabled" : ""}>Run all</button><button data-run="file" ${testsRunning ? "disabled" : ""} title="The tests that import the file open in the editor">Run for this file</button></div>
+      ${untestedRoutes(tests)}
+      <div class="mode">
+        <div class="tabs" role="tablist" aria-label="Test suggestions">
+          <button role="tab" data-suggest="on" aria-selected="${on}" ${on ? "disabled" : ""}>Suggest tests</button>
+          <button role="tab" data-suggest="off" aria-selected="${!on}" ${on ? "" : "disabled"}>Off</button>
+        </div>
+        <span class="quiet">${on ? "When Claude writes a plan, Attentry names the tests it needs." : "No test suggestions in plans or on the change card."}</span>
+      </div>
+    </section>`;
 }
 
 const MODES = {
@@ -225,7 +271,7 @@ const links = () => `<nav class="links" aria-label="Attentry">
 function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
-  app.innerHTML = findings() + agents() + setupSection() + footer() + links();
+  app.innerHTML = findings() + testsSection() + agents() + setupSection() + footer() + links();
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;
@@ -239,6 +285,10 @@ document.addEventListener("toggle", (e) => {
 document.addEventListener("click", (e) => {
   const fix = e.target.closest("[data-fix]");
   if (fix) return vscode.postMessage({ type: "copyFix", id: fix.dataset.fix });
+  const run = e.target.closest("[data-run]");
+  if (run) return vscode.postMessage({ type: "runTests", file: run.dataset.run === "file" });
+  const suggest = e.target.closest("[data-suggest]");
+  if (suggest) return vscode.postMessage({ type: "setSuggestions", on: suggest.dataset.suggest === "on" });
   const mode = e.target.closest("[data-mode]");
   if (mode) return vscode.postMessage({ type: "setMode", mode: mode.dataset.mode });
   const jump = e.target.closest("[data-jump]");
@@ -265,6 +315,8 @@ window.addEventListener("message", ({ data: m }) => {
   if (m.type === "findings") data = m.data;
   if (m.type === "agent") agent = m.info;
   if (m.type === "setup") setup = m.checks;
+  if (m.type === "tests") (tests = m.data), (testsRunning = false);
+  if (m.type === "testsRunning") testsRunning = true;
   render();
 });
 render();
