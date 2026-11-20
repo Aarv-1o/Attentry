@@ -230,3 +230,15 @@ test("delete", async () => { await request(app).delete(\`/posts/\${newPostId}\`)
     "GET /posts <- src/app.test.ts:4",
   ]);
 });
+
+test("Fastify: a project's own inject helper given { url } sends a request", async () => {
+  assert.deepEqual(await coverage({
+    "src/app.ts": `const app = Fastify();\napp.get("/tasks", list);\napp.delete("/tasks/:id", remove);\n`,
+    "test/tasks.test.ts": `const res = await app.injectWithLogin("basic@example.com", { method: "DELETE", url: "/tasks/1" });
+await app.injectWithLogin("basic@example.com", { method: "GET" });
+`,
+  }), [
+    "DELETE /tasks/:id <- test/tasks.test.ts:1",
+    "GET /tasks untested",
+  ]);
+});

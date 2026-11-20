@@ -64,8 +64,12 @@ export function extractJsTestCalls(root: Node): ApiCall[] {
     const verb = prop === "del" ? "delete" : prop;
     const sent = METHOD_NAMES.has(verb) ? requester(object, clients) : undefined;
     if (sent) push(found, first, verb === "all" ? undefined : verb.toUpperCase(), line, sent.app);
-    // Fastify: app.inject({ method: "POST", url: "/notes" }); no method means GET.
-    else if (prop === "inject" && first?.type === "object") push(found, objectProp(first, "url"), methodOption(first), line, appName(object));
+    // Fastify: app.inject({ method: "POST", url: "/notes" }); no method means GET. Projects wrap it
+    // (app.injectWithLogin(email, { url })): any inject… given { url } sends a request.
+    else if (/^inject/.test(prop)) {
+      const options = args(node).find((a) => a.type === "object" && objectProp(a, "url"));
+      if (options) push(found, objectProp(options, "url"), methodOption(options), line, appName(object));
+    }
     // Hono: app.request("/notes", { method: "DELETE" }).
     else if (prop === "request" && (first?.type === "string" || first?.type === "template_string")) push(found, first, methodOption(second), line, appName(object));
   }
