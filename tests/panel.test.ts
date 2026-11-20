@@ -55,8 +55,8 @@ test("panel: the Tests section, under the findings, with untested routes, the la
   assert.ok(text.indexOf("Tests") < text.indexOf("Claude Code"), "under the findings, above the agents");
   assert.match(text, /Routes with no test 2 .* DELETE \/api\/notes\/:id notes\.js:9 GET \/api\/tags tags\.js:3/);
   assert.match(p.html(), /data-run="all"[^>]*>Run all<\/button><button data-run="file"/);
-  p.send("tests", view({ state: "failed", label: "tests for money.js", seconds: 2, tail: ["✖ cents", "Expected 100"], scope: "src/money.js", at: Date.now() }, false));
-  assert.match(p.text(), /money\.js: failed \(tests for money\.js, 2s\), just now ✖ cents Expected 100/);
+  p.send("tests", view({ state: "failed", label: "tests for money.js", seconds: 2, tail: ["✖ cents", "Expected 100"], failing: ["cents", "rounding"], scope: "src/money.js", at: Date.now() }, false));
+  assert.match(p.text(), /money\.js: failed \(2s\): cents and 1 more, just now ✖ cents Expected 100/, "one file's run doesn't repeat its name");
   assert.match(p.html(), /data-suggest="off" aria-selected="true" disabled/);
   p.send("testsRunning", {});
   assert.match(p.text(), /Running…/);

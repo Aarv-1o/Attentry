@@ -113,10 +113,14 @@ function task(live, working) {
 
 const SHOWN_ROUTES = 8;
 const RUN_TEXT = {
-  passed: (r) => `passed (${r.label}, ${r.seconds}s)`, failed: (r) => `failed (${r.label}, ${r.seconds}s)`,
+  // One file's run: the line already starts with the file's name, so the label isn't repeated.
+  passed: (r) => `passed (${took(r)})`, failed: (r) => `failed (${took(r)})${failing(r)}`,
   timeout: (r) => `didn't finish in time (${r.label})`, none: (r) => r.label || "no tests found",
   blocked: (r) => `not run: allow ${r.label} first`, off: () => "off in .attentry/config.json",
 };
+
+const took = (r) => (r.scope === "all" ? `${r.label}, ${r.seconds}s` : `${r.seconds}s`);
+const failing = (r) => (r.failing?.length ? `: ${r.failing[0]}${r.failing.length > 1 ? ` and ${r.failing.length - 1} more` : ""}` : "");
 
 function lastRun(r) {
   if (testsRunning) return `<p class="tests running"><i class="glyph busy"></i>Running…</p>`;
