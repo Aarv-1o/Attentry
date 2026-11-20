@@ -47,11 +47,11 @@ test("inside git: a folder link back up the repo isn't followed (each file once)
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 
-test("isTestFile: test folders, .test/.spec files, test.js, Python test_ and _test", () => {
-  for (const f of ["tests/a.ts", "src/__tests__/a.tsx", "a.test.ts", "b.spec.js", "body-parsing/test.js", "test_api.py", "api_test.py"]) {
+test("isTestFile: test folders, .test/.spec files, test.js, Python test_, _test and Django's tests.py", () => {
+  for (const f of ["tests/a.ts", "src/__tests__/a.tsx", "a.test.ts", "b.spec.js", "body-parsing/test.js", "test_api.py", "api_test.py", "notes/tests.py"]) {
     assert.ok(isTestFile(f), f);
   }
-  for (const f of ["src/latest.js", "contest.py", "src/testing-utils.ts", "attestation.ts"]) assert.ok(!isTestFile(f), f);
+  for (const f of ["src/latest.js", "contest.py", "contests.py", "src/testing-utils.ts", "attestation.ts"]) assert.ok(!isTestFile(f), f);
 });
 
 test("the home folder isn't walked: the agent is told to open a project", () => withHome({ "notes/a.js": "" }, async (home) => {
