@@ -36,5 +36,6 @@ test("Run for this file: blocked until the test command is allowed, then only th
   const app = await runFromPanel(root, new Map(), "src/app.js");
   assert.equal(app.state, "failed", "notes.test.js loads app.js, which calls express() without importing it");
   assert.match(app.tail.join("\n"), /notes\.test\.js/);
+  assert.match(app.failing?.join() ?? "", /notes\.test\.js/, "node --test names the file that failed to load");
   assert.equal((await runFromPanel(root, new Map(), "package.json")).state, "none", "no test reaches it");
 }));

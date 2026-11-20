@@ -120,7 +120,7 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   const tests = task.tests;
   if (tests && (tests.state === "failed" || tests.state === "timeout") && !task.testsTold) {
     task.testsTold = true;
-    lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
+    lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...(tests.failing ? [`  Failing: ${tests.failing.slice(0, 5).join("; ")}`] : []), ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
   }
   if (finished !== undefined || task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;

@@ -4,7 +4,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Sessions } from "../src/agent/session.ts";
-import { findTests, runTests } from "../src/agent/tests.ts";
+import { describeTests, failingTests, findTests, runTests } from "../src/agent/tests.ts";
 import { allowTests } from "../src/agent/trust.ts";
 import { makeRepo, withClaudeSettings } from "./helpers.ts";
 
@@ -222,4 +222,13 @@ test("a project's failing node --test is a failure, also when Attentry runs insi
   });
   assert.ok(process.env.NODE_TEST_CONTEXT, "this test itself runs under node --test");
   assert.equal((await runTests(await findTests(root, undefined), 60_000)).state, "failed");
+});
+
+test("the failing tests' names, read from each runner's output", () => {
+  const node = "✔ cents (0.4ms)\n✖ a 10% discount on 100 is 90 (0.5567ms)\n  actual: 10\n✖ failing tests:\n\n✖ a 10% discount on 100 is 90 (0.5567ms)\n";
+  assert.deepEqual(failingTests(node), ["a 10% discount on 100 is 90"]);
+  assert.deepEqual(failingTests("  ✓ adds (2 ms)\n  ✕ rejects a bad id (5 ms)\n"), ["rejects a bad id"], "jest");
+  assert.deepEqual(failingTests(" × splits the bill 3ms\n"), ["splits the bill"], "vitest");
+  assert.deepEqual(failingTests("FAILED tests/test_pay.py::test_refund - AssertionError: 1 != 2\n"), ["test_refund"], "pytest");
+  assert.equal(describeTests({ state: "failed", label: "npm test", seconds: 1, tail: [], failing: ["a", "b", "c"] }), "failed (npm test, 1s): a and 2 more");
 });

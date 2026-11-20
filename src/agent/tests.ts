@@ -19,12 +19,24 @@ export interface TestRun {
   label: string; // "npm test", "backend: pytest"
   seconds: number;
   tail: string[]; // the last lines of output, when they failed
+  failing?: string[]; // the failing tests' names, when the runner printed them
 }
 
 const NPM_DEFAULT = /no test specified/;
 const TAIL_LINES = 12;
 // The test runner itself is missing: not a failing test.
 const NOT_INSTALLED = /No module named pytest|is not recognized as an internal or external command|command not found|ENOENT/i;
+
+// A failing test's line: node --test "✖ name (1ms)", jest "✕ name (5 ms)", vitest "× name 5ms",
+// pytest "FAILED tests/test_a.py::test_b - AssertionError". The tail alone often shows only the
+// assertion's insides (actual: 10, expected: 90), not which test it was.
+const FAILED_MARK = /^\s*[✖✕×]\s+(.+?)(?:\s+\(?\d+(?:\.\d+)?\s?ms\)?)?$/;
+const PYTEST_FAILED = /^FAILED\s+\S*?::(\S+)/;
+
+export function failingTests(output: string): string[] {
+  const names = output.split(/\r?\n/).map((l) => (FAILED_MARK.exec(l) ?? PYTEST_FAILED.exec(l))?.[1]).filter((n): n is string => !!n && n !== "failing tests:");
+  return [...new Set(names)];
+}
 
 async function commandIn(dir: string): Promise<{ command: string; runs: string } | undefined> {
   const manifest = join(dir, "package.json");
@@ -81,7 +93,8 @@ function runOne({ cwd, command, label }: TestCommand, timeoutMs: number): Promis
     const finish = (state: TestRun["state"]) => {
       clearTimeout(timer);
       const tail = state === "passed" ? [] : output.split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean).slice(-TAIL_LINES);
-      done({ state, label, seconds: Math.round((Date.now() - started) / 1000), tail });
+      const failing = state === "failed" ? failingTests(output) : [];
+      done({ state, label, seconds: Math.round((Date.now() - started) / 1000), tail, ...(failing.length ? { failing } : {}) });
     };
     child.on("error", () => finish("failed"));
     child.on("close", (code) => finish(timedOut ? "timeout" : code === 0 ? "passed" : "failed"));
@@ -100,6 +113,12 @@ export async function runTests(commands: TestCommand[], timeoutMs: number): Prom
   return { state: "passed", label: commands.map((c) => c.label).join(", "), seconds, tail: [] };
 }
 
+// ": a 10% discount on 100 is 90 and 2 more", or nothing when the runner didn't name them.
+function failedNames(run: TestRun): string {
+  const [first, ...rest] = run.failing ?? [];
+  return first ? `: ${first}${rest.length ? ` and ${rest.length} more` : ""}` : "";
+}
+
 export function describeTests(run: TestRun | undefined): string {
   if (!run) return "not run";
   if (run.state === "none") return "none found (set \"tests\" in .attentry/config.json)";
@@ -108,5 +127,5 @@ export function describeTests(run: TestRun | undefined): string {
   if (run.state === "passed") return `passed (${run.label}, ${run.seconds}s)`;
   if (run.state === "timeout") return `didn't finish in time (${run.label})`;
   const missing = run.tail.find((l) => NOT_INSTALLED.test(l));
-  return missing ? `couldn't start (${run.label}: ${missing.trim()})` : `failed (${run.label}, ${run.seconds}s)`;
+  return missing ? `couldn't start (${run.label}: ${missing.trim()})` : `failed (${run.label}, ${run.seconds}s)${failedNames(run)}`;
 }
