@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { parsePath } from "../src/rules/crossStack/paths.ts";
+import { findEndpointIssues } from "../src/rules/security/endpoints.ts";
 import { scanRepo } from "../src/scan/scan.ts";
 import { makeRepo } from "./helpers.ts";
 
@@ -145,4 +147,10 @@ test("Next.js middleware: routes its matcher covers are protected, others aren't
     "package.json": NEXT, ...notes,
     "middleware.ts": `import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";\nconst isProtected = createRouteMatcher(["/dashboard(.*)"]);\nexport default clerkMiddleware(async (auth, req) => { if (isProtected(req)) await auth.protect(); });\nexport const config = { matcher: ["/(api|trpc)(.*)"] };\n`,
   }), ["unauthenticated-route maybe app/api/notes/[id]/route.ts:1"]);
+});
+
+test("a handler name that isn't a plain name (csrf_exempt(views.pay) gives \"pay)\") doesn't crash", () => {
+  const route = { method: "POST", path: parsePath("/pay")!, file: "shop/urls.py", line: 3, guards: [], handler: "pay)" };
+  const texts = new Map([["shop/urls.py", "urlpatterns = []\n"]]);
+  assert.doesNotThrow(() => findEndpointIssues({ routes: [route], functions: [], texts, rateLimitLibrary: false, allFiles: ["shop/urls.py"] }));
 });
