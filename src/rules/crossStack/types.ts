@@ -13,6 +13,7 @@ export interface Route {
   // Python: decorators (@login_required) and dependencies (Depends(get_current_user)).
   guards: string[];
   body?: string; // the handler's code, when it's written inline: checks inside it count too
+  name?: string; // Django's name="note-detail"; inline include namespaces come first: "session:login"
 }
 
 // `app.use("/api/auth", authRouter)`, `app.include_router(router, prefix="/v1")`
@@ -24,6 +25,7 @@ export interface Mount {
   // Middleware between the prefix and the target: app.use("/api/admin", adminAuth, router).
   // When the target isn't a router (app.use(requireAuth)), it's middleware too.
   guards: string[];
+  namespace?: string; // Django include(..., namespace="x") or include(("app.urls", "x"))
 }
 
 export interface ApiCall {
@@ -36,6 +38,8 @@ export interface ApiCall {
   // A test's request: the app or router variable it was sent to. A test may send to one router
   // on its own, without the prefix it's mounted under.
   app?: string;
+  // A test's request to a route by name instead of URL: Django's reverse("notes:note-detail").
+  routeName?: string;
 }
 
 export interface FileApi {
@@ -45,7 +49,8 @@ export interface FileApi {
   // `isApp` for the top level (express(), FastAPI(), Flask()): it isn't mounted anywhere.
   // `global`: gets the app's global prefix (NestJS controllers).
   // `guards`: for every route on it (FastAPI APIRouter(dependencies=[...])).
-  routers: Map<string, { prefix: string; isApp: boolean; global?: boolean; guards?: string[] }>;
+  // `namespace`: Django's app_name, for route names when the include doesn't give one.
+  routers: Map<string, { prefix: string; isApp: boolean; global?: boolean; guards?: string[]; namespace?: string }>;
   globalPrefix?: string; // NestJS app.setGlobalPrefix("api")
   // Guards for every route in the app: NestJS useGlobalGuards / APP_GUARD, DRF default permissions.
   globalGuards: string[];

@@ -1,4 +1,5 @@
 import type { Node } from "web-tree-sitter";
+import { joinPaths } from "../rules/crossStack/paths.ts";
 import type { FileApi } from "../rules/crossStack/types.ts";
 import { descendants } from "./nodes.ts";
 
@@ -27,29 +28,58 @@ export function regexToPath(regex: string): string | undefined {
 
 const argsOf = (call: Node) => call.childForFieldName("arguments")?.namedChildren.filter((a) => a.type !== "comment") ?? [];
 
-// include("app.urls") -> "require:app.urls"; include(router.urls) -> "router".
-function includeTarget(view: Node): string | undefined {
+const keywordValue = (call: Node, key: string) =>
+  argsOf(call).find((a) => a.type === "keyword_argument" && a.childForFieldName("name")?.text === key)?.childForFieldName("value") ?? undefined;
+
+// What include() points at, and the namespace it gives. Its forms:
+// include("app.urls"), include("app.urls", namespace="x"), include(("app.urls", "x")),
+// include(router.urls), and patterns written in place: include(([path(...), ...], "x")).
+interface Include { target?: string; inline?: Node; namespace?: string }
+function includeOf(view: Node): Include | undefined {
   if (view.type !== "call" || view.childForFieldName("function")?.text !== "include") return undefined;
-  const target = argsOf(view)[0];
+  let target = argsOf(view)[0];
+  let namespace = text(keywordValue(view, "namespace"));
+  if (target?.type === "tuple") {
+    const [inner, name] = target.namedChildren;
+    namespace ??= text(name);
+    target = inner;
+  }
+  const found: Include = namespace ? { namespace } : {};
   const module = text(target);
-  if (module) return `require:${module}:${PATTERN}`; // that app's urlpatterns
-  return target?.type === "attribute" && target.childForFieldName("attribute")?.text === "urls" ? target.childForFieldName("object")?.text : undefined;
+  if (module) return { ...found, target: `require:${module}:${PATTERN}` }; // that app's urlpatterns
+  if (target?.type === "list") return { ...found, inline: target };
+  const router = target?.type === "attribute" && target.childForFieldName("attribute")?.text === "urls" ? target.childForFieldName("object")?.text : undefined;
+  return router ? { ...found, target: router } : undefined;
 }
 
-function patternEntry(entry: Node, api: FileApi): void {
+// app_name = "notes" in a urls.py: the namespace of its route names, unless include() gives one.
+const appName = (root: Node) => /^app_name\s*=\s*["']([^"']+)["']/m.exec(root.text)?.[1];
+
+// `prefix` and `namespaces`: from include()s of patterns written in place, in this same file.
+function patternEntry(entry: Node, api: FileApi, prefix = "", namespaces: string[] = []): void {
   const fn = entry.childForFieldName("function")?.text;
   if (fn !== "path" && fn !== "re_path" && fn !== "url") return;
   const [route, view] = argsOf(entry);
   const raw = text(route);
   if (raw === undefined || !view) return;
-  const path = fn === "path" ? raw : regexToPath(raw);
-  if (path === undefined) return;
+  const own = fn === "path" ? raw : regexToPath(raw);
+  if (own === undefined) return;
+  const path = prefix ? joinPaths(prefix, own) : own;
   const line = entry.startPosition.row + 1;
   if (view.text === "admin.site.urls") return; // Django's admin: pages people open, not an API
-  const target = includeTarget(view);
-  if (target) api.mounts.push({ prefix: path, on: PATTERN, target, line, guards: [] });
+  const include = includeOf(view);
+  if (include?.inline) {
+    const inner = include.namespace ? [...namespaces, include.namespace] : namespaces;
+    for (const e of include.inline.namedChildren) if (e.type === "call") patternEntry(e, api, path, inner);
+    return;
+  }
+  if (include?.target) {
+    api.mounts.push({ prefix: path, on: PATTERN, target: include.target, line, guards: [], ...(include.namespace ? { namespace: include.namespace } : {}) });
+    return;
+  }
   // A view takes every method it handles. Its guards are found where it's defined (views).
-  else api.routes.push({ method: "ALL", path, router: PATTERN, line, guards: [], handler: viewName(view) });
+  const name = text(keywordValue(entry, "name"));
+  api.routes.push({ method: "ALL", path, router: PATTERN, line, guards: [], handler: viewName(view), ...(name ? { name: [...namespaces, name].join(":") } : {}) });
 }
 
 // LoginView.as_view() -> LoginView; views.home -> home.
@@ -79,20 +109,28 @@ function defaultPermissions(root: Node, api: FileApi): void {
   if (m) api.globalGuards.push(...m[1]!.split(",").map((s) => s.trim().replace(/['"]/g, "")).filter(Boolean));
 }
 
+// urlpatterns = [...] + static(settings.MEDIA_URL, ...): the lists in it.
+const listsIn = (node: Node): Node[] =>
+  node.type === "list" ? [node] : node.type === "binary_operator" ? node.namedChildren.flatMap(listsIn) : [];
+
 // urlpatterns = [...] and router = DefaultRouter()
-function assignment(node: Node, api: FileApi): void {
+function assignment(node: Node, api: FileApi, namespace: string | undefined): void {
   const left = node.childForFieldName("left")?.text;
   const right = node.childForFieldName("right");
-  if (left === PATTERN && right?.type === "list") {
+  const lists = left === PATTERN && right ? listsIn(right) : [];
+  if (lists.length) {
     // Never mounted: it's the root URLconf. Mounted: include() sets its prefix.
-    api.routers.set(PATTERN, { prefix: "", isApp: true });
-    for (const entry of right.namedChildren) if (entry.type === "call") patternEntry(entry, api);
+    api.routers.set(PATTERN, { prefix: "", isApp: true, ...(namespace ? { namespace } : {}) });
+    for (const entry of lists.flatMap((l) => l.namedChildren)) if (entry.type === "call") patternEntry(entry, api);
   }
   const callee = right?.type === "call" ? right.childForFieldName("function")?.text.split(".").at(-1) : undefined;
+  // include(router.urls) adds no namespace: the urls.py's app_name already covers its routes.
   if (left && callee && DRF_ROUTER.test(callee)) api.routers.set(left, { prefix: "", isApp: false });
 }
 
-// router.register(r"articles", ArticleViewSet): a list route and a detail route.
+// router.register(r"articles", ArticleViewSet): a list route and a detail route, named
+// "<basename>-list" and "<basename>-detail". Without basename=, DRF takes the queryset's model
+// name; the viewset's name without "ViewSet" is the usual match.
 function register(call: Node, api: FileApi): void {
   const fn = call.childForFieldName("function");
   const router = fn?.type === "attribute" ? fn.childForFieldName("object")?.text : undefined;
@@ -101,14 +139,19 @@ function register(call: Node, api: FileApi): void {
   const line = call.startPosition.row + 1;
   const base = regexToPath(prefix) ?? prefix;
   const handler = viewName(argsOf(call)[1]);
-  api.routes.push({ method: "ALL", path: base, router, line, guards: [], handler }, { method: "ALL", path: `${base}/:pk`, router, line, guards: [], handler });
+  const basename = text(keywordValue(call, "basename")) ?? text(argsOf(call)[2]) ?? handler.replace(/(ViewSet|Viewset|View)$/, "").toLowerCase();
+  api.routes.push(
+    { method: "ALL", path: base, router, line, guards: [], handler, name: `${basename}-list` },
+    { method: "ALL", path: `${base}/:pk`, router, line, guards: [], handler, name: `${basename}-detail` },
+  );
 }
 
 export function djangoRoutes(root: Node, api: FileApi): void {
   views(root, api);
   defaultPermissions(root, api);
+  const namespace = appName(root);
   for (const node of descendants(root)) {
-    if (node.type === "assignment" || node.type === "augmented_assignment") assignment(node, api);
+    if (node.type === "assignment" || node.type === "augmented_assignment") assignment(node, api, namespace);
     else if (node.type === "call") register(node, api);
   }
 }

@@ -137,3 +137,19 @@ export default async function app(fastify, opts) {
     "web/api.ts": `fetch(\`/api/tasks/\${id}\`);\nfetch("/admin/stats");\nfetch("/api/task/1");\n`,
   }), ["missing-route GET /api/task/1 web/api.ts:3", "routes 4", "unused POST /api/tasks/:id/assign"]);
 });
+
+test("Django: include() with a namespace tuple, inline patterns, and urlpatterns + static()", async () => {
+  assert.deepEqual(await crossStack({
+    "config/urls.py": `urlpatterns = [
+    path("api/", include(("project.api.urls", "api"))),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+`,
+    "project/api/urls.py": `urlpatterns = [
+    path("session/", include(([path("login/", LoginApi.as_view(), name="login"), path("logout/", LogoutApi.as_view())], "session"))),
+    path("shop/", include("project.shop.urls", namespace="store")),
+]
+`,
+    "project/shop/urls.py": `urlpatterns = [path("cart/", cart, name="cart")]\n`,
+    "web/api.js": `fetch("/api/session/login/", { method: "POST" });\nfetch("/api/shop/cart/");\nfetch("/api/session/signin/");\n`,
+  }), ["missing-route GET /api/session/signin web/api.js:3", "routes 3", "unused ALL /api/session/logout"]);
+});

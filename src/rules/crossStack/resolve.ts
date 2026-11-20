@@ -16,6 +16,7 @@ export interface FullRoute {
   // itself up through each router it's mounted on, plus global guards.
   guards: string[];
   body?: string; // the handler's code, when it's known
+  name?: string; // Django's route name, for tests that reverse() it
 }
 
 const JS_EXTENSIONS = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", "/index.ts", "/index.tsx", "/index.js"];
@@ -99,6 +100,7 @@ function mountTargets(file: string, target: string, repo: Repo): Key[] {
 // where the next one down was attached (middleware only applies to what's added after it).
 interface Reach {
   path: string;
+  namespaces: string[]; // Django's, outermost first: a route name "login" becomes "api:session:login"
   chain: { key: Key; path: string; line: number; guards: string[] }[];
 }
 
@@ -130,7 +132,7 @@ export function fullRoutes(repo: Repo): FullRoute[] {
     return joinPaths(load.prefix, folder === "." ? "" : folder);
   };
   const inFolder = (file: string) => folderGuards.filter((g) => file.startsWith(`${g.dir}/`)).map((g) => g.name);
-  const mountedAt = new Map<Key, { on: Key; prefix: string; line: number; guards: string[] }[]>();
+  const mountedAt = new Map<Key, { on: Key; prefix: string; line: number; guards: string[]; namespace?: string }[]>();
   // app.use(requireAuth), router.use("/admin", isAdmin): middleware, not routers.
   const uses = new Map<Key, { prefix: string; line: number; names: string[] }[]>();
   for (const [file, api] of apis) {
@@ -141,7 +143,7 @@ export function fullRoutes(repo: Repo): FullRoute[] {
         uses.set(on, [...(uses.get(on) ?? []), { prefix: mount.prefix, line: mount.line, names: [...mount.guards, mount.target] }]);
       }
       for (const target of targets) {
-        mountedAt.set(target, [...(mountedAt.get(target) ?? []), { on, prefix: mount.prefix, line: mount.line, guards: mount.guards }]);
+        mountedAt.set(target, [...(mountedAt.get(target) ?? []), { on, prefix: mount.prefix, line: mount.line, guards: mount.guards, ...(mount.namespace ? { namespace: mount.namespace } : {}) }]);
       }
     }
   }
@@ -157,11 +159,13 @@ export function fullRoutes(repo: Repo): FullRoute[] {
       (reaches(m.on, new Set(seen)) ?? []).map((up) => {
         const path = joinPaths(joinPaths(up.path, m.prefix), own);
         const last = up.chain.at(-1)!;
-        return { path, chain: [...up.chain.slice(0, -1), { ...last, line: m.line, guards: [...last.guards, ...m.guards] }, { key, path, line: 0, guards: [] }] };
+        const namespace = m.namespace ?? router?.namespace;
+        return { path, namespaces: namespace ? [...up.namespaces, namespace] : up.namespaces, chain: [...up.chain.slice(0, -1), { ...last, line: m.line, guards: [...last.guards, ...m.guards] }, { key, path, line: 0, guards: [] }] };
       }),
     );
     if (parents.length) return parents;
-    return router?.isApp || (!router && name === "app") ? [{ path: own, chain: [{ key, path: own, line: 0, guards: [] }] }] : undefined;
+    const namespaces = router?.namespace ? [router.namespace] : [];
+    return router?.isApp || (!router && name === "app") ? [{ path: own, namespaces, chain: [{ key, path: own, line: 0, guards: [] }] }] : undefined;
   };
 
   // Guards on the way to a route: each router's own, the middleware it uses before the next
@@ -179,7 +183,7 @@ export function fullRoutes(repo: Repo): FullRoute[] {
     for (const route of api.routes) {
       const key = keyOf(file, route.router);
       const loaded = autoloaded(file);
-      const found = reaches(key) ?? [{ path: loaded ?? HOLE, chain: [{ key, path: loaded ?? HOLE, line: 0, guards: [] }] }];
+      const found = reaches(key) ?? [{ path: loaded ?? HOLE, namespaces: [], chain: [{ key, path: loaded ?? HOLE, line: 0, guards: [] }] }];
       const view = route.handler ? views.get(route.handler) : undefined;
       for (const reach of found) {
         // A prefix with an unknown part (a setting): only what comes after it is known.
@@ -191,7 +195,11 @@ export function fullRoutes(repo: Repo): FullRoute[] {
           ...byPath(route, raw), ...inFolder(file), ...globalGuards,
         ];
         const body = route.body ?? view?.body;
-        routes.push({ method: route.method, path, file, line: route.line, guards, ...(route.handler ? { handler: route.handler } : {}), ...(body ? { body } : {}) });
+        const name = route.name ? [...reach.namespaces, route.name].join(":") : undefined;
+        routes.push({
+          method: route.method, path, file, line: route.line, guards,
+          ...(route.handler ? { handler: route.handler } : {}), ...(body ? { body } : {}), ...(name ? { name } : {}),
+        });
       }
     }
   }
