@@ -263,3 +263,57 @@ await request(bare).get("/");
     "GET /v2/notes <- tests/notes.test.ts:7, tests/v2.test.ts:2",
   ]);
 });
+
+test("Django: reverse() by name, through every include() form and namespace", async () => {
+  assert.deepEqual(await coverage({
+    "config/urls.py": `from django.urls import include, path
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/", include(("project.api.urls", "api"))),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+`,
+    "project/api/urls.py": `urlpatterns = [
+    path("auth/", include(("project.auth.urls", "authentication"))),
+    path("notes/", include("project.notes.urls")),
+    path("shop/", include("project.shop.urls", namespace="store")),
+]
+`,
+    "project/auth/urls.py": `urlpatterns = [
+    path("session/", include(([path("login/", LoginApi.as_view(), name="login")], "session"))),
+    path("me/", MeApi.as_view(), name="me"),
+]
+`,
+    "project/notes/urls.py": `app_name = "notes"
+router = DefaultRouter()
+router.register("items", NoteViewSet)
+router.register("tags", TagViewSet, basename="label")
+urlpatterns = [path("", include(router.urls))]
+`,
+    "project/shop/urls.py": `app_name = "shop"\nurlpatterns = [path("cart/", cart, name="cart")]\n`,
+    "project/tests/test_api.py": `class AuthTests(TestCase):
+    def setUp(self):
+        self.login_url = reverse("api:authentication:session:login")
+
+    def test_login(self):
+        self.client.post(self.login_url, {})
+
+    def test_me(self):
+        url = reverse("api:authentication:session:login")
+        url = reverse("api:authentication:me")
+        self.client.get(url)
+
+def test_notes(client):
+    client.get(reverse("api:notes:note-detail", args=[1]) + "?full=1")
+    client.post(reverse("api:notes:label-list"))
+    client.get(reverse("api:store:cart"))
+`,
+  }), [
+    "ALL /api/auth/me <- project/tests/test_api.py:11",
+    "ALL /api/auth/session/login <- project/tests/test_api.py:6",
+    "ALL /api/notes/items untested",
+    "ALL /api/notes/items/:pk <- project/tests/test_api.py:14",
+    "ALL /api/notes/tags <- project/tests/test_api.py:15",
+    "ALL /api/notes/tags/:pk untested",
+    "ALL /api/shop/cart <- project/tests/test_api.py:16",
+  ]);
+});

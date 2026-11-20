@@ -31,7 +31,12 @@ function matching(path: ApiPath, method: string | undefined, routes: FullRoute[]
   return hits.filter((r) => literals(r) === best);
 }
 
+// reverse("note-detail") names the route; "notes:note-detail" also matches a test that leaves
+// out the namespace.
+const sameName = (want: string, route: FullRoute) => route.name === want || (!want.includes(":") && route.name?.endsWith(`:${want}`));
+
 function routesReached(call: ApiCall, file: string, routes: FullRoute[], repo: Repo): FullRoute[] {
+  if (call.routeName) return routes.filter((r) => sameName(call.routeName!, r) && methodFits(call.method, r.method));
   const path = parsePath(call.url);
   const direct = path ? matching(path, call.method, routes) : [];
   if (direct.length || !call.app) return direct;
