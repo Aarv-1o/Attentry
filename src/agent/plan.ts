@@ -17,6 +17,10 @@ const NAME = /`([A-Za-z_$][\w$]*)(?:\([^`]*\))?`/g;
 const FILE = /(?<![\w/.:-])((?:[\w.-]+\/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/])/g;
 const ROUTE = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`'",)]*)/g;
 
+// The files a plan (or one step of it) names. A bare name only when the repo has it: "Node.js" is no file.
+export const filesIn = (text: string, all: Set<string>) =>
+  new Set([...text.matchAll(FILE)].map((m) => m[1]!.replace(/^\.\//, "")).filter((file) => file.includes("/") || all.has(file)));
+
 // Two words or more: `id` or `data` could be anything.
 const twoWords = (name: string) => nameWords(name).includes(" ");
 // A route the plan adds ("Add GET /api/rides/:id"), not one it names as context ("the only read
@@ -61,9 +65,7 @@ export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]):
   }
 
   // Files it changes that change all the time.
-  // A bare name only when the repo has it: "Node.js" is no file.
-  const all = new Set(index.allFiles);
-  const files = new Set([...plan.matchAll(FILE)].map((m) => m[1]!.replace(/^\.\//, "")).filter((file) => file.includes("/") || all.has(file)));
+  const files = filesIn(plan, new Set(index.allFiles));
   for (const hotspot of findings.filter((f) => f.rule === "hotspot" && files.has(f.file))) {
     notes.push(`${hotspot.file} is a hotspot (${hotspot.title.toLowerCase()}): change it in small steps, and test after each.`);
   }

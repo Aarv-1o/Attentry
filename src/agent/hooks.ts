@@ -9,6 +9,7 @@ import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import { applyHunks, patchEdits, type Hunk } from "./patch.ts";
 import type { ExistingMatch } from "./reuse.ts";
 import { plural } from "../report/common.ts";
+import { stepOf } from "../testing/steps.ts";
 
 // What Attentry says at each moment of an agent's task. Short on purpose: the agent pays for
 // every word, so it hears only problems this task added, once each, and nothing when clean.
@@ -82,8 +83,22 @@ export function noteEdit(edits: FileEdit[], root: string, task: Task): void {
 }
 
 // After an edit: problems this task added that the agent hasn't been told about yet.
+// The plan steps this edit finished by moving on to a later step's files: "after step 1 of 3
+// (the API)", or "after steps 1-2 of 3" when steps that share a file are passed together.
+function stepsFinished(edits: FileEdit[], root: string, task: Task): string | undefined {
+  for (const edit of task.steps ? edits : []) {
+    const next = stepOf(task.steps!, task.step, repoPath(root, edit.path));
+    if (next === undefined) continue;
+    const [from, of] = [task.step, task.steps!.length];
+    task.step = next;
+    return next - from === 1 ? `after step ${from + 1} of ${of} (${task.steps![from]!.title})` : `after steps ${from + 1}-${next} of ${of}`;
+  }
+  return undefined;
+}
+
 export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
   noteEdit(edits, root, task);
+  const finished = stepsFinished(edits, root, task);
   const added = newSince(task, findings).filter(matters).sort(worstFirst);
   task.added = added.length;
   const fresh = added.filter((f) => !told.has(keyOf(f)));
@@ -107,9 +122,10 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
     task.testsTold = true;
     lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
   }
-  if (task.edits - task.lastCheckIn >= config.checkInEvery) {
+  if (finished !== undefined || task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;
-    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root)));
+    const when = finished ?? `after ${plural(task.edits, "edit")}`;
+    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root), when));
   }
   if (!lines.length) return SILENT;
   const message = lines.join("\n");
@@ -118,12 +134,13 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   return json({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message } });
 }
 
-function checkIn(task: Task, findings: Finding[], exists: (file: string) => boolean): string[] {
+// `when`: "after 10 edits", or "after step 1 of 3 (the API)".
+function checkIn(task: Task, findings: Finding[], exists: (file: string) => boolean, when: string): string[] {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const cleanup = added.length - real.length;
   const fixed = fixedSince(task, findings, exists);
-  const head = `Attentry check-in after ${plural(task.edits, "edit")}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
+  const head = `Attentry check-in ${when}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
   if (!real.length && !cleanup) return [`${head} Nothing to fix: carry on.`];
   return [
     head,

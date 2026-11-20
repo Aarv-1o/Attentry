@@ -1,3 +1,4 @@
+import type { PlanStep } from "../testing/steps.ts";
 import { isProblem } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import type { TestRun } from "./tests.ts";
@@ -25,13 +26,17 @@ export interface Task {
   // are its own. (Alone, a problem anywhere is its own: deleting a caller makes a function dead elsewhere.)
   shared: boolean;
   agent?: "claude" | "codex"; // whose hooks: the panel shows the task under that agent
+  // The plan's steps, from the plan check, and the one the edits are on: moving to the next
+  // step is a check-in, with the tests.
+  steps?: PlanStep[];
+  step: number;
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
 export function startTask(findings: Finding[] = []): Task {
-  const task: Task = { started: new Map(), serious: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
+  const task: Task = { started: new Map(), serious: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
   recordStart(task, findings);
   return task;
 }

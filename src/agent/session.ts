@@ -13,6 +13,7 @@ import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdi
 import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
 import { routeCoverage } from "../testing/coverage.ts";
+import { planSteps, type PlanStep } from "../testing/steps.ts";
 import { suggestTests } from "../testing/suggest.ts";
 import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions, type ExistingMatch } from "./reuse.ts";
@@ -211,18 +212,24 @@ export class Sessions {
   // plan file and then finishing the plan shouldn't say the same thing twice).
   private async planCheck(session: string, plan: string | undefined, event: "PreToolUse" | "PostToolUse"): Promise<HookReply> {
     if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
-    const { told } = await this.taskOf(session);
+    const { task, told } = await this.taskOf(session);
     const review = await this.reviewPlan(plan);
+    // A new plan starts its steps over; one without steps keeps the 10-edit check-ins only.
+    if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
     const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));
     const unheard = { notes: fresh(review.notes), tests: fresh(review.tests) };
     for (const line of [...unheard.notes, ...unheard.tests]) told.add(`plan:${line}`);
     return beforePlan(unheard, event);
   }
 
-  private async reviewPlan(plan: string): Promise<PlanReview> {
+  private async reviewPlan(plan: string): Promise<PlanReview & { steps: PlanStep[] }> {
     const scan = await scanRepo(this.root, this.cache);
     const texts = await readTexts(this.root, scan.index.files);
-    return { notes: reviewPlan(plan, scan, await collectFindings(scan)), tests: suggestTests(plan, scan, routeCoverage(scan.index), texts) };
+    return {
+      notes: reviewPlan(plan, scan, await collectFindings(scan)),
+      tests: suggestTests(plan, scan, routeCoverage(scan.index), texts),
+      steps: planSteps(plan, new Set(scan.index.allFiles)),
+    };
   }
 
   // A request from the person: the related code Claude hasn't heard about yet this session, so it
