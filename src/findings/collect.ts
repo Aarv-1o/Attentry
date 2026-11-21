@@ -109,7 +109,7 @@ function crossStackFindings(r: ScanResult): Finding[] {
     })),
     ...r.crossStack.unused.map((u) => make("unused-route", {
       confidence: u.confidence, file: u.route.file, line: u.route.line, title: `Route nothing calls: ${u.route.method} ${u.route.path.text}`,
-      evidence: [`None of the ${r.crossStack.calls} API calls in this repo reach it.`],
+      evidence: [`None of the ${u.calls} API calls in this repo reach it.`],
     })),
   ];
 }

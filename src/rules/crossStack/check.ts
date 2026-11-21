@@ -29,6 +29,7 @@ export const takes = (m: MissingRoute) => {
 export interface UnusedRoute {
   confidence: Confidence;
   route: FullRoute;
+  calls: number; // the API calls in its project, none of which reach it
 }
 
 export interface CrossStack {
@@ -125,7 +126,7 @@ export function findCrossStack(
       // The frontend uses other routes from the same file, just not this one: likely left behind.
       // A file nothing calls at all may serve another client (a mobile app, a script).
       const siblingsUsed = routes.some((r) => r.file === route.file && r !== route && uses(r));
-      return { confidence: siblingsUsed ? "likely" : "maybe", route };
+      return { confidence: siblingsUsed ? "likely" : "maybe", route, calls: calls.length };
     });
   return { allRoutes: routes, routes: routes.length, calls: calls.length, missing, unused };
 }

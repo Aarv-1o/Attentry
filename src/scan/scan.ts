@@ -1,6 +1,7 @@
 import type { FunctionFacts } from "../index/facts.ts";
 import { isGenerated, unsupportedCode } from "../index/files.ts";
 import { buildIndex, type RepoIndex } from "../index/repo.ts";
+import { projectOf } from "../index/project.ts";
 import type { DeadCode } from "../report/deadCode.ts";
 import { findDeadFunctions } from "../rules/codebase/deadFunctions.ts";
 import { findDifferences, type CopyDifferences } from "../rules/codebase/differences.ts";
@@ -60,7 +61,12 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   const facts: FunctionFacts[] = scans.flatMap(([, s]) => s.facts);
   lineFindings.push(...findFunctionShapeIssues(index.functions));
 
-  const groups = findDuplicates(index.functions);
+  // Separate projects in one folder are compared each on its own (see projectOf).
+  const project = await projectOf(root);
+  const projects = [...new Set(index.allFiles.map(project))];
+  const inProject = <T>(items: T[], fileOf: (item: T) => string) => (p: string) => items.filter((item) => project(fileOf(item)) === p);
+
+  const groups = projects.map(inProject(index.functions, (f) => f.file)).flatMap(findDuplicates);
   const differences = new Map<DuplicateGroup, CopyDifferences>();
   for (const group of groups) {
     const diff = await findDifferences(root, group);
@@ -90,7 +96,13 @@ export async function scanRepo(root: string, cache: FileCache = new Map()): Prom
   const serious = (rules: Set<string>) => lineFindings.filter((f) => rules.has(f.rule));
 
   const imports = new Map([...index.usage].map(([file, u]) => [file, u.imports]));
-  const crossStack = findCrossStack(apis, imports, await htmlCallsIn(root, index.allFiles));
+  const htmlCalls = await htmlCallsIn(root, index.allFiles);
+  const apisIn = inProject([...apis], ([file]) => file);
+  const parts = projects.map((p) => findCrossStack(new Map(apisIn(p)), imports, inProject(htmlCalls, (c) => c.file)(p)));
+  const crossStack: CrossStack = {
+    allRoutes: parts.flatMap((c) => c.allRoutes), routes: parts.reduce((n, c) => n + c.routes, 0), calls: parts.reduce((n, c) => n + c.calls, 0),
+    missing: parts.flatMap((c) => c.missing), unused: parts.flatMap((c) => c.unused),
+  };
   // Rate limiting may be set up in ways we can't trace (a gateway, a global limiter): if a
   // library is there, a route without one is only a hint.
   const rateLimitLibrary = [...imports.values()].some((list) => list.some((i) => RATE_LIMIT_LIBRARY.test(i.source)));

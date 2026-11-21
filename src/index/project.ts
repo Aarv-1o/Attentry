@@ -1,7 +1,7 @@
 import { existsSync, realpathSync, type Dirent } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { writeFile } from "atomically";
 import { isSource } from "./files.ts";
 
@@ -50,6 +50,15 @@ export async function projectsIn(folder: string, depth = 2): Promise<string[]> {
     return depth > 1 ? projectsIn(dir, depth - 1) : [];
   }));
   return found.flat();
+}
+
+// Which project in `root` a repo-relative file is in ("projects/ridely/", or "" for all of it).
+// Projects side by side in one folder are separate apps: a call in one doesn't reach a route in
+// another, and a copy across them isn't one to merge. A git repo is one project (a monorepo's
+// frontend calls its backend), so there everything is "".
+export async function projectOf(root: string): Promise<(file: string) => string> {
+  const prefixes = (await projectsIn(root)).map((p) => `${relative(root, p).split(sep).join("/")}/`);
+  return (file) => prefixes.find((p) => file.startsWith(p)) ?? "";
 }
 
 export async function projectRoot(folder: string): Promise<string> {
