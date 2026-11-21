@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { collectFindings } from "../src/findings/collect.ts";
-import { condition } from "../src/findings/plain.ts";
+import { condition, describe } from "../src/findings/plain.ts";
 import { scanRepo } from "../src/scan/scan.ts";
 import { makeRepo } from "./helpers.ts";
 
@@ -75,4 +75,10 @@ test("built strings read as words, not code", async () => {
   const said = (name: string) => found.find((f) => f.rule === "dead-function" && f.title.includes(name))!.plain?.does;
   assert.equal(said("render"), "`render(app, name)`: it sets `app.innerHTML` to HTML.");
   assert.equal(said("label"), "`label(n)`: it returns a text.");
+});
+
+test("a long function: the step count only when there are many", () => {
+  const facts = { file: "a.tsx", startLine: 1, name: "Home", params: "", when: undefined, calls: ["render"], changes: [], returns: [], touches: [] };
+  assert.match(describe({ ...facts, endLine: 128, steps: 1 }) ?? "", /^`Home\(\)` is 128 lines: it/);
+  assert.match(describe({ ...facts, endLine: 20, steps: 15 }) ?? "", /^`Home\(\)` is 20 lines with 15 steps: it/);
 });
