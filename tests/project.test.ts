@@ -31,6 +31,9 @@ test("a folder of several projects: the one the person chose, for everything tha
   // The two code folders from the person's screenshot: neither a git checkout, both projects.
   const folder = await makeRepo({ "chat-final/package.json": "{}", "ridely/package.json": "{}", "notes/todo.txt": "" });
   assert.deepEqual(await projectsIn(folder), ["chat-final", "ridely"].map((p) => join(folder, p)), "folders that aren't projects aren't offered");
+  // A folder that only groups projects: the ones inside it, but no deeper.
+  const grouped = await makeRepo({ "De-Tron/package.json": "{}", "projects/demo/package.json": "{}", "projects/ridely/package.json": "{}", "projects/real/next/basics/package.json": "{}" });
+  assert.deepEqual(await projectsIn(grouped), ["De-Tron", "projects/demo", "projects/ridely"].map((p) => join(grouped, p)));
   assert.equal(await projectRoot(folder), folder, "no choice yet: all of it");
   await chooseProject(folder, join(folder, "ridely"));
   assert.equal(await projectRoot(folder), join(folder, "ridely"));

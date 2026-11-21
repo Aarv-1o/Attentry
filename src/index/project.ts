@@ -39,13 +39,17 @@ export async function chooseProject(folder: string, project: string | undefined)
 const subfolders = (folder: string, entries: Dirent[]) =>
   entries.filter((e) => e.isDirectory() && !e.name.startsWith(".") && e.name !== "node_modules").map((e) => join(folder, e.name));
 
-// The projects one level down: git checkouts, and folders that look like a project. None in a git
-// repo: it's checked whole (projectRoot), so its packages aren't projects to choose from.
-export async function projectsIn(folder: string): Promise<string[]> {
+// The projects one or two levels down: git checkouts, and folders that look like a project. Two,
+// for a folder that only groups them (projects/a, projects/b). None in a git repo: it's checked
+// whole (projectRoot), so its packages aren't projects to choose from.
+export async function projectsIn(folder: string, depth = 2): Promise<string[]> {
   if (isGit(folder)) return [];
   const dirs = subfolders(folder, await readdir(folder, { withFileTypes: true }).catch(() => []));
-  const found = await Promise.all(dirs.map(async (dir) => isGit(dir) || (await looksLikeProject(dir))));
-  return dirs.filter((_, i) => found[i]);
+  const found = await Promise.all(dirs.map(async (dir) => {
+    if (isGit(dir) || (await looksLikeProject(dir))) return [dir];
+    return depth > 1 ? projectsIn(dir, depth - 1) : [];
+  }));
+  return found.flat();
 }
 
 export async function projectRoot(folder: string): Promise<string> {
