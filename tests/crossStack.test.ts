@@ -97,6 +97,37 @@ def login(): ...
   ]);
 });
 
+// request(method, path): an app's own helper that adds the base URL (/api) and takes the method first.
+const SPLITTER = {
+  "server/app.js": `import express from "express";
+const app = express();
+app.post("/api/login", (req, res) => res.json({}));
+app.get("/api/groups", (req, res) => res.json([]));
+app.get("/api/groups/:id", (req, res) => res.json({}));
+app.delete("/api/groups/:id", (req, res) => res.status(204).end());
+`,
+  "public/api.js": `async function request(method, path, body) {
+  const res = await fetch(\`/api\${path}\`, { method, body: JSON.stringify(body) });
+  return res.json();
+}
+export const login = (u, p) => request('POST', '/login', { u, p });
+export const listGroups = () => request('GET', '/groups');
+export const getGroup = (id) => request('GET', \`/groups/\${encodeURIComponent(id)}\`);
+`,
+};
+
+test("a helper that takes the method first: its calls are checked, with that method", async () => {
+  assert.deepEqual(await crossStack(SPLITTER), ["unused likely DELETE /api/groups/:id server/app.js:6"], "nothing calls DELETE; the three calls reach their routes");
+  assert.deepEqual(await crossStack({
+    ...SPLITTER,
+    "public/more.js": `export const rename = (id, name) => request('PUT', \`/groups/\${id}\`, { name });\nexport const logout = () => request('POST', '/logout');\n`,
+  }), [
+    "missing-route maybe POST …/logout public/more.js:2",
+    "unused likely DELETE /api/groups/:id server/app.js:6",
+    "wrong-method likely PUT …/groups/… public/more.js:1 ~ /api/groups/:id",
+  ]);
+});
+
 // A helper that takes the method: fetch(url, { method }) can be any of them (a game posting scores).
 test("does not flag: a route reached through a helper that passes the method as a variable", async () => {
   assert.deepEqual(await crossStack({

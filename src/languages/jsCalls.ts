@@ -95,6 +95,11 @@ export function visitCallSite(node: Node, api: FileApi): void {
     if (fn.text === "fetch") return addCall(api, first, { method: methodOption(second), line });
     if (fn.text === "axios" && first?.type !== "object") return addCall(api, first, { method: methodOption(second), line });
     if (configCall(node, api, line)) return;
+    // A wrapper that takes the method first: request("POST", "/login", body). Read the other way,
+    // "POST" is the URL, and every call through it is lost.
+    if (WRAPPER_NAME.test(fn.text) && first?.type === "string" && METHOD_NAMES.has(unquote(first).toLowerCase())) {
+      return addCall(api, second, { method: unquote(first).toUpperCase(), line, wrapper: true });
+    }
     // A wrapper named like fetch passes the options on: authFetch(url, { method: "PUT" }).
     if (WRAPPER_NAME.test(fn.text)) addCall(api, first, { method: /fetch/i.test(fn.text) ? methodOption(second) : undefined, line, wrapper: true });
     return;
