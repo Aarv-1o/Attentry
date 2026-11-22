@@ -84,7 +84,7 @@ Claude Code and Codex hear the same things.
   where the existing one is and how often it's used.
 - **After an edit**, the agent hears about the problems that edit added, each one once. Problems
   that were in the repo before the task started are left out, so old issues never nag.
-- **Every 10 edits** there's a short check-in, and your tests run in the background.
+- **After 3 edits, then every 10,** there's a short check-in, and your tests run in the background. The agent hears how they did on its next edit.
 - **At the end of the task** you get a change card: the files the agent changed, the problems it
   added or fixed, and whether the tests passed.
 

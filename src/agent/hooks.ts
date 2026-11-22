@@ -96,6 +96,11 @@ function stepsFinished(edits: FileEdit[], root: string, task: Task): string | un
   return undefined;
 }
 
+// The first check-in comes early: a short task (a handful of edits) otherwise never has one, so
+// the agent never hears its tests fail. Then every `every` edits.
+const FIRST_CHECK_IN = 3;
+export const nextCheckIn = (task: Task, every: number) => (task.lastCheckIn ? task.lastCheckIn + every : Math.min(FIRST_CHECK_IN, every));
+
 export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
   noteEdit(edits, root, task);
   const finished = stepsFinished(edits, root, task);
@@ -118,7 +123,7 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   }
   const news = testNews(task, told);
   if (news.length) lines.push(...(lines.length ? [""] : []), ...news);
-  if (finished !== undefined || task.edits - task.lastCheckIn >= config.checkInEvery) {
+  if (finished !== undefined || task.edits >= nextCheckIn(task, config.checkInEvery)) {
     task.lastCheckIn = task.edits;
     const when = finished ?? `after ${plural(task.edits, "edit")}`;
     lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root), when));

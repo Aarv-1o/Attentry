@@ -9,7 +9,7 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
 import { routeCoverage } from "../testing/coverage.ts";
@@ -48,7 +48,7 @@ export interface AgentStatus {
   added: number; // problems this task has added so far
   lastEditAt: number;
   untilCheckIn: number; // edits until the next check-in
-  checkInEvery: number;
+  checkInEvery: number; // edits from the last check-in to the next (the first comes sooner)
   files: number; // files the task changed
   tests: { state: TestRun["state"] | "running" | "not run"; text: string };
   agent: "claude" | "codex";
@@ -186,7 +186,8 @@ export class Sessions {
     if (!latest) return undefined;
     const every = (await loadConfig(this.root)).checkInEvery;
     const tests = latest.testing ? { state: "running" as const, text: "running…" } : latest.tests ? { state: latest.tests.state, text: describeTests(latest.tests) } : { state: "not run" as const, text: "not run yet (they run at the first check-in)" };
-    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every, files: latest.editedFiles.size, tests, agent: latest.agent ?? "claude" };
+    const next = nextCheckIn(latest, every);
+    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: next - latest.edits, checkInEvery: next - latest.lastCheckIn, files: latest.editedFiles.size, tests, agent: latest.agent ?? "claude" };
   }
 
   // New functions in what the agent is about to write that the repo already has.

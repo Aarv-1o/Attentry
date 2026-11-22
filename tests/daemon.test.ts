@@ -39,7 +39,7 @@ test("hooks share one background Attentry that remembers the task between calls"
     assert.match(told.hookSpecificOutput.additionalContext, /index\.js:9 warning attentry\/empty-catch/);
     const live = await agentStatus(root);
     assert.deepEqual({ ...live, lastEditAt: undefined }, {
-      edits: 1, added: 1, untilCheckIn: 9, checkInEvery: 10, lastEditAt: undefined, files: 1,
+      edits: 1, added: 1, untilCheckIn: 2, checkInEvery: 3, lastEditAt: undefined, files: 1,
       tests: { state: "not run", text: "not run yet (they run at the first check-in)" }, agent: "claude",
     }, "the editor sees the task, as Claude Code's when the hook doesn't name its agent");
     const end = await hook(root, { hook_event_name: "Stop", stop_hook_active: false });

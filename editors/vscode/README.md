@@ -64,7 +64,7 @@ Attentry is added for all your projects, and the extension keeps it up to date.
 - **Before an edit:** if the agent is about to write a function the repo already has, it's told
   where the existing one is.
 - **After an edit:** the problems that edit added, each one once. Old problems are left out.
-- **Every 10 edits:** a short check-in with your tests, copies and unused code.
+- **After 3 edits, then every 10:** a short check-in with your tests, copies and unused code.
 - **End of the task:** a change card with the files changed, problems added or fixed, and whether
   the tests passed.
 

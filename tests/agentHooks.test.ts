@@ -35,16 +35,19 @@ test("after an edit: only problems this task added, each told once, silent when 
   assert.equal(told.hookSpecificOutput.hookEventName, "PostToolUse");
   assert.match(told.hookSpecificOutput.additionalContext, /^Attentry: this edit added 1 problem:\nindex\.js:9 warning attentry\/empty-catch: /);
   assert.doesNotMatch(told.hookSpecificOutput.additionalContext, /index\.js:4/, "the empty catch from before the task isn't this task's");
-  assert.equal(await edit("notes.js", "export const a = 2;\n"), undefined, "already told: not repeated");
+  // The third edit is the first check-in, which sums up the task: not the edit's own news.
+  assert.doesNotMatch((await edit("notes.js", "export const a = 2;\n")).hookSpecificOutput.additionalContext, /this edit added/, "already told: not repeated");
 });
 
-test("every 10 edits, a check-in; at the end, the change card for the person", async () => {
+test("a check-in after 3 edits, then every 10; at the end, the change card for the person", async () => {
   const { hook, edit } = await task();
   await hook("SessionStart");
   await edit("index.js", SAVE);
-  let reply;
-  for (let i = 2; i <= 10; i++) reply = await edit("notes.js", `export const a = ${i};\n`);
-  assert.match(reply.hookSpecificOutput.additionalContext, /^Attentry check-in after 10 edits: this task added 1 problem\.\nFocus here:\n- index\.js:9 warning/);
+  const replies = [];
+  for (let i = 2; i <= 13; i++) replies[i] = await edit("notes.js", `export const a = ${i};\n`);
+  assert.match(replies[3].hookSpecificOutput.additionalContext, /^Attentry check-in after 3 edits: this task added 1 problem\./, "early: a short task still has one");
+  assert.equal(replies[10], undefined);
+  assert.match(replies[13].hookSpecificOutput.additionalContext, /^Attentry check-in after 13 edits: this task added 1 problem\.\nFocus here:\n- index\.js:9 warning/);
   const stop = await hook("Stop", { stop_hook_active: false });
   assert.equal(stop.systemMessage, [
     "Attentry change card",
