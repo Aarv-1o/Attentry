@@ -116,12 +116,8 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
     lines.push(...(lines.length ? [""] : []), "Attentry: worth a check, may be fine:", ...check.slice(0, FOCUS).map((f) => `- ${f.file}:${f.line} ${f.title}`));
     lines.push("If it's covered, leave the code as it is and tell the person you checked. If not, add the check.");
   }
-  // Tests run in the background at check-ins: a failure is told once, on the next edit.
-  const tests = task.tests;
-  if (tests && (tests.state === "failed" || tests.state === "timeout") && !task.testsTold) {
-    task.testsTold = true;
-    lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...(tests.failing ? [`  Failing: ${tests.failing.slice(0, 5).join("; ")}`] : []), ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
-  }
+  const news = testNews(task, told);
+  if (news.length) lines.push(...(lines.length ? [""] : []), ...news);
   if (finished !== undefined || task.edits - task.lastCheckIn >= config.checkInEvery) {
     task.lastCheckIn = task.edits;
     const when = finished ?? `after ${plural(task.edits, "edit")}`;
@@ -132,6 +128,28 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   // Block mode: a new security or crash problem comes back to the agent as an error.
   if (config.mode === "block" && fresh.some((f) => severityOf(f) === "error")) return json({ decision: "block", reason: message });
   return json({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message } });
+}
+
+// Tests run in the background at check-ins, so their result is told on the next edit, once. Every
+// result, not just failures: silence can't tell "passed" from "never ran". Tests that can't run
+// (not allowed yet, none in the project) are said once a task: that doesn't change between check-ins.
+function testNews(task: Task, told: Set<string>): string[] {
+  const tests = task.tests;
+  if (!tests || task.testsTold) return [];
+  task.testsTold = true;
+  if (tests.state === "passed") return [`Attentry: the tests passed at the last check-in (${tests.label}, ${tests.seconds}s).`];
+  if (tests.state === "failed" || tests.state === "timeout") {
+    return [
+      `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`,
+      ...(tests.failing ? [`  Failing: ${tests.failing.slice(0, 5).join("; ")}`] : []),
+      ...tests.tail.slice(-5).map((l) => `  ${l}`),
+      "Fix them before going on, or say why they fail.",
+    ];
+  }
+  if (tests.state === "off" || told.has(`tests:${tests.state}`)) return []; // off: the person's choice
+  told.add(`tests:${tests.state}`);
+  if (tests.state === "blocked") return [`Attentry: the tests (${tests.label}) didn't run at the check-in: the person hasn't allowed them for this folder yet. Tell them: Allow tests in the Attentry sidebar.`];
+  return ["Attentry: this project has no tests yet, so the check-ins can't run any. Tell the person, and offer to add tests for what this task builds."];
 }
 
 // `when`: "after 10 edits", or "after step 1 of 3 (the API)".

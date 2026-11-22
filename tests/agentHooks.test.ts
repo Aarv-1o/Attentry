@@ -110,6 +110,45 @@ test("tests run at check-ins in the background, a failure is told once, and the 
   assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)/, "run again on the final code");
 }));
 
+// A background session in a repo whose check-ins come every 2 edits; `edit` waits for the tests
+// the check-in started, so the next edit hears them.
+async function checkInRepo(files: Record<string, string>) {
+  const root = await makeRepo({ "index.js": START, ".attentry/config.json": JSON.stringify({ checkInEvery: 2 }), ...files });
+  const sessions = new Sessions(root, true);
+  const edit = async (text: string) => {
+    await writeFile(join(root, "notes.md"), text);
+    const reply = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
+    await new Promise((r) => setTimeout(r, 1500));
+    return reply.stdout ? (JSON.parse(reply.stdout).hookSpecificOutput.additionalContext as string) : "";
+  };
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });
+  return { root, edit };
+}
+
+test("after a check-in the agent hears every test result: passed each run; not allowed, or no tests, once a task", () => withClaudeSettings({}, async () => {
+  const passing = await checkInRepo({ "package.json": JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }) });
+  await allowTests(passing.root, await findTests(passing.root, undefined));
+  await passing.edit("a");
+  await passing.edit("b"); // a check-in: the tests start
+  assert.match(await passing.edit("c"), /^Attentry: the tests passed at the last check-in \(npm test, \d+s\)\.$/);
+  await passing.edit("d");
+  assert.match(await passing.edit("e"), /tests passed/, "told after every run");
+
+  const blocked = await checkInRepo({ "package.json": JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }) });
+  await blocked.edit("a");
+  await blocked.edit("b");
+  assert.match(await blocked.edit("c"), /^Attentry: the tests \(npm test\) didn't run at the check-in: the person hasn't allowed them for this folder yet\. Tell them: Allow tests in the Attentry sidebar\.$/);
+  await blocked.edit("d");
+  assert.doesNotMatch(await blocked.edit("e"), /tests/, "once a task");
+
+  const none = await checkInRepo({});
+  await none.edit("a");
+  await none.edit("b");
+  assert.match(await none.edit("c"), /^Attentry: this project has no tests yet, so the check-ins can't run any\./);
+  await none.edit("d");
+  assert.doesNotMatch(await none.edit("e"), /tests/, "once a task");
+}));
+
 test("a repo's tests run only once the person allowed them, and again only if they haven't changed", () => withClaudeSettings({}, async () => {
   const root = await makeRepo({
     "index.js": START,
