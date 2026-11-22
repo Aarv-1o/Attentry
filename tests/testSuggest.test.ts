@@ -56,6 +56,13 @@ test("an admin route: not an admin → 403; a public login route: no 401", async
   ]);
 });
 
+test("no tests next to the new route but route tests elsewhere: there, in their style, not a client the repo doesn't use", async () => {
+  const files = { ...APP, "tests/http.test.js": `import app from "../src/app.js";\nconst server = app.listen(0);\nawait fetch(\`http://localhost:\${server.address().port}/api/auth/login\`, { method: "POST" });\n` };
+  const lines = await suggest(files, "Add GET /reports/weekly.\n");
+  assert.equal(lines.at(-1), "Put them with the other route tests, in tests/http.test.js.");
+  assert.ok(!lines.some((l) => /supertest/.test(l)));
+});
+
 test("a bug fix comes first; a route that hands the whole body to the model; a tested route gets nothing", async () => {
   const files = { ...APP, "tests/notes.test.js": `import app from "../src/app.js";\nawait request(app).get("/api/notes");\n` };
   assert.deepEqual(await suggest(files, "Fix the bug where POST /api/notes saves notes for the wrong user.\nGET /api/notes is fine.\n"), [

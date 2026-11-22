@@ -96,14 +96,18 @@ export function plannedWritten(planned: PlannedRoute[], coverage: TestedRoute[],
   return { done: planned.length - missing.length, missing };
 }
 
-// Where the tests go: the file that tests the routes next to each one, else the framework's client.
+// The test file with the most of these tests in it.
+function busiest(tests: { file: string }[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const t of tests) counts.set(t.file, (counts.get(t.file) ?? 0) + 1);
+  return [...counts].sort((x, y) => y[1] - x[1])[0]?.[0];
+}
+
+// Where the tests go: the file that tests the routes next to each one, else the one with the repo's
+// route tests, else the framework's client.
 function where(named: PlanRoute[], coverage: TestedRoute[], scan: ScanResult): string[] {
   const routes = coverage.map((c) => c.route);
-  const fileFor = (r: PlanRoute) => {
-    const counts = new Map<string, number>();
-    for (const near of nearTo(r.path, routes)) for (const t of coverage.find((c) => c.route === near)!.tests) counts.set(t.file, (counts.get(t.file) ?? 0) + 1);
-    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
-  };
+  const fileFor = (r: PlanRoute) => busiest(nearTo(r.path, routes).flatMap((near) => coverage.find((c) => c.route === near)!.tests));
   const files = new Map<string, PlanRoute[]>();
   for (const r of named) {
     const file = fileFor(r);
@@ -111,6 +115,10 @@ function where(named: PlanRoute[], coverage: TestedRoute[], scan: ScanResult): s
   }
   if (files.size === 1) return [`Put them in ${[...files.keys()][0]}, which tests the routes next to these.`];
   if (files.size > 1) return [...files].map(([file, rs]) => `Put the ${rs.map(label).join(" and ")} tests in ${file}, next to the tests of the routes beside it.`);
+  // No tests of the routes beside these, but route tests elsewhere: their file, in the way they
+  // already test (a framework client the repo doesn't use is advice Claude rightly pushes back on).
+  const routeTests = busiest(coverage.flatMap((c) => c.tests));
+  if (routeTests) return [`Put them with the other route tests, in ${routeTests}.`];
   // The framework, from what the nearest route's file imports, else what any file does (a router
   // file may use Router() without importing express itself).
   const near = named.length ? nearTo(named[0]!.path, routes)[0] ?? routes[0] : undefined;
