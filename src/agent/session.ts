@@ -242,7 +242,7 @@ export class Sessions {
     const { task, told } = await this.taskOf(session);
     const review = await this.reviewPlan(plan);
     task.planHeard = true;
-    // A new plan starts its steps over; one without steps keeps the 10-edit check-ins only.
+    // A new plan starts its steps over; one without steps keeps the regular check-ins only.
     if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
     if (review.planned.length) task.plannedTests = review.planned;
     const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));

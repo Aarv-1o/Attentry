@@ -161,17 +161,17 @@ test("no plan: the check-in names the tests the routes this task wrote need, onc
   await edit("app.js", NOTES_APP);
   await edit("tests/notes.test.js", NOTES_TEST);
   const checkIn = (await edit("notes.md", "a")).hookSpecificOutput.additionalContext as string;
-  assert.match(checkIn, /^Attentry check-in after 3 edits[^]*\n\nTests the routes this task wrote need \(no plan said which\):\n- `POST \/api\/notes`: the normal case works/);
+  assert.match(checkIn, /^Attentry check-in after 3 edits[^]*\n\nTests for the routes this task wrote \(no plan said which\):\n- `POST \/api\/notes`: the normal case works/);
   assert.doesNotMatch(checkIn, /`GET \/api\/notes`/, "it has a test already");
   for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9]) await edit("notes.md", String(i));
-  assert.doesNotMatch((await edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests the routes/, "once a task");
+  assert.doesNotMatch((await edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "once a task");
 
   const planned = await task();
   await planned.hook("SessionStart");
   await planned.hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "Add GET and POST /api/notes in app.js." } });
   await planned.edit("app.js", NOTES_APP);
   await planned.edit("notes.md", "a");
-  assert.doesNotMatch((await planned.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests the routes/, "the plan check already said which");
+  assert.doesNotMatch((await planned.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the plan check already said which");
 });
 
 test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {

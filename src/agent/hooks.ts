@@ -132,7 +132,7 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
     lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root), when));
     if (unplanned.length) {
       told.add(UNPLANNED);
-      lines.push("", "Tests the routes this task wrote need (no plan said which):", ...unplanned.map((l) => `- ${l}`));
+      lines.push("", "Tests for the routes this task wrote (no plan said which):", ...unplanned.map((l) => `- ${l}`));
     }
   }
   if (!lines.length) return SILENT;
