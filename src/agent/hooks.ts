@@ -155,7 +155,8 @@ function testNews(task: Task, told: Set<string>): string[] {
       `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`,
       ...(tests.failing ? [`  Failing: ${tests.failing.slice(0, 5).join("; ")}`] : []),
       ...tests.tail.slice(-5).map((l) => `  ${l}`),
-      "Fix them before going on, or say why they fail.",
+      // They may have failed before the task (Attentry can't tell): an old bug isn't the agent's to chase.
+      "Check whether your changes caused it. If they did, fix it before going on. If it was failing before, leave it and tell the person.",
     ];
   }
   if (tests.state === "off" || told.has(`tests:${tests.state}`)) return []; // off: the person's choice

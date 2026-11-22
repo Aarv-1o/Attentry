@@ -105,12 +105,15 @@ test("tests run at check-ins in the background, a failure is told once, and the 
   await edit("notes.md", "a"); // the second edit: a check-in, and the tests start
   await testsSettled(sessions);
   const told = await edit("notes.md", "b");
-  assert.match(told.hookSpecificOutput.additionalContext, /Attentry: the tests failed at the last check-in \(npm test\):[^]*Fix them before going on/);
+  assert.match(told.hookSpecificOutput.additionalContext, /Attentry: the tests failed at the last check-in \(npm test\):[^]*\nCheck whether your changes caused it\. If they did, fix it before going on\. If it was failing before, leave it and tell the person\.$/);
   const again = await edit("notes.md", "c");
   assert.doesNotMatch(again?.hookSpecificOutput?.additionalContext ?? "", /tests failed/, "told once");
+  const failing = await hook("Stop", { stop_hook_active: false });
+  assert.match(failing.systemMessage, /\n- Tests: failed \(npm test, \d+s\)\. It may have been failing before this task: check before blaming the task\.$/, "Attentry can't tell who broke it: it says so");
   await rm(join(root, "broken"));
+  await edit("notes.md", "d");
   const stop = await hook("Stop", { stop_hook_active: false });
-  assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)/, "run again on the final code");
+  assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)$/, "run again on the final code; no note when they pass");
 }));
 
 // A background session in a repo whose check-ins come every 2 edits; `edit` waits for the tests
