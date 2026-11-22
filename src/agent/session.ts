@@ -9,7 +9,7 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, firstCheckIn, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
 import { routeCoverage } from "../testing/coverage.ts";
@@ -34,8 +34,9 @@ const OUTSIDE = "outside"; // the agent heard that its edits outside the project
 // MCP sessions are named by Attentry's MCP server, one per agent session: never a hook's session id.
 export const MCP_SESSION = "mcp:";
 
-export const greeting = (project: string, files: number, mode: string) =>
-  `Attentry is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Attentry's MCP tools, call find_existing before writing a helper.`;
+// `tests`: what the check-ins will do with the tests, from testsPromise.
+export const greeting = (project: string, files: number, config: Config, tests: string) =>
+  `Attentry is on for ${project} (${plural(files, "file")}, ${config.mode} mode): after each edit you'll hear about copies and new problems this task adds, and a check-in after ${firstCheckIn(config.checkInEvery)} edits, then every ${config.checkInEvery}.${tests} If you have Attentry's MCP tools, call find_existing before writing a helper.`;
 
 const tell = (event: string, text: string): HookReply =>
   ({ stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`, exitCode: 0 });
@@ -97,6 +98,18 @@ export class Sessions {
     const percent = this.sourceFiles ? Math.min(99, Math.floor((done / this.sourceFiles) * 100)) : 0;
     const left = done ? `, ${about(((this.sourceFiles - done) * (Date.now() - this.readStart)) / done)} left` : "";
     return `${percent}% of ${plural(this.sourceFiles, "file")}${left}`;
+  }
+
+  // The greeting promises only what the check-ins will really do with the tests: a promise of
+  // tests that then never run leaves the agent thinking they passed.
+  private async testsPromise(config: Config): Promise<string> {
+    if (!this.background || config.tests === "off") return ""; // only the background Attentry runs them
+    const commands = await findTests(this.root, config.tests);
+    if (!commands.length) return " This project has no tests yet.";
+    const label = commands.map((c) => c.label).join(", ");
+    return (await testsAllowed(this.root, commands))
+      ? ` The check-ins run the tests (${label}).`
+      : ` The check-ins will run the tests (${label}) once the person allows them in the Attentry sidebar.`;
   }
 
   // Only commands the person allowed for this repo run: a cloned repo's test script could be anything.
@@ -269,9 +282,10 @@ export class Sessions {
       const ready = await this.ready();
       await this.taskOf(input.session_id, input.agent);
       // One line, once per session, so the agent (and the person asking it) knows Attentry is on.
-      const mode = (await loadConfig(this.root)).mode;
-      if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
-      return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
+      const config = await loadConfig(this.root);
+      const tests = await this.testsPromise(config);
+      if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, config, tests)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
+      return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, config, tests));
     }
     if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") return this.planCheck(input.session_id, input.tool_input?.plan, event);
     // Outside the project: not this task's edit. A plan file is checked as a plan.

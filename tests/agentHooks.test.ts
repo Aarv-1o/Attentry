@@ -152,6 +152,20 @@ test("after a check-in the agent hears every test result: passed each run; not a
   assert.doesNotMatch(await none.edit("e"), /tests/, "once a task");
 }));
 
+test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {
+  const hello = async (files: Record<string, string>, allow = false) => {
+    const root = await makeRepo({ "index.js": START, ...files });
+    if (allow) await allowTests(root, await findTests(root, undefined));
+    const reply = await new Sessions(root, true).handle({ hook_event_name: "SessionStart", session_id: "s1" });
+    return JSON.parse(reply.stdout).hookSpecificOutput.additionalContext as string;
+  };
+  const script = { "package.json": JSON.stringify({ scripts: { test: "node -e 0" } }) };
+  assert.match(await hello(script, true), /, and a check-in after 3 edits, then every 10\. The check-ins run the tests \(npm test\)\. If you have/);
+  assert.match(await hello(script), / The check-ins will run the tests \(npm test\) once the person allows them in the Attentry sidebar\./);
+  assert.match(await hello({}), /then every 10\. This project has no tests yet\. If you have/);
+  assert.match(await hello({ ...script, ".attentry/config.json": JSON.stringify({ tests: "off", checkInEvery: 5 }) }), /a check-in after 3 edits, then every 5\. If you have/, "off: nothing promised");
+}));
+
 test("a repo's tests run only once the person allowed them, and again only if they haven't changed", () => withClaudeSettings({}, async () => {
   const root = await makeRepo({
     "index.js": START,
