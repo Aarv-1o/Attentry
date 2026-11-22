@@ -1,13 +1,15 @@
 import type { Node } from "web-tree-sitter";
+import { HOLE } from "../rules/crossStack/paths.ts";
 import type { ApiCall } from "../rules/crossStack/types.ts";
 import { methodOption } from "./jsCalls.ts";
 import { args, METHOD_NAMES, objectProp } from "./jsRoutes.ts";
 import { stringValues } from "./jsValues.ts";
 import { descendants } from "./nodes.ts";
 
-// Calls a JS/TS test file makes to the app in-process, without a running server:
-// supertest (Express, Koa, NestJS), Fastify's inject and Hono's app.request. Next.js route
-// tests import the handler instead; src/testing/coverage.ts reads those from the imports.
+// Calls a JS/TS test file makes to the app: in-process, without a running server (supertest for
+// Express, Koa, NestJS; Fastify's inject; Hono's app.request), or over HTTP to the app the test
+// started (fetch to localhost). Next.js route tests import the handler instead;
+// src/testing/coverage.ts reads those from the imports.
 
 // supertest under its usual names, given an Express app, Koa's callback or Nest's HTTP server.
 const SUPERTEST = /^(request|supertest)(\.agent)?$/;
@@ -46,6 +48,19 @@ function requesterNames(root: Node): Requesters {
   return names;
 }
 
+// This machine: the app the test started on a free port, `http://localhost:${port}`.
+const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:[^/]*)?(?=\/)/;
+
+// fetch(`http://localhost:${port}/api/rides/1`). With a base we can't read (`${base}/api/rides`),
+// only in a file that starts a server: elsewhere it may be an outside API the test calls.
+function pushFetch(found: ApiCall[], urlNode: Node | undefined, method: string | undefined, line: number, startsServer: boolean): void {
+  for (const value of (urlNode && stringValues(urlNode)) ?? []) {
+    const url = value.split(/[?#]/)[0]!;
+    if (LOCAL.test(url)) found.push({ method, url: url.replace(LOCAL, ""), line });
+    else if (startsServer && url.startsWith(`${HOLE}/`)) found.push({ method, url, line });
+  }
+}
+
 function push(found: ApiCall[], urlNode: Node | undefined, method: string | undefined, line: number, app: string | undefined): void {
   if (!urlNode) return;
   for (const value of stringValues(urlNode) ?? []) found.push({ method, url: value, line, ...(app ? { app } : {}) });
@@ -53,9 +68,15 @@ function push(found: ApiCall[], urlNode: Node | undefined, method: string | unde
 
 export function extractJsTestCalls(root: Node): ApiCall[] {
   const clients = requesterNames(root);
+  const startsServer = /\.listen\(/.test(root.text);
   const found: ApiCall[] = [];
   for (const node of descendants(root)) {
     const fn = node.type === "call_expression" ? calleeOf(node) : null;
+    if (fn?.type === "identifier" && fn.text === "fetch") {
+      const [url, options] = args(node);
+      pushFetch(found, url, methodOption(options), node.startPosition.row + 1, startsServer);
+      continue;
+    }
     if (fn?.type !== "member_expression") continue;
     const object = fn.childForFieldName("object");
     const prop = fn.childForFieldName("property")?.text ?? "";

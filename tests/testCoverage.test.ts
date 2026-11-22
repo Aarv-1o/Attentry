@@ -50,6 +50,28 @@ test("mocked", async () => { await fetch("/api/notes", { method: "POST" }); expe
   ]);
 });
 
+test("a test that starts the app and fetches it on localhost reaches the route; other fetches don't", async () => {
+  assert.deepEqual(await coverage({
+    ...expressApp,
+    "tests/http.test.ts": `import { app } from "../src/app";
+const server = app.listen(0);
+const base = \`http://127.0.0.1:\${server.address().port}\`;
+test("show", async () => { await fetch(\`http://localhost:\${server.address().port}/api/notes/1\`); });
+test("create", async () => { await fetch(\`\${base}/api/notes\`, { method: "POST", body: "{}" }); });
+test("list", async () => { await fetch(\`\${base2}/api/notes?page=2\`); });
+`,
+    "tests/outside.test.ts": `// No server started here: a base we can't read may be an outside API.
+test("remote", async () => { await fetch(\`\${API}/api/notes/1\`, { method: "DELETE" }); });
+test("stripe", async () => { await fetch("https://api.stripe.com/api/notes/1", { method: "DELETE" }); });
+`,
+  }), [
+    "DELETE /api/notes/:id untested",
+    "GET /api/notes <- tests/http.test.ts:6",
+    "GET /api/notes/:id <- tests/http.test.ts:4",
+    "POST /api/notes <- tests/http.test.ts:5",
+  ]);
+});
+
 test("NestJS, Fastify inject and Hono app.request", async () => {
   assert.deepEqual(await coverage({
     "nest/main.ts": `const app = await NestFactory.create(AppModule);\napp.setGlobalPrefix("api");\n`,
