@@ -20,6 +20,7 @@ export interface TestRun {
   seconds: number;
   tail: string[]; // the last lines of output, when they failed
   failing?: string[]; // the failing tests' names, when the runner printed them
+  output?: string; // the run's output (its last 20,000 characters), for the panel's Full output
 }
 
 const NPM_DEFAULT = /no test specified/;
@@ -94,7 +95,7 @@ function runOne({ cwd, command, label }: TestCommand, timeoutMs: number): Promis
       clearTimeout(timer);
       const tail = state === "passed" ? [] : output.split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean).slice(-TAIL_LINES);
       const failing = state === "failed" ? failingTests(output) : [];
-      done({ state, label, seconds: Math.round((Date.now() - started) / 1000), tail, ...(failing.length ? { failing } : {}) });
+      done({ state, label, seconds: Math.round((Date.now() - started) / 1000), tail, ...(failing.length ? { failing } : {}), output });
     };
     child.on("error", () => finish("failed"));
     child.on("close", (code) => finish(timedOut ? "timeout" : code === 0 ? "passed" : "failed"));
@@ -105,12 +106,14 @@ function runOne({ cwd, command, label }: TestCommand, timeoutMs: number): Promis
 export async function runTests(commands: TestCommand[], timeoutMs: number): Promise<TestRun> {
   if (!commands.length) return { state: "none", label: "", seconds: 0, tail: [] };
   let seconds = 0;
+  const outputs: string[] = [];
   for (const command of commands) {
     const run = await runOne(command, timeoutMs);
     seconds += run.seconds;
-    if (run.state !== "passed") return { ...run, seconds };
+    outputs.push(`> ${command.command}\n${run.output}`);
+    if (run.state !== "passed") return { ...run, seconds, output: outputs.join("\n") };
   }
-  return { state: "passed", label: commands.map((c) => c.label).join(", "), seconds, tail: [] };
+  return { state: "passed", label: commands.map((c) => c.label).join(", "), seconds, tail: [], output: outputs.join("\n") };
 }
 
 // ": a 10% discount on 100 is 90 and 2 more", or nothing when the runner didn't name them.

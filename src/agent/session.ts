@@ -128,7 +128,8 @@ export class Sessions {
     if (task.testing) return task.testing;
     const atEdit = task.edits;
     task.testing = this.testRun(config)
-      .then((run) => {
+      // The output is for the panel's own runs: a task keeps only the tail.
+      .then(({ output: _, ...run }) => {
         task.tests = { ...run, atEdit };
         task.testsTold = false;
         return run;

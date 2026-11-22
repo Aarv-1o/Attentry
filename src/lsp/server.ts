@@ -22,7 +22,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { scanRepo } from "../scan/scan.ts";
-import { runFromPanel, testsView, type TestsView } from "../testing/panel.ts";
+import { runFromPanel, testChoices, testsView, type RunScope, type TestsView } from "../testing/panel.ts";
 import { chooseProject, projectRoot, projectsIn } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
@@ -276,12 +276,10 @@ export function startServer(connection: Connection): void {
     if (command === "attentry.server.setMode") return void (await writeConfig(root, { mode: args?.[0] === "block" ? "block" : "suggest" }));
     if (command === "attentry.server.setTestSuggestions") return void (await writeConfig(root, { testSuggestions: args?.[0] !== false }));
     if (command === "attentry.server.runTests") {
-      // The editor's open file, as a full path: the project's own path for it, if it's in the project.
-      const file = typeof args?.[0] === "string" ? relative(root, args[0]).replace(/\\/g, "/") : undefined;
-      if (file?.startsWith("..")) return { state: "none", label: "that file isn't in the project Attentry checks", seconds: 0, tail: [], scope: file, at: Date.now() };
-      const run = await runFromPanel(root, files, file);
+      // The output goes to the editor's Output panel once, not with every refresh of the panel.
+      const { output, ...run } = await runFromPanel(root, files, (args?.[0] as RunScope | undefined) ?? { kind: "all" });
       lastTestRun = { ...run, at: Date.now() };
-      return lastTestRun;
+      return { ...lastTestRun, output };
     }
     return undefined;
   });
@@ -321,6 +319,11 @@ export function startServer(connection: Connection): void {
   connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
   // The panel's Tests section: untested routes and the last run.
   connection.onRequest("attentry/tests", () => testsView(root, files, lastTestRun));
+  // The run menu. `file`: the editor's open file, a full path: the project's own path for it, if it's in the project.
+  connection.onRequest("attentry/testChoices", ({ file }: { file?: string }) => {
+    const own = file ? relative(root, file).replace(/\\/g, "/") : undefined;
+    return testChoices(root, files, own && !own.startsWith("..") ? own : undefined);
+  });
   // Test connection: a planted edit through the hook the agent runs (Claude Code's own copy of the
   // plugin; Codex's launcher never changes, so the extension's is the one Codex runs), then whether
   // the agent's sessions run it, which the test alone can't show.
