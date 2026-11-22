@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { Sessions } from "../src/agent/session.ts";
 import { describeTests, failingTests, findTests, runTests } from "../src/agent/tests.ts";
 import { allowTests } from "../src/agent/trust.ts";
-import { makeRepo, withClaudeSettings } from "./helpers.ts";
+import { makeRepo, testsSettled, withClaudeSettings } from "./helpers.ts";
 
 const START = `export function load(url) {\n  try {\n    return fetch(url);\n  } catch (e) {}\n}\n`;
 const SAVE = `${START}export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n`;
@@ -103,7 +103,7 @@ test("tests run at check-ins in the background, a failure is told once, and the 
   await hook("SessionStart");
   await edit("broken", "");
   await edit("notes.md", "a"); // the second edit: a check-in, and the tests start
-  await new Promise((r) => setTimeout(r, 3000));
+  await testsSettled(sessions);
   const told = await edit("notes.md", "b");
   assert.match(told.hookSpecificOutput.additionalContext, /Attentry: the tests failed at the last check-in \(npm test\):[^]*Fix them before going on/);
   const again = await edit("notes.md", "c");
@@ -121,7 +121,7 @@ async function checkInRepo(files: Record<string, string>) {
   const edit = async (text: string) => {
     await writeFile(join(root, "notes.md"), text);
     const reply = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
-    await new Promise((r) => setTimeout(r, 1500));
+    await testsSettled(sessions);
     return reply.stdout ? (JSON.parse(reply.stdout).hookSpecificOutput.additionalContext as string) : "";
   };
   await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });

@@ -97,3 +97,13 @@ export async function fakeAgent(name: keyof typeof AGENT_ENV, listed: unknown, {
     },
   };
 }
+
+// Waits for the tests a check-in started in the background. A fixed sleep failed whenever the
+// machine was busy (another test run alongside).
+export async function testsSettled(sessions: { status(): Promise<{ tests: { state: string } } | undefined> }): Promise<void> {
+  const end = Date.now() + 60_000;
+  while ((await sessions.status())?.tests.state === "running") {
+    if (Date.now() > end) throw new Error("the tests a check-in started didn't finish in 60 s");
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}

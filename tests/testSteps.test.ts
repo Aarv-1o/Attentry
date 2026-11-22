@@ -6,7 +6,7 @@ import { Sessions } from "../src/agent/session.ts";
 import { findTests } from "../src/agent/tests.ts";
 import { allowTests } from "../src/agent/trust.ts";
 import { planSteps, stepOf } from "../src/testing/steps.ts";
-import { makeRepo, withClaudeSettings } from "./helpers.ts";
+import { makeRepo, testsSettled, withClaudeSettings } from "./helpers.ts";
 
 const ALL = new Set(["src/notes.ts", "src/app.ts", "web/NoteList.tsx", "README.md"]);
 
@@ -76,7 +76,7 @@ test("plan steps: the end of a step runs the tests in the background, and a fail
   await edit("broken", "");
   await edit("src/notes.js", "export const notes = [1];\n");
   await edit("web/list.js", "export const list = 2;\n"); // step 1 done: the tests start
-  await new Promise((r) => setTimeout(r, 3000));
+  await testsSettled(sessions);
   assert.match(await edit("web/list.js", "export const list = 3;\n") ?? "", /Attentry: the tests failed at the last check-in \(npm test\)/);
 }));
 
