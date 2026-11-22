@@ -8,8 +8,9 @@ import type { TestRun } from "./tests.ts";
 // nag), and not limited to the lines it touched (deleting a caller in one file can make a
 // function dead in another). Kept in memory by the background Attentry, per agent session.
 
-// Same problem in the same place, even when lines move: titles name the function or route.
-export const keyOf = (f: Finding) => `${f.rule}|${f.file}|${f.title}`;
+// Same problem in the same place, even when lines move: titles name the function or route. A
+// hotspot's title counts commits, so every commit would make it "new in this task": it's the file's.
+export const keyOf = (f: Finding) => `${f.rule}|${f.file}|${f.category === "hotspot" ? "" : f.title}`;
 
 export interface Task {
   started: Map<string, number>; // finding key -> how many there were

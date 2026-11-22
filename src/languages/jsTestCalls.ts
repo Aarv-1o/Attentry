@@ -48,7 +48,8 @@ function requesterNames(root: Node): Requesters {
   return names;
 }
 
-// This machine: the app the test started on a free port, `http://localhost:${port}`.
+// This machine: the app the test started on a free port, `http://localhost:${port}`. A pattern, not
+// new URL(): the port is usually a value we can't read, which URL rejects.
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:[^/]*)?(?=\/)/;
 
 // fetch(`http://localhost:${port}/api/rides/1`). With a base we can't read (`${base}/api/rides`),
