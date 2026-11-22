@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
+import { TestRuns } from "./testRuns.ts";
 
 // The Attentry panel in the activity bar: the findings (by part, each opens its line), the agents
 // (connect Claude Code or Codex, suggest or block, how a task is going), and one line on the last check. Hints and
@@ -25,9 +26,8 @@ const REPO = "https://github.com/Aarv-1o/Attentry";
 const AGENT_POLL_MS = 4000; // the agent edits files on its own: refresh what it's doing
 
 type FromPanel =
-  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "testClaude" | "testCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" }
+  | { type: "ready" | "rescan" | "toggleShow" | "connectAgent" | "connectCodex" | "testClaude" | "testCodex" | "allowTests" | "checkSetup" | "closeSetup" | "copyReport" | "openReport" | "settings" | "openSite" | "share" | "openGithub" | "runTests" | "testMenu" | "testOutput" }
   | { type: "setMode"; mode: "suggest" | "block" }
-  | { type: "runTests"; file: boolean } // file: only the tests for the file open in the editor
   | { type: "setSuggestions"; on: boolean }
   | { type: "open"; file: string; line: number }
   | { type: "copyFix"; id: string }
@@ -36,8 +36,11 @@ type FromPanel =
 export class Sidebar implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private status: Status | undefined;
+  readonly testRuns: TestRuns;
 
-  constructor(private readonly extension: vscode.Uri, private readonly client: () => LanguageClient | undefined) {}
+  constructor(private readonly extension: vscode.Uri, private readonly client: () => LanguageClient | undefined) {
+    this.testRuns = new TestRuns(client, () => void this.view?.webview.postMessage({ type: "testsRunning" }));
+  }
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
@@ -55,7 +58,7 @@ export class Sidebar implements vscode.WebviewViewProvider {
   }
 
   private async tests(): Promise<void> {
-    void this.view?.webview.postMessage({ type: "tests", data: await this.client()?.sendRequest("attentry/tests", {}) });
+    void this.view?.webview.postMessage({ type: "tests", data: await this.client()?.sendRequest("attentry/tests", {}), run: this.testRuns.label });
   }
 
   private async agent(): Promise<void> {
@@ -137,13 +140,13 @@ export class Sidebar implements vscode.WebviewViewProvider {
     if (m.type === "checkSetup" || (this.setupShown && ["connectAgent", "connectCodex", "allowTests"].includes(m.type))) await this.setup();
     if (m.type === "closeSetup") this.setupShown = false;
     // Another project: the server checks it, and its status and findings follow.
-    if (m.type === "runTests") {
-      const file = m.file ? vscode.window.activeTextEditor?.document.uri.fsPath : undefined;
-      if (m.file && !file) return void vscode.window.showInformationMessage("Attentry: open a file first, then Run for this file.");
-      void this.view?.webview.postMessage({ type: "testsRunning" });
-      await client.sendRequest("workspace/executeCommand", { command: "attentry.server.runTests", arguments: file ? [file] : [] });
+    if (m.type === "runTests" && (await this.testRuns.run())) await this.tests();
+    // After the menu, the button's words change even when nothing ran.
+    if (m.type === "testMenu") {
+      await this.testRuns.menu();
       await this.tests();
     }
+    if (m.type === "testOutput") this.testRuns.showOutput();
     if (m.type === "setSuggestions") {
       await client.sendRequest("workspace/executeCommand", { command: "attentry.server.setTestSuggestions", arguments: [m.on] });
       await this.tests();

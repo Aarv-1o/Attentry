@@ -54,11 +54,24 @@ test("panel: the Tests section, under the findings, with untested routes, the la
   assert.match(text, /Tests 2 of 4 routes tested/);
   assert.ok(text.indexOf("Tests") < text.indexOf("Claude Code"), "under the findings, above the agents");
   assert.match(text, /Routes with no test 2 .* DELETE \/api\/notes\/:id notes\.js:9 GET \/api\/tags tags\.js:3/);
-  assert.match(p.html(), /data-run="all"[^>]*>Run all<\/button><button data-run="file"/);
-  p.send("tests", view({ state: "failed", label: "tests for money.js", seconds: 2, tail: ["✖ cents", "Expected 100"], failing: ["cents", "rounding"], scope: "src/money.js", at: Date.now() }, false));
-  assert.match(p.text(), /money\.js: failed \(2s\): cents and 1 more, just now ✖ cents Expected 100/, "one file's run doesn't repeat its name");
+  assert.match(text, /Not run yet/);
+  assert.match(p.html(), /data-act="runTests" >▶ Run all tests<\/button><button class="more" data-act="testMenu"/, "one button, its arrow the menu");
+  assert.doesNotMatch(p.html(), /Full output/, "nothing ran yet");
+  // The last choice from the menu: the button says what a click runs.
+  const failed = { state: "failed", label: "money.js", seconds: 2, tail: ["✖ cents", "Expected 100"], scope: "Tests for money.js", at: Date.now() };
+  p.send("tests", { ...view({ ...failed, failing: ["cents", "rounding", "a", "b"], failingAt: [{ name: "cents", file: "tests/money.test.js", line: 4 }, { name: "rounding" }, { name: "a" }] }, false), run: "Run tests for the open file" });
+  assert.match(p.text(), /Tests for money\.js failed · 4 failing tests · 2s · just now Full output cents money\.test\.js:4 rounding a …and 1 more\./, "one line, then the failing tests; one file's run doesn't repeat the command");
+  assert.match(p.html(), /data-open="tests\/money\.test\.js" data-line="4"/);
+  assert.match(p.html(), /▶ Run tests for the open file/);
   assert.match(p.html(), /data-suggest="off" aria-selected="true" disabled/);
+  p.send("tests", view(failed));
+  assert.match(p.text(), /failed · 2s · just now Full output ✖ cents Expected 100/, "no names: the output's last lines");
+  assert.match(p.html(), /▶ Run tests for the open file/, "the choice is kept");
+  p.send("tests", view({ state: "passed", label: "npm test", seconds: 4, tail: [], scope: "All tests", at: Date.now() }));
+  assert.match(p.text(), /All tests passed · npm test, 4s · just now Full output/);
+  p.send("tests", view({ state: "none", label: "no test reaches it", seconds: 0, tail: [], scope: "Tests for package.json", at: Date.now() }));
+  assert.match(p.text(), /Tests for package\.json: no test reaches it · just now(?! Full)/);
   p.send("testsRunning", {});
   assert.match(p.text(), /Running…/);
-  assert.match(p.html(), /data-run="all" disabled/);
+  assert.match(p.html(), /data-act="runTests" disabled/);
 });

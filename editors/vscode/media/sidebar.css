@@ -142,10 +142,17 @@ footer.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* Tests: Run all and Run for this file side by side; a failure's last lines under the result. */
-.actions { display: flex; gap: 6px; margin-top: 10px; }
-.actions button { flex: 1; margin-top: 0; padding: 6px 10px; border-radius: 4px; }
-.actions button:not(.primary) { background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
-.actions button:not(.primary):hover { background: var(--vscode-button-secondaryHoverBackground); }
-.actions button:disabled { opacity: 0.6; cursor: default; }
+/* Tests: one run button whose arrow opens the menu of what to run; secondary, so the panel's one
+   filled button stays the agent's Connect. A failure's tests (or last lines) under the result. */
+.split { display: flex; margin-top: 10px; }
+.split button { padding: 6px 10px; background: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground); }
+.split button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+.split button:first-child { flex: 1; text-align: left; border-radius: 4px 0 0 4px; }
+.split .more { border-radius: 0 4px 4px 0; border-left: 1px solid var(--vscode-button-separator, var(--line)); }
+.split button:disabled { opacity: 0.6; cursor: default; }
+.failing { margin-top: 2px; }
+/* A test or a route is short: its file:line fits beside it, so a row is one line, not two. */
+.row.inline .title { grid-column: 2; -webkit-line-clamp: 1; }
+.row.inline .loc { grid-row: 1; }
+.tests .glyph { align-self: start; margin-top: 0.45em; }
 .tail { margin: 4px 0 0; padding: 6px 8px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-family: var(--vscode-editor-font-family); font-size: 0.85em; background: var(--vscode-textCodeBlock-background); }

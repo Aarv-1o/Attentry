@@ -112,32 +112,45 @@ function task(live, working) {
 // ---- Tests ----
 
 const SHOWN_ROUTES = 8;
+let runLabel = "Run all tests"; // the run button's words: what a click runs (the last choice from its menu)
 const RUN_TEXT = {
-  // One file's run: the line already starts with the file's name, so the label isn't repeated.
-  passed: (r) => `passed (${took(r)})`, failed: (r) => `failed (${took(r)})${failing(r)}`,
-  timeout: (r) => `didn't finish in time (${r.label})`, none: (r) => r.label || "no tests found",
-  blocked: (r) => `not run: allow ${r.label} first`, off: () => "off in .attentry/config.json",
+  passed: () => "passed", failed: (r) => (r.failing?.length ? `failed · ${plural(r.failing.length, "failing test")}` : "failed"),
+  timeout: () => "didn't finish in time", none: (r) => r.label || "no tests found",
+  blocked: (r) => `not run until you allow ${r.label}`, off: () => "off in .attentry/config.json",
 };
+const RAN = new Set(["passed", "failed", "timeout"]);
 
-const took = (r) => (r.scope === "all" ? `${r.label}, ${r.seconds}s` : `${r.seconds}s`);
-const failing = (r) => (r.failing?.length ? `: ${r.failing[0]}${r.failing.length > 1 ? ` and ${r.failing.length - 1} more` : ""}` : "");
+// A row that opens its line when there is one, and a "…and N more" under the rows shown.
+const row = (glyph, title, file, line, tip = "") => `<div class="row inline"${file ? ` tabindex="0" data-open="${esc(file)}" data-line="${line}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}>
+      <i class="glyph ${glyph}"></i><span class="title">${esc(title)}</span>${file ? `<span class="loc">${esc(file.split("/").pop())}:${line}</span>` : ""}</div>`;
+const more = (total, shown) => (total > shown ? `<p class="quiet">…and ${total - shown} more.</p>` : "");
 
+// The failing tests, each opening where it's written when Attentry found it; without their names,
+// the output's last lines.
+function failures(r) {
+  if (r.state !== "failed") return "";
+  if (!r.failingAt?.length) return r.tail.length ? `<pre class="tail">${esc(r.tail.slice(-5).join("\n"))}</pre>` : "";
+  return `<div class="failing">${r.failingAt.map((f) => row("error", f.name, f.file, f.line)).join("")}${more(r.failing.length, r.failingAt.length)}</div>`;
+}
+
+// One line: what ran, how it went, with what and how long, when.
 function lastRun(r) {
   if (testsRunning) return `<p class="tests running"><i class="glyph busy"></i>Running…</p>`;
-  if (!r) return `<p class="quiet">Run the project's tests from here. Attentry also runs them at the agent's check-ins.</p>`;
+  if (!r) return `<p class="tests"><i class="glyph hint"></i><span>Not run yet · the agent's check-ins run them too</span></p>`;
+  const ran = RAN.has(r.state);
   const tone = { passed: "ok", failed: "error", timeout: "error" }[r.state] ?? "hint";
-  const allow = r.state === "blocked" ? ` <a data-act="allowTests">Allow tests</a>` : "";
-  const tail = r.state === "failed" && r.tail.length ? `<pre class="tail">${esc(r.tail.slice(-5).join("\n"))}</pre>` : "";
-  return `<p class="tests ${esc(r.state)}"><i class="glyph ${tone}"></i>${r.scope === "all" ? "All tests" : esc(r.scope.split("/").pop())}: ${esc((RUN_TEXT[r.state] ?? RUN_TEXT.none)(r))}, ${ago(r.at)}${allow}</p>${tail}`;
+  const took = ran ? ` · ${r.scope === "All tests" ? `${r.label}, ` : ""}${r.seconds}s` : "";
+  const links = [r.state === "blocked" && `<a data-act="allowTests">Allow tests</a>`, ran && `<a data-act="testOutput">Full output</a>`].filter(Boolean).join(" ");
+  // "All tests passed", but "Tests for money.js: no test reaches it". One span, so the links flow
+  // in the text instead of standing in a column of their own.
+  return `<p class="tests ${esc(r.state)}"><i class="glyph ${tone}"></i><span>${esc(`${r.scope}${ran ? " " : ": "}${(RUN_TEXT[r.state] ?? RUN_TEXT.none)(r)}${took} · ${ago(r.at)}`)} ${links}</span></p>${failures(r)}`;
 }
 
 function untestedRoutes(t) {
   if (!t.routes) return "";
   if (!t.untested.length) return `<p class="quiet">Every route has a test that calls it.</p>`;
-  const rows = t.untested.slice(0, SHOWN_ROUTES).map((r) => `<div class="row" tabindex="0" data-open="${esc(r.file)}" data-line="${r.line}" title="${r.open ? "No auth check on this route" : ""}">
-      <i class="glyph ${r.open ? "warning" : "hint"}"></i><span class="title">${esc(r.method)} ${esc(r.path)}</span><span class="loc">${esc(r.file.split("/").pop())}:${r.line}</span></div>`).join("");
-  const more = t.untested.length > SHOWN_ROUTES ? `<p class="quiet">…and ${t.untested.length - SHOWN_ROUTES} more.</p>` : "";
-  return `<details id="tests-untested"><summary><i class="glyph hint"></i>Routes with no test<span class="n">${t.untested.length}</span></summary><p class="quiet">No test calls these yet. A route with no auth check is marked and comes first.</p>${rows}${more}</details>`;
+  const rows = t.untested.slice(0, SHOWN_ROUTES).map((r) => row(r.open ? "warning" : "hint", `${r.method} ${r.path}`, r.file, r.line, r.open ? "No auth check on this route" : "")).join("");
+  return `<details id="tests-untested"><summary><i class="glyph hint"></i>Routes with no test<span class="n">${t.untested.length}</span></summary><p class="quiet">No test calls these yet. A route with no auth check is marked and comes first.</p>${rows}${more(t.untested.length, SHOWN_ROUTES)}</details>`;
 }
 
 function testsSection() {
@@ -145,7 +158,7 @@ function testsSection() {
   const on = tests.suggestions;
   return `<section class="agent">${head("Tests", tests.untested.length ? "warn" : "ok", tests.routes ? `${tests.routes - tests.untested.length} of ${tests.routes} routes tested` : "No routes found")}
       ${lastRun(tests.last)}
-      <div class="actions"><button class="primary" data-run="all" ${testsRunning ? "disabled" : ""}>Run all</button><button data-run="file" ${testsRunning ? "disabled" : ""} title="The tests that import the file open in the editor">Run for this file</button></div>
+      <div class="split"><button data-act="runTests" ${testsRunning ? "disabled" : ""}>▶ ${esc(runLabel)}</button><button class="more" data-act="testMenu" ${testsRunning ? "disabled" : ""} title="Choose which tests to run" aria-label="Choose which tests to run">▾</button></div>
       ${untestedRoutes(tests)}
       <div class="mode">
         <div class="tabs" role="tablist" aria-label="Test suggestions">
@@ -289,8 +302,6 @@ document.addEventListener("toggle", (e) => {
 document.addEventListener("click", (e) => {
   const fix = e.target.closest("[data-fix]");
   if (fix) return vscode.postMessage({ type: "copyFix", id: fix.dataset.fix });
-  const run = e.target.closest("[data-run]");
-  if (run) return vscode.postMessage({ type: "runTests", file: run.dataset.run === "file" });
   const suggest = e.target.closest("[data-suggest]");
   if (suggest) return vscode.postMessage({ type: "setSuggestions", on: suggest.dataset.suggest === "on" });
   const mode = e.target.closest("[data-mode]");
@@ -319,7 +330,7 @@ window.addEventListener("message", ({ data: m }) => {
   if (m.type === "findings") data = m.data;
   if (m.type === "agent") agent = m.info;
   if (m.type === "setup") setup = m.checks;
-  if (m.type === "tests") (tests = m.data), (testsRunning = false);
+  if (m.type === "tests") (tests = m.data), (runLabel = m.run ?? runLabel), (testsRunning = false);
   if (m.type === "testsRunning") testsRunning = true;
   render();
 });
