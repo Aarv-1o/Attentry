@@ -152,6 +152,28 @@ test("after a check-in the agent hears every test result: passed each run; not a
   assert.doesNotMatch(await none.edit("e"), /tests/, "once a task");
 }));
 
+const NOTES_APP = `const express = require("express");\nconst app = express();\napp.get("/api/notes", (req, res) => res.json([]));\napp.post("/api/notes", (req, res) => res.status(201).json(req.body));\nmodule.exports = app;\n`;
+const NOTES_TEST = `const request = require("supertest");\nconst app = require("../app");\ntest("lists", () => request(app).get("/api/notes").expect(200));\n`;
+
+test("no plan: the check-in names the tests the routes this task wrote need, once; not with a plan, not for tested routes", async () => {
+  const { hook, edit } = await task();
+  await hook("SessionStart");
+  await edit("app.js", NOTES_APP);
+  await edit("tests/notes.test.js", NOTES_TEST);
+  const checkIn = (await edit("notes.md", "a")).hookSpecificOutput.additionalContext as string;
+  assert.match(checkIn, /^Attentry check-in after 3 edits[^]*\n\nTests the routes this task wrote need \(no plan said which\):\n- `POST \/api\/notes`: the normal case works/);
+  assert.doesNotMatch(checkIn, /`GET \/api\/notes`/, "it has a test already");
+  for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9]) await edit("notes.md", String(i));
+  assert.doesNotMatch((await edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests the routes/, "once a task");
+
+  const planned = await task();
+  await planned.hook("SessionStart");
+  await planned.hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "Add GET and POST /api/notes in app.js." } });
+  await planned.edit("app.js", NOTES_APP);
+  await planned.edit("notes.md", "a");
+  assert.doesNotMatch((await planned.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests the routes/, "the plan check already said which");
+});
+
 test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {
   const hello = async (files: Record<string, string>, allow = false) => {
     const root = await makeRepo({ "index.js": START, ...files });

@@ -32,6 +32,7 @@ export interface Task {
   steps?: PlanStep[];
   step: number;
   plannedTests?: PlannedRoute[]; // routes the plan check suggested tests for: the card counts them
+  planHeard?: boolean; // a plan was checked: its test suggestions stand in for the check-ins'
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;

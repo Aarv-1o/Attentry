@@ -43,6 +43,7 @@ const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit|apply_patch)$/; // Claud
 const PER_EDIT = 5; // lines after one edit
 const FOCUS = 3; // lines in a check-in, and "worth a check" lines after an edit
 const MAX_BLOCKED_STOPS = 2; // then let it finish: a block that keeps failing is a loop
+export const UNPLANNED = "tests:unplanned"; // the agent heard the check-in's test suggestions
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const json = (value: object): HookReply => ({ stdout: `${JSON.stringify(value)}\n`, exitCode: 0 });
@@ -101,7 +102,9 @@ function stepsFinished(edits: FileEdit[], root: string, task: Task): string | un
 export const firstCheckIn = (every: number) => Math.min(3, every);
 export const nextCheckIn = (task: Task, every: number) => (task.lastCheckIn ? task.lastCheckIn + every : firstCheckIn(every));
 
-export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
+// `unplanned`: test suggestions for the routes this task wrote, when no plan was checked; told at
+// the next check-in, once.
+export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config, unplanned: string[] = []): HookReply {
   noteEdit(edits, root, task);
   const finished = stepsFinished(edits, root, task);
   const added = newSince(task, findings).filter(matters).sort(worstFirst);
@@ -127,6 +130,10 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
     task.lastCheckIn = task.edits;
     const when = finished ?? `after ${plural(task.edits, "edit")}`;
     lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root), when));
+    if (unplanned.length) {
+      told.add(UNPLANNED);
+      lines.push("", "Tests the routes this task wrote need (no plan said which):", ...unplanned.map((l) => `- ${l}`));
+    }
   }
   if (!lines.length) return SILENT;
   const message = lines.join("\n");

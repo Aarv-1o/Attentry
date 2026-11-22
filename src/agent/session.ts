@@ -9,7 +9,7 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, firstCheckIn, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, firstCheckIn, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, UNPLANNED, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
 import { routeCoverage } from "../testing/coverage.ts";
@@ -222,12 +222,26 @@ export class Sessions {
     return matches.length ? beforeEdit(matches, told, await loadConfig(this.root)) : SILENT;
   }
 
+  // No plan said which tests this task needs (vibe coders rarely plan, and need it most): at a
+  // check-in, the plan check's suggestions for the routes it wrote that no test reaches. Worked out
+  // only when this edit brings a check-in.
+  private async unplannedTests(task: Task, told: Set<string>, edits: FileEdit[], config: Config): Promise<string[]> {
+    if (task.planHeard || told.has(UNPLANNED) || !config.testSuggestions || task.edits + 1 < nextCheckIn(task, config.checkInEvery)) return [];
+    const scan = await scanRepo(this.root, this.cache);
+    const coverage = routeCoverage(scan.index);
+    const edited = new Set([...task.editedFiles, ...edits.map((e) => repoPath(this.root, e.path))]);
+    const routes = coverage.filter((c) => !c.tests.length && edited.has(c.route.file)).map((c) => `${c.route.method} ${c.route.path.text}`);
+    if (!routes.length) return [];
+    return suggestTests(routes.join("\n"), scan, coverage, await readTexts(this.root, scan.index.files)).lines;
+  }
+
   // A plan, from ExitPlanMode or its file: notes it hasn't heard yet this session (writing the
   // plan file and then finishing the plan shouldn't say the same thing twice).
   private async planCheck(session: string, plan: string | undefined, event: "PreToolUse" | "PostToolUse"): Promise<HookReply> {
     if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
     const { task, told } = await this.taskOf(session);
     const review = await this.reviewPlan(plan);
+    task.planHeard = true;
     // A new plan starts its steps over; one without steps keeps the 10-edit check-ins only.
     if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
     if (review.planned.length) task.plannedTests = review.planned;
@@ -315,7 +329,8 @@ export class Sessions {
       const config = await loadConfig(this.root);
       this.markShared(task);
       const checkIns = task.lastCheckIn;
-      const reply = afterEdit(edits, this.root, task, told, await this.findings(), config);
+      const unplanned = await this.unplannedTests(task, told, edits, config);
+      const reply = afterEdit(edits, this.root, task, told, await this.findings(), config, unplanned);
       // A check-in: the tests, in the background (the agent doesn't wait).
       if (this.background && task.lastCheckIn !== checkIns) void this.startTests(task, config);
       return reply;
