@@ -166,6 +166,19 @@ test("no plan: the check-in names the tests the routes this task wrote need, onc
   for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9]) await edit("notes.md", String(i));
   assert.doesNotMatch((await edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "once a task");
 
+  // A route that was there before the task, in a file it edits, isn't one it wrote.
+  const root = await makeRepo({ "app.js": NOTES_APP });
+  const sessions = new Sessions(root);
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s2" });
+  let reply;
+  for (const i of [1, 2, 3]) {
+    await writeFile(join(root, "app.js"), NOTES_APP.replace("module.exports", `app.delete("/api/notes/:id", (req, res) => res.status(204).end());\n// ${i}\nmodule.exports`));
+    reply = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s2", tool_name: "Write", tool_input: { file_path: join(root, "app.js") } });
+  }
+  const added = JSON.parse(reply!.stdout).hookSpecificOutput.additionalContext as string;
+  assert.match(added, /- `DELETE \/api\/notes\/:id`: the normal case works/);
+  assert.doesNotMatch(added, /`(GET|POST) \/api\/notes`/, "there before the task");
+
   const planned = await task();
   await planned.hook("SessionStart");
   await planned.hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "Add GET and POST /api/notes in app.js." } });

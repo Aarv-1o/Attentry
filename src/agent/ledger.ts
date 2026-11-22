@@ -33,19 +33,21 @@ export interface Task {
   step: number;
   plannedTests?: PlannedRoute[]; // routes the plan check suggested tests for: the card counts them
   planHeard?: boolean; // a plan was checked: its test suggestions stand in for the check-ins'
+  routesAtStart: Set<string>; // "GET /api/notes": test suggestions without a plan are for the routes it adds
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
-export function startTask(findings: Finding[] = []): Task {
-  const task: Task = { started: new Map(), serious: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
-  recordStart(task, findings);
+export function startTask(findings: Finding[] = [], routes: string[] = []): Task {
+  const task: Task = { started: new Map(), serious: new Set(), routesAtStart: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
+  recordStart(task, findings, routes);
   return task;
 }
 
 // What the task started with. Filled in later for a task that began while Attentry was still reading the repo.
-export function recordStart(task: Task, findings: Finding[]): void {
+export function recordStart(task: Task, findings: Finding[], routes: string[] = []): void {
+  for (const route of routes) task.routesAtStart.add(route);
   for (const f of findings) {
     task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
     if (isProblem(f)) task.serious.add(keyOf(f));

@@ -12,6 +12,7 @@ import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
 import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, firstCheckIn, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, UNPLANNED, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
 import { readTexts } from "../index/texts.ts";
+import type { FullRoute } from "../rules/crossStack/resolve.ts";
 import { routeCoverage } from "../testing/coverage.ts";
 import { planSteps, type PlanStep } from "../testing/steps.ts";
 import { plannedWritten, suggestTests, type PlannedRoute } from "../testing/suggest.ts";
@@ -37,6 +38,8 @@ export const MCP_SESSION = "mcp:";
 // `tests`: what the check-ins will do with the tests, from testsPromise.
 export const greeting = (project: string, files: number, config: Config, tests: string) =>
   `Attentry is on for ${project} (${plural(files, "file")}, ${config.mode} mode): after each edit you'll hear about copies and new problems this task adds, and a check-in after ${firstCheckIn(config.checkInEvery)} edits, then every ${config.checkInEvery}.${tests} If you have Attentry's MCP tools, call find_existing before writing a helper.`;
+
+const routeKey = (r: FullRoute) => `${r.method} ${r.path.text}`;
 
 const tell = (event: string, text: string): HookReply =>
   ({ stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`, exitCode: 0 });
@@ -76,8 +79,8 @@ export class Sessions {
     this.reading ??= (async () => {
       this.readStart = Date.now();
       this.sourceFiles = (await listRepoFiles(this.root)).filter(isSource).length;
-      const findings = await this.findings();
-      for (const task of this.unstarted) recordStart(task, findings);
+      const [findings, routes] = await this.startingPoint();
+      for (const task of this.unstarted) recordStart(task, findings, routes);
       this.unstarted.clear();
     })()
       .catch(() => undefined) // a scan that failed fails again, with its error, on the next check
@@ -138,6 +141,12 @@ export class Sessions {
     return collectFindings(await scanRepo(this.root, this.cache));
   }
 
+  // What a task starts with: the repo's findings, and its routes.
+  private async startingPoint(): Promise<[Finding[], string[]]> {
+    const scan = await scanRepo(this.root, this.cache);
+    return [await collectFindings(scan), scan.crossStack.allRoutes.map(routeKey)];
+  }
+
   // The task starts at the session's start, or before its first edit if that came first. `agent`:
   // whose hooks asked, when they say.
   private async taskOf(session: string, agent?: Task["agent"]) {
@@ -145,7 +154,7 @@ export class Sessions {
     if (!entry) {
       let task: Task;
       if (this.background && !this.read) this.unstarted.add((task = startTask()));
-      else task = startTask(await this.findings());
+      else task = startTask(...(await this.startingPoint()));
       this.tasks.set(session, (entry = { task, told: new Set() }));
     }
     if (agent) entry.task.agent = agent;
@@ -223,14 +232,14 @@ export class Sessions {
   }
 
   // No plan said which tests this task needs (vibe coders rarely plan, and need it most): at a
-  // check-in, the plan check's suggestions for the routes it wrote that no test reaches. Worked out
+  // check-in, the plan check's suggestions for the routes it added that no test reaches. Worked out
   // only when this edit brings a check-in.
   private async unplannedTests(task: Task, told: Set<string>, edits: FileEdit[], config: Config): Promise<string[]> {
     if (task.planHeard || told.has(UNPLANNED) || !config.testSuggestions || task.edits + 1 < nextCheckIn(task, config.checkInEvery)) return [];
     const scan = await scanRepo(this.root, this.cache);
     const coverage = routeCoverage(scan.index);
     const edited = new Set([...task.editedFiles, ...edits.map((e) => repoPath(this.root, e.path))]);
-    const routes = coverage.filter((c) => !c.tests.length && edited.has(c.route.file)).map((c) => `${c.route.method} ${c.route.path.text}`);
+    const routes = coverage.filter((c) => !c.tests.length && edited.has(c.route.file)).map((c) => routeKey(c.route)).filter((r) => !task.routesAtStart.has(r));
     if (!routes.length) return [];
     return suggestTests(routes.join("\n"), scan, coverage, await readTexts(this.root, scan.index.files)).lines;
   }
