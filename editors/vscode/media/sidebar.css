@@ -1,5 +1,5 @@
 /* Attentry's site, brought into the panel: its signal teal is the one accent (what Attentry sees,
-   focus, the check-in meter), its red/amber/blue mark severity, chips and buttons are pills on a
+   focus, the check-in meter), red and amber mark problems, teal also marks clean-up, chips and buttons are pills on a
    hairline, and every gap is a step of one 4px scale. The panel's background stays the theme's,
    and light and high-contrast themes get colors that read on them. Flat rows on one surface,
    hairlines between parts; at most one filled button shows at a time. */
@@ -9,7 +9,6 @@
   --teal-soft: rgba(31, 200, 164, 0.14);
   --red: #ff6b6b;
   --amber: #ffc24b;
-  --blue: #7cc4ff;
   --ink: var(--vscode-foreground);
   --muted: var(--vscode-descriptionForeground);
   --surface: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
@@ -25,7 +24,7 @@
   --mono: var(--vscode-editor-font-family, ui-monospace, monospace);
   --error: var(--red);
   --warning: var(--amber);
-  --info: var(--blue);
+  --info: var(--teal); /* clean-up isn't a problem: the site's green, not a third alarm color */
   --ok: var(--teal);
   --accent: var(--teal);
 }
@@ -35,7 +34,6 @@ body.vscode-light {
   --teal-soft: rgba(11, 138, 112, 0.12);
   --red: #c93838;
   --amber: #9a6400;
-  --blue: #1f6fbf;
   --strong: #0e1116;
   --strong-ink: #f2f4f7;
 }
