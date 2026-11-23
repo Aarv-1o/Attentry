@@ -29,3 +29,9 @@ test("a hotspot whose commit count went up during the task isn't new in it; a fu
   const now = [finding("src/lsp/server.ts", "hotspot", "hotspot", "Changed in 24 of 320 commits; 333 lines of code"), finding("a.ts", "long-params", "hygiene", "save has 6 parameters")];
   assert.deepEqual(newSince(task, now).map((f) => f.title), ["save has 6 parameters"]);
 });
+
+test("a file that moved into the top hotspots during the task isn't new in it: the task can't add history", () => {
+  const task = startTask([finding("src/lsp/server.ts", "hotspot", "hotspot")]);
+  const now = [finding("src/lsp/server.ts", "hotspot", "hotspot"), finding("src/agent/session.ts", "hotspot", "hotspot"), finding("a.ts", "long-params", "hygiene")];
+  assert.deepEqual(newSince(task, now).map((f) => `${f.file} ${f.rule}`), ["a.ts long-params"]);
+});
