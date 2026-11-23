@@ -91,6 +91,31 @@ test("react counts as used with JSX, even with no import (the automatic runtime)
   assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["preact"]);
 });
 
+// The trpc Next.js starter, not installed: 8 of its packages were flagged wrongly, 2 rightly.
+test("without node_modules: config files named after a tool, its commands, and what frameworks need", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({
+      scripts: { dev: "run-s migrate dev:next", lint: "oxlint --type-aware src", test: "vitest" },
+      dependencies: { "@prisma/client": "1", "@trpc/next": "1", "@trpc/react-query": "1", "@tanstack/react-query": "1", clsx: "1" },
+      devDependencies: { "npm-run-all": "1", oxlint: "1", "oxlint-tsgolint": "1", oxfmt: "1", postcss: "1", vite: "1", vitest: "1", prisma: "1", "start-server-and-test": "1" },
+    }),
+    "postcss.config.js": "module.exports = { plugins: { '@tailwindcss/postcss': {} } };\n",
+    ".oxfmtrc.json": '{ "$schema": "./node_modules/oxfmt/configuration_schema.json" }\n',
+    "prisma/schema.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n',
+    "src/trpc.ts": 'import { createTRPCNext } from "@trpc/next";\nexport const trpc = createTRPCNext;\n',
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["clsx", "start-server-and-test"]);
+});
+
+test("a config file names its own tool only: not a package that merely shares a word", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ devDependencies: { postcss: "1", "postcss-nested": "1", jest: "1" } }),
+    "postcss.config.js": "module.exports = {};\n",
+    "src/jest-notes.md": "notes\n",
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["postcss-nested", "jest"]);
+});
+
 test("without node_modules: commands named unlike their package, and react-email's peers", async () => {
   const root = await makeRepo({
     "package.json": JSON.stringify({
