@@ -107,6 +107,14 @@ test("without node_modules: config files named after a tool, its commands, and w
   assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["clsx", "start-server-and-test"]);
 });
 
+test("plugins named in a tool's JS config count, quoted or not", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ devDependencies: { postcss: "1", autoprefixer: "1", tailwindcss: "1", "left-pad": "1" } }),
+    "postcss.config.js": "module.exports = {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n};\n",
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["left-pad"]);
+});
+
 test("a config file names its own tool only: not a package that merely shares a word", async () => {
   const root = await makeRepo({
     "package.json": JSON.stringify({ devDependencies: { postcss: "1", "postcss-nested": "1", jest: "1" } }),

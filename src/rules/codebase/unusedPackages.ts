@@ -24,8 +24,9 @@ interface Manifest {
   bin?: string | Record<string, string>;
 }
 
-// Packages often show up only in configs: babel presets, eslint plugins, tsconfig "types", CSS @import.
-const CONFIG_FILE = /\.(json|jsonc|ya?ml|toml|css|scss|sass|less|html)$|(^|\/)\.[\w.-]*rc(\.\w+)?$/;
+// Packages often show up only in configs: babel presets, eslint plugins, tsconfig "types", CSS @import,
+// and plugins a JS config names by key (postcss.config.js: `autoprefixer: {}`).
+const CONFIG_FILE = /\.(json|jsonc|ya?ml|toml|css|scss|sass|less|html)$|(^|\/)\.[\w.-]*rc(\.\w+)?$|\.config\.[cm]?[jt]s$/;
 const NOT_REFERENCES = /(^|\/)(package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/;
 const BUILTINS = new Set(builtinModules);
 
