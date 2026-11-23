@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { symlinkSync } from "node:fs";
+import { rmSync, symlinkSync } from "node:fs";
 import { test } from "node:test";
 import { join } from "node:path";
 import { makeRepo, withHome } from "./helpers.ts";
@@ -38,6 +38,14 @@ test("inside git: follows .gitignore, including untracked files", async () => {
   execFileSync("git", ["init", "-q"], { cwd: root });
   execFileSync("git", ["add", "src/app.ts"], { cwd: root });
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
+});
+
+test("inside git: a tracked file deleted and not yet committed is gone", async () => {
+  const root = await makeRepo({ "src/app.ts": "", "src/time.ts": "" });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["add", "."], { cwd: root });
+  rmSync(join(root, "src/time.ts"));
+  assert.deepEqual(await sourceFiles(root), ["src/app.ts"]);
 });
 
 test("inside git with no .gitignore yet: installed packages are still skipped", async () => {

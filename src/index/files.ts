@@ -35,12 +35,16 @@ export function isSource(path: string): boolean {
 
 async function gitFiles(root: string): Promise<string[] | undefined> {
   let files: string[];
+  let deleted: Set<string>;
+  const list = async (...args: string[]) => (await git(root, ["ls-files", ...args, "-z"])).split("\0").filter(Boolean);
   try {
-    files = (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
+    // --cached keeps a tracked file deleted since the last commit: the agent removing it isn't
+    // "an unused file" to remove.
+    [files, deleted] = await Promise.all([list("--cached", "--others", "--exclude-standard"), list("--deleted").then((d) => new Set(d))]);
   } catch {
     return undefined; // not a git repo, or git isn't installed: fall back to walking
   }
-  return withoutLinkedFolders(root, files);
+  return withoutLinkedFolders(root, files.filter((f) => !deleted.has(f)));
 }
 
 // Git for Windows lists a folder link (a junction) like a folder, with every file in it: one that
