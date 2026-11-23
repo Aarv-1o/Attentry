@@ -29,7 +29,10 @@ test("dead code report: sizes, uninstall commands, safe-to-remove marks", () => 
   assert.match(text, /left-pad .*dev, web\/package\.json$/m);
   assert.match(text, /→ npm uninstall three$/m, "only what's installed goes in the command");
   assert.match(text, /→ In web: npm uninstall left-pad/);
-  assert.match(text, /→ clsx, start-server-and-test: not installed, so what needs them can't be checked\. Run npm install and scan again before removing\./);
+  assert.match(text, /→ clsx, start-server-and-test: not installed, so what needs them can't be checked\. Run npm install and scan again before removing them\./);
+  const noneInstalled = formatDeadCode({ packages: found.packages.filter((p) => !p.installed), files: [], functions: [] }, false);
+  assert.match(noneInstalled, /→ not installed, so what needs them can't be checked/, "the names are just above: not repeated");
+  assert.doesNotMatch(noneInstalled, /npm uninstall/);
   assert.match(text, /scheduler\.js:3 {2}stopScheduler {2}Exported, but nothing uses it\./);
 });
 

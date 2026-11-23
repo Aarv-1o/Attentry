@@ -32,7 +32,9 @@ function packagesSection(packages: UnusedPackage[]): string[] {
     const where = folder === "." ? "" : `In ${folder}: `;
     const [installed, unsure] = [inFolder.filter((p) => p.installed), inFolder.filter((p) => !p.installed)];
     if (installed.length) lines.push(`     → ${where}npm uninstall ${installed.map((p) => p.name).join(" ")}`);
-    if (unsure.length) lines.push(`     → ${where}${unsure.map((p) => p.name).join(", ")}: not installed, so what needs ${unsure.length === 1 ? "it" : "them"} can't be checked. Run npm install and scan again before removing.`);
+    // Named only next to an uninstall command: otherwise it's every name in the list above again.
+    const them = unsure.length === 1 ? "it" : "them";
+    if (unsure.length) lines.push(`     → ${where}${installed.length ? `${unsure.map((p) => p.name).join(", ")}: ` : ""}not installed, so what needs ${them} can't be checked. Run npm install and scan again before removing ${them}.`);
   }
   return [...lines, ""];
 }
