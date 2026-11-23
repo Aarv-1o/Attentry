@@ -7,8 +7,10 @@ const fn = (name: string, file: string) => fakeFunction({ name, file, exported: 
 
 const found: DeadCode = {
   packages: [
-    { name: "three", manifest: "package.json", dev: false, confidence: "sure", sizeBytes: 36_500_000 },
-    { name: "left-pad", manifest: "web/package.json", dev: true, confidence: "likely", sizeBytes: undefined },
+    { name: "three", manifest: "package.json", dev: false, confidence: "sure", sizeBytes: 36_500_000, installed: true },
+    { name: "left-pad", manifest: "web/package.json", dev: true, confidence: "likely", sizeBytes: 9_000, installed: true },
+    { name: "clsx", manifest: "package.json", dev: false, confidence: "likely", sizeBytes: undefined, installed: false },
+    { name: "start-server-and-test", manifest: "package.json", dev: true, confidence: "likely", sizeBytes: undefined, installed: false },
   ],
   files: [
     { file: "old.py", lines: 120, confidence: "likely", reason: "Nothing imports or mentions this file." },
@@ -22,11 +24,12 @@ const found: DeadCode = {
 
 test("dead code report: sizes, uninstall commands, safe-to-remove marks", () => {
   const text = formatDeadCode(found, false);
-  assert.match(text, /Unused packages \(2, 36\.5 MB\)/);
+  assert.match(text, /Unused packages \(4, 36\.5 MB\)/);
   assert.match(text, /three +36\.5 MB {2}package\.json {2}\(safe to remove\)/);
   assert.match(text, /left-pad .*dev, web\/package\.json$/m);
-  assert.match(text, /→ npm uninstall three/);
+  assert.match(text, /→ npm uninstall three$/m, "only what's installed goes in the command");
   assert.match(text, /→ In web: npm uninstall left-pad/);
+  assert.match(text, /→ clsx, start-server-and-test: not installed, so what needs them can't be checked\. Run npm install and scan again before removing\./);
   assert.match(text, /scheduler\.js:3 {2}stopScheduler {2}Exported, but nothing uses it\./);
 });
 

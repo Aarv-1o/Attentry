@@ -11,6 +11,9 @@ export interface UnusedPackage {
   dev: boolean;
   confidence: Confidence;
   sizeBytes: number | undefined; // when installed
+  // Without node_modules nothing says which packages need it, or what commands it installs: worth
+  // naming, not worth an uninstall command someone copies.
+  installed: boolean;
 }
 
 interface Manifest {
@@ -187,7 +190,7 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
         // Without node_modules we can't check peers, so we're less sure.
         const confidence: Confidence = dev || !pkg ? "likely" : "sure";
         const sizeBytes = pkg ? await packageSize(join(nodeModules, name)).catch(() => undefined) : undefined;
-        unused.push({ name, manifest: manifestPath, dev, confidence, sizeBytes });
+        unused.push({ name, manifest: manifestPath, dev, confidence, sizeBytes, installed: !!pkg });
       }
     }
   }

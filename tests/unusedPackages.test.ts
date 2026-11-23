@@ -33,9 +33,9 @@ test("flags packages nothing uses, with their @types", async () => {
   assert.ok(found[0]!.sizeBytes! > 0);
 });
 
-test("is only 'likely' when node_modules isn't installed", async () => {
-  const root = await makeRepo({ "package.json": JSON.stringify({ dependencies: { lodash: "1" } }), "a.js": "" });
-  assert.equal((await findUnusedPackages(await buildIndex(root)))[0]?.confidence, "likely");
+test("is only 'likely' when node_modules isn't installed, and says it isn't", async () => {
+  const root = await makeRepo({ "package.json": JSON.stringify({ dependencies: { lodash: "1", "left-pad": "1" } }), "a.js": "", ...installed("left-pad") });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => `${p.name} ${p.confidence} ${p.installed}`), ["lodash likely false", "left-pad sure true"]);
 });
 
 test("does not flag packages used in other ways", async () => {
