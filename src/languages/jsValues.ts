@@ -11,21 +11,31 @@ const MAX_VALUES = 4; // a ternary of ternaries: stop before the combinations pi
 // A value holding a whole path, not one segment of it: `${BASE}${path}` could be anything.
 const WHOLE_PATH = /^(path|url|endpoint|route|uri|href)$|(Path|Url|URL|Endpoint|Route)$/;
 
+// `let`/`var` may be set again later (`newPostId = body.id` after a create): then the first value
+// says nothing about what the variable holds where it's used.
+const reassigned = (name: string, scope: Node) =>
+  scope.descendantsOfType(["assignment_expression", "augmented_assignment_expression"]).some((a) => a?.childForFieldName("left")?.text === name);
+
 // `const NAME = value` visible from `at`: the nearest enclosing block that declares it, before `at`.
-function declaration(name: string, at: Node): Node | undefined {
+// A `let` or `var` counts only if nothing in that block sets it again.
+export function declaration(name: string, at: Node): Node | undefined {
   for (let scope = at.parent; scope; scope = scope.parent) {
     if (scope.type !== "statement_block" && scope.type !== "program") continue;
     let found: Node | undefined;
+    let mutable = false;
     for (const statement of scope.namedChildren) {
       const decl = statement.type === "export_statement" ? statement.childForFieldName("declaration") : statement;
       if (decl?.type !== "lexical_declaration" && decl?.type !== "variable_declaration") continue;
       // In a function body, only what's declared before the use counts; at the top level, any.
       if (scope.type !== "program" && statement.startIndex > at.startIndex) break;
       for (const d of decl.namedChildren) {
-        if (d.type === "variable_declarator" && d.childForFieldName("name")?.text === name) found = d.childForFieldName("value") ?? undefined;
+        if (d.type === "variable_declarator" && d.childForFieldName("name")?.text === name) {
+          found = d.childForFieldName("value") ?? undefined;
+          mutable = decl.firstChild?.type !== "const";
+        }
       }
     }
-    if (found) return found;
+    if (found) return mutable && reassigned(name, scope) ? undefined : found;
   }
   return undefined;
 }

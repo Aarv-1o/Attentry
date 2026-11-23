@@ -13,9 +13,10 @@ export interface Config {
   // The test command run at check-ins and at the end, or "off". Unset: Attentry finds it.
   tests: string | undefined;
   testTimeoutSeconds: number;
+  testSuggestions: boolean; // the tests a plan needs, in the plan message and on the change card
 }
 
-const DEFAULTS: Config = { mode: "suggest", checkInEvery: 10, tests: undefined, testTimeoutSeconds: 300 };
+const DEFAULTS: Config = { mode: "suggest", checkInEvery: 10, tests: undefined, testTimeoutSeconds: 300, testSuggestions: true };
 
 export async function loadConfig(root: string): Promise<Config> {
   let text: string;
@@ -30,11 +31,12 @@ export async function loadConfig(root: string): Promise<Config> {
     checkInEvery: Number.isInteger(read.checkInEvery) && read.checkInEvery! > 0 ? read.checkInEvery! : DEFAULTS.checkInEvery,
     tests: typeof read.tests === "string" && read.tests.trim() ? read.tests.trim() : undefined,
     testTimeoutSeconds: Number.isInteger(read.testTimeoutSeconds) && read.testTimeoutSeconds! > 0 ? read.testTimeoutSeconds! : DEFAULTS.testTimeoutSeconds,
+    testSuggestions: read.testSuggestions !== false,
   };
 }
 
-// Changes the mode, keeping the rest of the file.
-export async function writeMode(root: string, mode: Config["mode"]): Promise<string> {
+// Changes settings the panel and `attentry init` set, keeping the rest of the file.
+export async function writeConfig(root: string, change: Partial<Pick<Config, "mode" | "testSuggestions">>): Promise<string> {
   const path = join(root, ".attentry/config.json");
   let config: Record<string, unknown> = {};
   try {
@@ -42,6 +44,6 @@ export async function writeMode(root: string, mode: Config["mode"]): Promise<str
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; // unreadable: don't overwrite
   }
-  await writeFile(path, `${JSON.stringify({ ...config, mode }, null, 2)}\n`);
+  await writeFile(path, `${JSON.stringify({ ...config, ...change }, null, 2)}\n`);
   return path;
 }

@@ -11,6 +11,9 @@ export interface UnusedPackage {
   dev: boolean;
   confidence: Confidence;
   sizeBytes: number | undefined; // when installed
+  // Without node_modules nothing says which packages need it, or what commands it installs: worth
+  // naming, not worth an uninstall command someone copies.
+  installed: boolean;
 }
 
 interface Manifest {
@@ -21,8 +24,9 @@ interface Manifest {
   bin?: string | Record<string, string>;
 }
 
-// Packages often show up only in configs: babel presets, eslint plugins, tsconfig "types", CSS @import.
-const CONFIG_FILE = /\.(json|jsonc|ya?ml|toml|css|scss|sass|less|html)$|(^|\/)\.[\w.-]*rc(\.\w+)?$/;
+// Packages often show up only in configs: babel presets, eslint plugins, tsconfig "types", CSS @import,
+// and plugins a JS config names by key (postcss.config.js: `autoprefixer: {}`).
+const CONFIG_FILE = /\.(json|jsonc|ya?ml|toml|css|scss|sass|less|html)$|(^|\/)\.[\w.-]*rc(\.\w+)?$|\.config\.[cm]?[jt]s$/;
 const NOT_REFERENCES = /(^|\/)(package\.json|package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/;
 const BUILTINS = new Set(builtinModules);
 
@@ -69,6 +73,7 @@ async function folderSize(path: string): Promise<number> {
 const KNOWN_BINS: Record<string, string[]> = {
   "react-email": ["email"], typescript: ["tsc"], "@biomejs/biome": ["biome"], "@angular/cli": ["ng"], "@nestjs/cli": ["nest"],
   "@playwright/test": ["playwright"], "@sveltejs/kit": ["svelte-kit"], "@tanstack/router-cli": ["tsr"], "@vue/cli-service": ["vue-cli-service"],
+  "npm-run-all": ["run-s", "run-p"], "start-server-and-test": ["server-test", "start-test"],
 };
 
 // Command names a package installs: what `npm run` scripts actually call.
@@ -82,7 +87,8 @@ function binNames(name: string, installed: Manifest | undefined): string[] {
 const TOOL_CONFIGS: [RegExp, RegExp, string?][] = [
   [/^prettier$|^prettier-plugin-|^@\w[\w-]*\/prettier-plugin/, /(^|\/)(\.prettierrc[\w.]*|prettier\.config\.\w+)$/, "prettier"],
   [/^eslint$|(^|\/)eslint-(config|plugin)(-|$)|^@typescript-eslint\/|^typescript-eslint$|^@eslint\//, /(^|\/)(\.eslintrc[\w.]*|eslint\.config\.\w+)$/, "eslintConfig"],
-  [/^prisma$/, /(^|\/)schema\.prisma$/, "prisma"],
+  // The client Prisma generates imports @prisma/client, wherever it's written to.
+  [/^(prisma|@prisma\/client)$/, /(^|\/)schema\.prisma$/, "prisma"],
   [/^jest-environment-|^ts-jest$/, /(^|\/)jest\.(config|preset)\.\w+$/, "jest"],
   // Nx reads its .ts configs (jest.config.ts) with swc, and adds both packages for that.
   [/^@nx\/|^nx$|^@swc-node\/register$|^@swc\/(core|helpers)$/, /(^|\/)nx\.json$/],
@@ -100,7 +106,17 @@ const KNOWN_PEERS: [RegExp, RegExp][] = [
   [/^react$/, /^(react-dom|react-native|next|remotion|@remotion\/|gatsby|expo|react-router(-dom)?|@react-three\/fiber)$|^@remotion\//],
   [/^@swc\/core$/, /^(@swc-node\/|@swc\/jest$|unplugin-swc$)/],
   [/^tslib$/, /^typescript$/],
+  [/^vite$/, /^vitest$/],
+  [/^@tanstack\/react-query$/, /^@trpc\/(next|react-query)$/],
+  [/^@trpc\/react-query$/, /^@trpc\/next$/],
+  // `oxlint --type-aware` runs it.
+  [/^oxlint-tsgolint$/, /^oxlint$/],
 ];
+
+// A tool's own config file (postcss.config.js, .oxfmtrc.json) means it's in use: the tool finds the
+// file itself, so nothing imports it. Only for unscoped names, which are what these files are named after.
+const ownConfig = (name: string) =>
+  name.startsWith("@") ? undefined : new RegExp(`(^|/)(${escapeRegex(name)}\\.config\\.\\w+|\\.${escapeRegex(name)}rc(\\.\\w+)?)$`);
 
 // "@types/react" -> "react", "@types/babel__core" -> "@babel/core".
 const typedPackage = (name: string) => (name.startsWith("@types/") ? name.slice("@types/".length).replace(/^(.+)__(.+)$/, "@$1/$2") : undefined);
@@ -149,6 +165,10 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
       // JSX compiles to React calls with no import written (the automatic runtime).
       if (name === "react" && hasJsx) return true;
       if (configured(name)) return true;
+      const config = ownConfig(name);
+      if (config && index.allFiles.some((f) => inScope(f) && config.test(f))) return true;
+      // "$schema": "./node_modules/oxfmt/configuration_schema.json"
+      if (configText.includes(`node_modules/${name}/`)) return true;
       if (imported.has(name) || mentions(configText, name) || quoted(name)) return true;
       if (binNames(name, installed.get(name)).some((bin) => mentions(scripts, bin))) return true;
       // @types/react follows react; @types/node and friends describe globals, so they stay.
@@ -171,7 +191,7 @@ export async function findUnusedPackages(index: RepoIndex): Promise<UnusedPackag
         // Without node_modules we can't check peers, so we're less sure.
         const confidence: Confidence = dev || !pkg ? "likely" : "sure";
         const sizeBytes = pkg ? await packageSize(join(nodeModules, name)).catch(() => undefined) : undefined;
-        unused.push({ name, manifest: manifestPath, dev, confidence, sizeBytes });
+        unused.push({ name, manifest: manifestPath, dev, confidence, sizeBytes, installed: !!pkg });
       }
     }
   }

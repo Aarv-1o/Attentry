@@ -11,7 +11,7 @@ const ROUTE_METHODS = new Set(["get", "post", "put", "patch", "delete"]);
 const ROUTER_NAME = /^(app|api|router|bp|blueprint|\w+_(router|bp|blueprint|app))$/;
 
 // A string literal's value; f-string parts become HOLE. undefined for anything else.
-function stringValue(node: Node | null | undefined): string | undefined {
+export function stringValue(node: Node | null | undefined): string | undefined {
   if (node?.type !== "string") return undefined;
   return node.namedChildren
     .map((part) => (part.type === "string_content" ? part.text : part.type === "interpolation" ? HOLE : ""))

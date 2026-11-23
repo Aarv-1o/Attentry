@@ -78,13 +78,17 @@ Claude Code and Codex hear the same things.
   exists instead of writing it again.
 - **When the agent finishes a plan** (Claude Code), Attentry reads it and points out anything the
   repo already has: a helper the plan would write again, a route that already exists, a file that
-  changes all the time, or a plan too big to do in one go. You can also ask for this check by
-  typing `/attentry:plan`.
+  changes all the time, or a plan too big to do in one go. It also names the tests the plan needs,
+  from the routes it adds or changes. You can also ask for this check by typing `/attentry:plan`,
+  and Codex, which has no plan mode, calls the `check_plan` tool.
 - **Before an edit**, if the agent is about to write a function the repo already has, it's told
   where the existing one is and how often it's used.
 - **After an edit**, the agent hears about the problems that edit added, each one once. Problems
   that were in the repo before the task started are left out, so old issues never nag.
-- **Every 10 edits** there's a short check-in, and your tests run in the background.
+- **After 3 edits, then every 10,** there's a short check-in, and your tests run in the background.
+  The agent hears how they did on its next edit, passed or failed. When a plan has steps, finishing
+  a step is a check-in too. If no plan was checked, the first check-in names the tests for the
+  routes the task wrote.
 - **At the end of the task** you get a change card: the files the agent changed, the problems it
   added or fixed, and whether the tests passed.
 
@@ -121,6 +125,14 @@ Because a test command can run anything, Attentry only runs commands you've allo
 Claude Code or Codex in the panel allows the open repo's current ones. In another repo, or after a
 test command changes, the change card says the tests weren't run, and the panel shows an **Allow
 tests** link. `attentry doctor` shows what's allowed.
+
+Attentry also knows which routes your tests reach: supertest, Fastify's `inject`, Hono's
+`app.request`, Next.js handlers imported by a test, FastAPI's and Flask's test clients, Django's and
+DRF's clients, httpx, and tests that fetch the app they started on localhost. It never starts your
+app to find out. The panel's **Tests** section lists the routes with no test, and runs
+your tests: all of them, the open file's, the ones for your changed files, or one test file. It
+shows the result in one line and up to three failing tests, each with where it's written. Turn the
+test suggestions off in the panel, or with `"testSuggestions": false` in `.attentry/config.json`.
 
 ## What it finds
 

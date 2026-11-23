@@ -3,6 +3,7 @@ import type { FunctionInfo } from "../index/functions.ts";
 import type { ImportInfo } from "../index/usage.ts";
 import { commonInfo, descendants, enclosingClass, valueReferences } from "./nodes.ts";
 import { extractPythonApi } from "./pythonApi.ts";
+import { extractPythonTestCalls } from "./pythonTestCalls.ts";
 import type { LanguageSupport, Syntax } from "./types.ts";
 
 function paramsOf(node: Node): string[] {
@@ -103,6 +104,7 @@ export const python: LanguageSupport = {
   unusedExportReason: "Nothing uses it.",
   runsInBrowser: () => false,
   extractApi: extractPythonApi,
+  extractTestCalls: extractPythonTestCalls,
 
   syntax,
 };

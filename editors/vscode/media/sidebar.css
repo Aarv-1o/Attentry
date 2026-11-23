@@ -1,66 +1,102 @@
-/* Flat rows on one surface, hairlines between parts, nothing boxed for decoration (after Linear
-   and Raycast). Colors are the user's VS Code theme: severity uses the editor's own
-   error/warning/info colors, the theme's focus color is the one accent (the check-in meter,
-   focus rings), and at most one filled button shows at a time. */
+/* Attentry's site, brought into the panel: its signal teal is the one accent (what Attentry sees,
+   focus, the check-in meter), red and amber mark problems, teal also marks clean-up, chips and buttons are pills on a
+   hairline, and every gap is a step of one 4px scale. The panel's background stays the theme's,
+   and light and high-contrast themes get colors that read on them. Flat rows on one surface,
+   hairlines between parts; at most one filled button shows at a time. */
 * { box-sizing: border-box; }
 :root {
-  --accent: var(--vscode-focusBorder);
-  --line: var(--vscode-widget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.25)));
+  --teal: #1fc8a4;
+  --teal-soft: rgba(31, 200, 164, 0.14);
+  --red: #ff6b6b;
+  --amber: #ffc24b;
+  --ink: var(--vscode-foreground);
   --muted: var(--vscode-descriptionForeground);
-  --lift: var(--vscode-list-hoverBackground);
+  --surface: color-mix(in srgb, var(--vscode-foreground) 5%, transparent);
+  --surface-2: color-mix(in srgb, var(--vscode-foreground) 9%, transparent);
+  --hairline: color-mix(in srgb, var(--vscode-foreground) 12%, transparent);
+  --strong: #f2f4f7; /* the one filled button: white, as on the site */
+  --strong-ink: #0e1116;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --radius: 6px;
+  --mono: var(--vscode-editor-font-family, ui-monospace, monospace);
+  --error: var(--red);
+  --warning: var(--amber);
+  --info: var(--teal); /* clean-up isn't a problem: the site's green, not a third alarm color */
+  --ok: var(--teal);
+  --accent: var(--teal);
+}
+/* On a light theme the site's colors are too pale to read: the same hues, darker. */
+body.vscode-light {
+  --teal: #0b8a70;
+  --teal-soft: rgba(11, 138, 112, 0.12);
+  --red: #c93838;
+  --amber: #9a6400;
+  --strong: #0e1116;
+  --strong-ink: #f2f4f7;
+}
+/* High contrast: the theme's own colors and borders, which the person chose to see. */
+body.vscode-high-contrast, body.vscode-high-contrast-light {
   --error: var(--vscode-editorError-foreground);
   --warning: var(--vscode-editorWarning-foreground);
   --info: var(--vscode-editorInfo-foreground);
-  --ok: var(--vscode-testing-iconPassed, #3fb950);
-  --mono: var(--vscode-editor-font-family, ui-monospace, monospace);
+  --ok: var(--vscode-testing-iconPassed, var(--vscode-foreground));
+  --accent: var(--vscode-focusBorder);
+  --hairline: var(--vscode-contrastBorder, var(--vscode-foreground));
+  --strong: var(--vscode-button-background);
+  --strong-ink: var(--vscode-button-foreground);
 }
-body { margin: 0; padding: 0 0 16px; color: var(--vscode-foreground); font: var(--vscode-font-size) var(--vscode-font-family); line-height: 1.45; font-variant-numeric: tabular-nums; }
+
+body { margin: 0; padding: 0 0 var(--space-4); color: var(--ink); font: var(--vscode-font-size) var(--vscode-font-family); line-height: 1.45; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; padding: 0; }
-button:focus-visible, .row:focus-visible, a:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
-a { color: var(--vscode-textLink-foreground); cursor: pointer; text-decoration: none; }
-a:hover { text-decoration: underline; }
-h2 { margin: 0; font-size: 1em; font-weight: 600; }
+button:focus-visible, .row:focus-visible, a:focus-visible, summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; border-radius: var(--radius); }
+a { color: var(--teal); cursor: pointer; text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 2px; }
+/* A part's name, as the site's eyebrows: small capitals, so the content under it leads. */
+h2 { margin: 0; font-size: 0.8em; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 p { margin: 0; }
 code { font-family: var(--mono); font-size: 0.92em; }
-.quiet { color: var(--muted); font-size: 0.92em; margin-top: 8px; }
+.quiet { color: var(--muted); font-size: 0.92em; margin-top: var(--space-2); }
 
-/* The parts: findings, Claude Code, the last check */
-section { padding: 12px 14px 14px; border-top: 1px solid var(--line); }
+/* The parts: findings, tests, the agents, the last check */
+section { padding: var(--space-3) var(--space-4) var(--space-4); border-top: 1px solid var(--hairline); }
 section:first-child { border-top: 0; }
 
 /* Severity glyphs: a shape per level, so color isn't the only cue. */
 .glyph { display: inline-block; width: 8px; height: 8px; flex: none; background: var(--muted); }
 .glyph.error { border-radius: 50%; background: var(--error); }
 .glyph.warning { background: var(--warning); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.glyph.info { border-radius: 1px; background: var(--info); }
+.glyph.info { border-radius: 2px; background: var(--info); }
 .glyph.hint { border-radius: 50%; background: transparent; box-shadow: inset 0 0 0 1px var(--muted); }
 .glyph.ok { border-radius: 50%; background: var(--ok); }
-.glyph.busy { border-radius: 50%; background: var(--accent); }
+.glyph.busy { border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 
-/* Tabs: the chosen one lifts by one surface step. */
-.tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 6px; background: color-mix(in srgb, var(--vscode-foreground) 6%, transparent); }
-.tabs button { padding: 2px 9px; border-radius: 4px; color: var(--muted); font-size: 0.92em; }
-.tabs button[aria-selected="true"] { background: var(--vscode-editor-background); color: var(--vscode-foreground); cursor: default; box-shadow: 0 0 0 1px var(--line); }
-.tabs button:not([disabled]):hover { color: var(--vscode-foreground); }
+/* Tabs: a pill track; the chosen one lifts onto a surface. */
+.tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--hairline); }
+.tabs button { padding: 1px var(--space-3); border-radius: 999px; color: var(--muted); font-size: 0.92em; }
+.tabs button[aria-selected="true"] { background: var(--surface-2); color: var(--ink); cursor: default; }
+.tabs button:not([disabled]):hover { color: var(--ink); }
 
 /* Findings: one headline that answers "is anything wrong?", a bar for the mix, then the groups */
-.headline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin-top: 12px; font-size: 1.1em; }
+.headline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin-top: var(--space-3); font-size: 1.1em; }
 .headline b { font-weight: 600; }
 .headline a { margin-left: auto; font-size: 0.85em; }
-.headline .glyph.ok { width: 9px; height: 9px; }
-.bar { display: flex; gap: 2px; height: 4px; margin-top: 8px; border-radius: 2px; overflow: hidden; }
+.headline .glyph.ok { width: 9px; height: 9px; box-shadow: 0 0 0 3px var(--teal-soft); }
+.bar { display: flex; gap: 2px; height: 4px; margin-top: var(--space-2); border-radius: 2px; overflow: hidden; }
 .bar i { display: block; height: 100%; }
 .bar i.error { background: var(--error); }
 .bar i.warning { background: var(--warning); }
 .bar i.info { background: var(--info); }
-.tallies { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; margin-top: 10px; }
+.tallies { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-1) var(--space-3); margin-top: var(--space-2); }
 .tally { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.92em; text-align: left; }
-.tally b { color: var(--vscode-foreground); font-weight: 600; }
+.tally b { color: var(--ink); font-weight: 600; }
 .tally.zero { opacity: 0.6; cursor: default; }
 .tally.zero .glyph { background: var(--muted); }
 .tally:not(.zero):hover b { text-decoration: underline; }
 
-details { margin-top: 12px; }
+details { margin-top: var(--space-3); }
 summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 2px 0; font-weight: 600; font-size: 0.95em; }
 summary::-webkit-details-marker { display: none; }
 summary .glyph { margin-left: 2px; }
@@ -69,8 +105,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 
 /* A finding: one dense row, like an issue list. */
-.row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; padding: 5px 6px; margin: 0 -6px; border-radius: 4px; cursor: pointer; }
-.row:hover, .row:focus-visible { background: var(--lift); }
+.row { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; column-gap: var(--space-2); align-items: baseline; padding: var(--space-1) 6px; margin: 0 -6px; border-radius: var(--radius); cursor: pointer; }
+.row:hover, .row:focus-visible { background: var(--surface); }
 .row .title { grid-column: 2 / 4; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: break-word; }
 .row .glyph { align-self: start; margin-top: 0.45em; }
 /* Second line: what the code does, and where it is. */
@@ -78,63 +114,80 @@ summary .n { margin-left: auto; font-weight: 400; color: var(--muted); }
 .row .does { grid-column: 2; grid-row: 2; color: var(--muted); font-size: 0.88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row .does code { color: inherit; }
 /* On hover, the location gives way to Copy fix in the same spot, so nothing shifts. */
-.row .fix { grid-column: 3; grid-row: 2; display: none; font-size: 0.85em; color: var(--vscode-textLink-foreground); white-space: nowrap; }
+.row .fix { grid-column: 3; grid-row: 2; display: none; font-size: 0.85em; color: var(--teal); white-space: nowrap; }
 .row:hover .fix, .row:focus-within .fix { display: block; }
 .row:hover .loc, .row:focus-within .loc { visibility: hidden; }
 .row .fix:hover { text-decoration: underline; }
+/* A test or a route is short: its file:line fits beside it, so a row is one line, not two. */
+.row.inline .title { grid-column: 2; -webkit-line-clamp: 1; }
+.row.inline .loc { grid-row: 1; }
 
-/* Buttons: one filled at most; the rest are quiet. */
-.primary { width: 100%; margin-top: 10px; padding: 6px 10px; border-radius: 4px; background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
-.primary:hover { background: var(--vscode-button-hoverBackground); }
+/* Buttons: pills, sized to their words. One filled (white, as on the site); the rest quiet. */
+.primary, .split button { display: inline-flex; align-items: center; gap: 6px; min-height: 24px; padding: 2px var(--space-3); border-radius: 999px; font-weight: 500; font-size: 0.92em; }
+.primary { margin-top: var(--space-3); background: var(--strong); color: var(--strong-ink); }
+.primary:hover { opacity: 0.88; }
 
-.meter { margin-top: 14px; }
+.meter { margin-top: var(--space-3); }
 .meter p { color: var(--muted); font-size: 0.92em; }
-.meter p b { color: var(--vscode-foreground); font-weight: 600; }
-.ticks { display: grid; gap: 3px; margin-top: 6px; }
-.ticks i { height: 3px; border-radius: 1px; background: var(--line); transition: background 0.3s; }
+.meter p b { color: var(--ink); font-weight: 600; }
+.ticks { display: flex; gap: 3px; margin-top: 6px; }
+.ticks i { flex: 1; height: 3px; border-radius: 2px; background: var(--hairline); transition: background 0.3s; }
 .ticks i.on { background: var(--accent); }
 .ticks i.new { animation: land 0.5s ease-out; }
 @keyframes land { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
-/* Your agent */
-.who { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* A part's head: its name, and a chip with how it is. */
+.who { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
 
-.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.92em; color: var(--muted); }
-.pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.pill.ok i, .pill.live i { background: var(--ok); }
-.pill.live { color: var(--vscode-foreground); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--space-2); border: 1px solid var(--hairline); border-radius: 999px; font-size: 0.85em; line-height: 18px; color: var(--muted); white-space: nowrap; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.pill.ok i, .pill.live i { background: var(--ok); box-shadow: 0 0 0 3px var(--teal-soft); }
+.pill.live { color: var(--ink); }
 .pill.live i { animation: pulse 1.8s ease-in-out infinite; }
 .pill.warn i { background: var(--warning); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
-.task { margin-top: 8px; }
+.task { margin-top: var(--space-2); }
 .task b { font-weight: 600; color: var(--warning); }
-.tests { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--muted); font-size: 0.92em; }
-.tests.failed, .tests.timeout { color: var(--vscode-foreground); }
-.mode { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; }
+.tests { display: flex; align-items: center; gap: 6px; margin-top: var(--space-2); color: var(--muted); font-size: 0.92em; }
+.tests .glyph { align-self: start; margin-top: 0.45em; }
+.tests.failed, .tests.timeout { color: var(--ink); }
+.mode { display: flex; align-items: center; flex-wrap: wrap; gap: 6px var(--space-3); margin-top: var(--space-3); }
 .mode .quiet { margin-top: 0; }
 
-/* The last check: one line at the bottom. While a check runs, a band sweeps along its top edge. */
+/* Tests: one quiet run button whose arrow opens the menu of what to run; the failing tests (or the
+   output's last lines) under the result. */
+.split { display: inline-flex; margin-top: var(--space-3); border: 1px solid var(--hairline); border-radius: 999px; background: var(--surface); }
+.split button { border-radius: 0; }
+.split button:first-child { border-radius: 999px 0 0 999px; padding-left: var(--space-3); }
+.split button:hover { background: var(--surface-2); }
+.split .more { border-left: 1px solid var(--hairline); border-radius: 0 999px 999px 0; padding: 2px var(--space-2); color: var(--muted); }
+.split button:disabled { opacity: 0.55; cursor: default; background: none; }
+.split .play { width: 0; height: 0; border-left: 6px solid var(--teal); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.failing { margin-top: var(--space-1); }
+.tail { margin: var(--space-1) 0 0; padding: 6px var(--space-2); border-radius: var(--radius); overflow-x: auto; white-space: pre-wrap; font-family: var(--mono); font-size: 0.85em; background: var(--surface); border: 1px solid var(--hairline); }
+
 /* The project menu, for a folder of several projects. */
-.project { display: flex; align-items: center; gap: 8px; }
+.project { display: flex; align-items: center; gap: var(--space-2); }
 .project label { color: var(--muted); font-size: 0.92em; }
-.project select { flex: 1; min-width: 0; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--vscode-dropdown-border, var(--line)); background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); font: inherit; }
-.project-note { margin: 6px 0 12px; }
+.project select { flex: 1; min-width: 0; padding: 2px 6px; border-radius: var(--radius); border: 1px solid var(--vscode-dropdown-border, var(--hairline)); background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground); font: inherit; }
+.project-note { margin: 6px 0 var(--space-3); }
 
 /* Check setup: one line per check, its mark in the line's color. */
-.checks { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.checks { list-style: none; margin: var(--space-2) 0 0; padding: 0; display: grid; gap: var(--space-2); }
 .checks li { display: grid; grid-template-columns: 1.1em minmax(0, 1fr); gap: 6px; overflow-wrap: anywhere; }
 .checks .mark { font-weight: 600; color: var(--muted); }
 .checks .ok .mark { color: var(--ok); }
 .checks .warn .mark { color: var(--warning); }
-.checks .bad .mark { color: var(--vscode-errorForeground); }
-.checks .quiet, .checks .primary { margin-top: 4px; }
+.checks .bad .mark { color: var(--error); }
+.checks .quiet, .checks .primary { margin-top: var(--space-1); }
 
-footer { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.92em; }
+/* The last check: one line at the bottom. While a check runs, a band sweeps along its top edge. */
+footer { position: relative; display: flex; align-items: center; gap: var(--space-2); padding: 10px var(--space-4); border-top: 1px solid var(--hairline); color: var(--muted); font-size: 0.92em; }
 footer span { flex: 1; min-width: 0; }
-footer .bad { color: var(--vscode-errorForeground); }
-.links { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 4px 14px 0; font-size: 0.92em; }
-.links button { color: var(--vscode-textLink-foreground); }
-.links button:hover { text-decoration: underline; }
+footer .bad { color: var(--error); }
+.links { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); padding: var(--space-1) var(--space-4) 0; font-size: 0.92em; }
+.links button { color: var(--muted); }
+.links button:hover { color: var(--teal); }
 footer.busy::before { content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--accent), transparent); background-size: 35% 100%; background-repeat: no-repeat; animation: sweep 1.3s ease-in-out infinite; }
 @keyframes sweep { from { background-position: -35% 0; } to { background-position: 135% 0; } }
 

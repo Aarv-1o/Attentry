@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { writeFile } from "atomically";
 import { projectRoot } from "../index/project.ts";
-import { loadConfig, writeMode } from "./config.ts";
+import { loadConfig, writeConfig } from "./config.ts";
 import { noteInstalled } from "./heard.ts";
 import { findTests, type TestCommand } from "./tests.ts";
 import { allowTests } from "./trust.ts";
@@ -75,7 +75,7 @@ export async function init(root: string, entry: string, mode: "suggest" | "block
   const done = [`Claude Code hooks: ${path} (session start, before and after each edit, at the end)`];
   // Hooks go where Claude Code starts; the mode and the tests go with the project Attentry checks.
   const project = await projectRoot(root);
-  if (mode) done.push(`Mode: ${mode} (${await writeMode(project, mode)})`);
+  if (mode) done.push(`Mode: ${mode} (${await writeConfig(project, { mode })})`);
   const tests = await allowCurrentTests(project);
   if (tests.length) done.push(`Tests Attentry may run at check-ins: ${tests.map((t) => (t.runs === t.command ? t.command : `${t.label} (${t.runs})`)).join(", ")}. If they change, run init again to allow the new ones`);
   return done;

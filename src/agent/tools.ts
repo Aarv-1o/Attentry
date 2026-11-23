@@ -13,7 +13,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { nameWords } from "../rules/codebase/duplicates.ts";
 import { changedLines, isInChanges } from "../scan/changes.ts";
 import { uncheckedDoors } from "../rules/security/unchecked.ts";
-import { planMessage } from "./hooks.ts";
+import { planMessage, type PlanReview } from "./hooks.ts";
 import { keyOf, newSince, type Task } from "./ledger.ts";
 import { findExisting, newFunctions } from "./reuse.ts";
 import { plural } from "../report/common.ts";
@@ -26,7 +26,7 @@ export interface ToolContext {
   index: () => Promise<RepoIndex>;
   findings: () => Promise<Finding[]>;
   task: () => Task | undefined; // the agent task running now, if hooks are connected
-  reviewPlan: (plan: string) => Promise<string[]>;
+  reviewPlan: (plan: string) => Promise<PlanReview>;
 }
 
 export interface ToolResult {
@@ -217,8 +217,8 @@ export async function explainTool(args: Args, ctx: ToolContext): Promise<ToolRes
 export async function checkPlanTool(args: Args, ctx: ToolContext): Promise<ToolResult> {
   const plan = text(args.plan);
   if (!plan) return { text: "Give `plan`: the plan's full text.", isError: true };
-  const notes = await ctx.reviewPlan(plan);
-  return { text: notes.length ? planMessage(notes) : "Nothing in the plan clashes with what the repo has: go ahead." };
+  const review = await ctx.reviewPlan(plan);
+  return { text: review.notes.length || review.tests.length ? planMessage(review) : "Nothing in the plan clashes with what the repo has: go ahead." };
 }
 
 export const TOOLS = {

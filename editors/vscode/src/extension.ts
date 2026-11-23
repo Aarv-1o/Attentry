@@ -69,6 +69,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const sidebar = new Sidebar(context.extensionUri, () => client);
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider("attentry.panel", sidebar),
+    sidebar.testRuns,
     vscode.commands.registerCommand("attentry.openReport", () => sidebar.run("openReport")),
     vscode.commands.registerCommand("attentry.copyReport", () => sidebar.run("copyReport")),
     vscode.commands.registerCommand("attentry.checkSetup", async () => {

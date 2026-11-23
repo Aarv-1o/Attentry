@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { symlinkSync } from "node:fs";
+import { rmSync, symlinkSync } from "node:fs";
 import { test } from "node:test";
 import { join } from "node:path";
 import { makeRepo, withHome } from "./helpers.ts";
@@ -40,6 +40,20 @@ test("inside git: follows .gitignore, including untracked files", async () => {
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 
+test("inside git: a tracked file deleted and not yet committed is gone", async () => {
+  const root = await makeRepo({ "src/app.ts": "", "src/time.ts": "" });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  execFileSync("git", ["add", "."], { cwd: root });
+  rmSync(join(root, "src/time.ts"));
+  assert.deepEqual(await sourceFiles(root), ["src/app.ts"]);
+});
+
+test("inside git with no .gitignore yet: installed packages are still skipped", async () => {
+  const root = await makeRepo({ ...FILES, ".venv/lib/site.py": "" });
+  execFileSync("git", ["init", "-q"], { cwd: root });
+  assert.deepEqual(await sourceFiles(root), ["dist/bundle.js", "server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
+});
+
 test("inside git: a folder link back up the repo isn't followed (each file once)", async () => {
   const root = await makeRepo({ ...FILES, ".gitignore": "dist/\nnode_modules/\n" });
   execFileSync("git", ["init", "-q"], { cwd: root });
@@ -47,11 +61,11 @@ test("inside git: a folder link back up the repo isn't followed (each file once)
   assert.deepEqual(await sourceFiles(root), ["server/main.py", "src/app.ts", "src/ui/Page.tsx"]);
 });
 
-test("isTestFile: test folders, .test/.spec files, test.js, Python test_ and _test", () => {
-  for (const f of ["tests/a.ts", "src/__tests__/a.tsx", "a.test.ts", "b.spec.js", "body-parsing/test.js", "test_api.py", "api_test.py"]) {
+test("isTestFile: test folders, .test/.spec files, test.js, Python test_, _test and Django's tests.py", () => {
+  for (const f of ["tests/a.ts", "src/__tests__/a.tsx", "a.test.ts", "b.spec.js", "body-parsing/test.js", "test_api.py", "api_test.py", "notes/tests.py"]) {
     assert.ok(isTestFile(f), f);
   }
-  for (const f of ["src/latest.js", "contest.py", "src/testing-utils.ts", "attestation.ts"]) assert.ok(!isTestFile(f), f);
+  for (const f of ["src/latest.js", "contest.py", "contests.py", "src/testing-utils.ts", "attestation.ts"]) assert.ok(!isTestFile(f), f);
 });
 
 test("the home folder isn't walked: the agent is told to open a project", () => withHome({ "notes/a.js": "" }, async (home) => {

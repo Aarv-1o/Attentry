@@ -13,6 +13,7 @@ export interface Route {
   // Python: decorators (@login_required) and dependencies (Depends(get_current_user)).
   guards: string[];
   body?: string; // the handler's code, when it's written inline: checks inside it count too
+  name?: string; // Django's name="note-detail"; inline include namespaces come first: "session:login"
 }
 
 // `app.use("/api/auth", authRouter)`, `app.include_router(router, prefix="/v1")`
@@ -24,6 +25,7 @@ export interface Mount {
   // Middleware between the prefix and the target: app.use("/api/admin", adminAuth, router).
   // When the target isn't a router (app.use(requireAuth)), it's middleware too.
   guards: string[];
+  namespace?: string; // Django include(..., namespace="x") or include(("app.urls", "x"))
 }
 
 export interface ApiCall {
@@ -33,6 +35,11 @@ export interface ApiCall {
   // Called on an object (`api.get("/users")`): its base URL, if it's a client, is added later.
   // `client`: named like one, so it's a call even if Attentry can't find where it was made.
   via?: { name: string; client: boolean };
+  // A test's request: the app or router variable it was sent to. A test may send to one router
+  // on its own, without the prefix it's mounted under.
+  app?: string;
+  // A test's request to a route by name instead of URL: Django's reverse("notes:note-detail").
+  routeName?: string;
 }
 
 export interface FileApi {
@@ -42,7 +49,8 @@ export interface FileApi {
   // `isApp` for the top level (express(), FastAPI(), Flask()): it isn't mounted anywhere.
   // `global`: gets the app's global prefix (NestJS controllers).
   // `guards`: for every route on it (FastAPI APIRouter(dependencies=[...])).
-  routers: Map<string, { prefix: string; isApp: boolean; global?: boolean; guards?: string[] }>;
+  // `namespace`: Django's app_name, for route names when the include doesn't give one.
+  routers: Map<string, { prefix: string; isApp: boolean; global?: boolean; guards?: string[]; namespace?: string }>;
   globalPrefix?: string; // NestJS app.setGlobalPrefix("api")
   // Guards for every route in the app: NestJS useGlobalGuards / APP_GUARD, DRF default permissions.
   globalGuards: string[];
@@ -53,6 +61,9 @@ export interface FileApi {
   pathGuards: { path: string; method: string; names: string[] }[];
   folderGuards: string[];
   autohooks?: boolean; // an @fastify/autoload autohooks file
+  // @fastify/autoload of a routes folder (relative to this file): each folder under it is a
+  // prefix, so routes/api/tasks/index.ts serves /api/tasks.
+  autoloads: { dir: string; prefix: string }[];
   clients: Map<string, string>; // HTTP client instances and their base URL: { api: "http://localhost:8000" }
   // Dev-server proxies (Vite): calls under `prefix` reach the backend with it replaced by `to`.
   proxies: { prefix: string; to: string }[];
@@ -62,4 +73,4 @@ export interface FileApi {
   mentions: string[];
 }
 
-export const emptyApi = (): FileApi => ({ routes: [], mounts: [], routers: new Map(), clients: new Map(), proxies: [], calls: [], mentions: [], globalGuards: [], views: new Map(), pathGuards: [], folderGuards: [] });
+export const emptyApi = (): FileApi => ({ routes: [], mounts: [], routers: new Map(), clients: new Map(), proxies: [], calls: [], mentions: [], globalGuards: [], views: new Map(), pathGuards: [], folderGuards: [], autoloads: [] });

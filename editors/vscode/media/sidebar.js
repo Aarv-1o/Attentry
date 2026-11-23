@@ -1,5 +1,5 @@
 // The panel's page: draws what it's sent (status, findings, agent) and sends back what's clicked.
-// Three parts, top to bottom: the findings, the agents (Claude Code, Codex), and one line on the last check.
+// Parts, top to bottom: the findings, the tests, the agents (Claude Code, Codex), and one line on the last check.
 const vscode = acquireVsCodeApi();
 const app = document.getElementById("app");
 const PARTS = [["security", "Security", "error"], ["breaks", "Will break", "warning"], ["database", "Database", "warning"], ["cleanup", "Clean-up", "info"]];
@@ -8,6 +8,8 @@ let status;
 let data;
 let agent;
 let setup; // Check setup: undefined while closed, null while checking, then the checks
+let tests; // the Tests section: untested routes, the last run
+let testsRunning = false;
 let lastDone; // edits since the check-in at the last draw: the newest tick animates only when it changes
 const opened = new Map(); // groups the person opened or closed: kept across refreshes
 
@@ -63,7 +65,7 @@ function findings() {
   const where = show === "changes" && !data?.noChanges ? "in your changes" : "in this repo";
   const older = show === "changes" && data?.older ? ` <a data-act="toggleShow">${plural(data.older, "older finding")} →</a>` : "";
   // The headline answers "is anything wrong?"; the groups under it are the details.
-  const bar = total ? `<div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" style="flex:${of(part).length}"></i>`).join("")}</div>` : "";
+  const bar = total ? `<div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" data-n="${of(part).length}"></i>`).join("")}</div>` : "";
   const headline = !data
     ? `<p class="headline quiet">Checking…</p>`
     : problems
@@ -96,7 +98,7 @@ function checkInMeter(live) {
   lastDone = done;
   const ticks = Array.from({ length: checkInEvery }, (_, i) => `<i class="${i < done ? "on" : ""}${i === done - 1 && fresh ? " new" : ""}"></i>`).join("");
   return `<div class="meter" role="img" aria-label="${done} of ${checkInEvery} edits until the agent's next check-in">
-    <p>Next check-in in <b>${plural(untilCheckIn, "edit")}</b></p><div class="ticks" style="grid-template-columns:repeat(${checkInEvery},1fr)">${ticks}</div></div>`;
+    <p>Next check-in in <b>${plural(untilCheckIn, "edit")}</b></p><div class="ticks">${ticks}</div></div>`;
 }
 
 function task(live, working) {
@@ -105,6 +107,70 @@ function task(live, working) {
   const allow = live.tests?.state === "blocked" ? ` <a data-act="allowTests">Allow tests</a>` : "";
   const tests = live.tests ? `<p class="tests ${esc(live.tests.state)}"><i class="glyph ${tone}"></i>Tests: ${esc(live.tests.text)}${allow}</p>` : "";
   return `<p class="task">${working ? "This task" : "Last task"}: ${plural(live.edits, "edit")} to ${plural(live.files ?? 0, "file")}, ${live.added ? `<b>${plural(live.added, "problem")} added</b>` : "no problems added"}${working ? "" : `, ${ago(live.lastEditAt)}`}.</p>${tests}`;
+}
+
+// ---- Tests ----
+
+const SHOWN_ROUTES = 8;
+let runLabel = "Run all tests"; // the run button's words: what a click runs (the last choice from its menu)
+const RUN_TEXT = {
+  passed: () => "passed", failed: (r) => (r.failing?.length ? `failed · ${plural(r.failing.length, "failing test")}` : "failed"),
+  timeout: () => "didn't finish in time", none: (r) => r.label || "no tests found",
+  blocked: (r) => `not run until you allow ${r.label}`, off: () => "off in .attentry/config.json",
+};
+const RAN = new Set(["passed", "failed", "timeout"]);
+
+// A row that opens its line when there is one, and a "…and N more" under the rows shown.
+const row = (glyph, title, file, line, tip = "") => `<div class="row inline"${file ? ` tabindex="0" data-open="${esc(file)}" data-line="${line}"` : ""}${tip ? ` title="${esc(tip)}"` : ""}>
+      <i class="glyph ${glyph}"></i><span class="title">${esc(title)}</span>${file ? `<span class="loc">${esc(file.split("/").pop())}:${line}</span>` : ""}</div>`;
+const more = (total, shown) => (total > shown ? `<p class="quiet">…and ${total - shown} more.</p>` : "");
+
+// The failing tests, each opening where it's written when Attentry found it; without their names,
+// the output's last lines.
+function failures(r) {
+  if (r.state !== "failed") return "";
+  if (!r.failingAt?.length) return r.tail.length ? `<pre class="tail">${esc(r.tail.slice(-5).join("\n"))}</pre>` : "";
+  return `<div class="failing">${r.failingAt.map((f) => row("error", f.name, f.file, f.line)).join("")}${more(r.failing.length, r.failingAt.length)}</div>`;
+}
+
+// One line: what ran, how it went, with what and how long, when.
+function lastRun(r) {
+  if (testsRunning) return `<p class="tests running"><i class="glyph busy"></i>Running…</p>`;
+  if (!r) return `<p class="tests"><i class="glyph hint"></i><span>Not run yet · the agent's check-ins run them too</span></p>`;
+  const ran = RAN.has(r.state);
+  const tone = { passed: "ok", failed: "error", timeout: "error" }[r.state] ?? "hint";
+  const took = ran ? ` · ${r.scope === "All tests" ? `${r.label}, ` : ""}${r.seconds}s` : "";
+  const links = [r.state === "blocked" && `<a data-act="allowTests">Allow tests</a>`, ran && `<a data-act="testOutput">Full output</a>`].filter(Boolean).join(" ");
+  // "All tests passed", but "Tests for money.js: no test reaches it". One span, so the links flow
+  // in the text instead of standing in a column of their own.
+  return `<p class="tests ${esc(r.state)}"><i class="glyph ${tone}"></i><span>${esc(`${r.scope}${ran ? " " : ": "}${(RUN_TEXT[r.state] ?? RUN_TEXT.none)(r)}${took} · ${ago(r.at)}`)} ${links}</span></p>${failures(r)}`;
+}
+
+function untestedRoutes(t) {
+  if (!t.routes) return "";
+  if (!t.untested.length) return `<p class="quiet">Every route has a test that calls it.</p>`;
+  const rows = t.untested.slice(0, SHOWN_ROUTES).map((r) => row(r.open ? "warning" : "hint", `${r.method} ${r.path}`, r.file, r.line, r.open ? "No auth check on this route" : "")).join("");
+  return `<details id="tests-untested"><summary><i class="glyph hint"></i>Routes with no test<span class="n">${t.untested.length}</span></summary><p class="quiet">No test calls these yet. A route with no auth check is marked and comes first.</p>${rows}${more(t.untested.length, SHOWN_ROUTES)}</details>`;
+}
+
+function testsSection() {
+  if (!tests) return "";
+  const on = tests.suggestions;
+  // No routes is neither good nor bad news (a library, a CLI): a grey chip, not a green one.
+  const [tone, chip] = !tests.routes ? ["off", "No routes"] : [tests.untested.length ? "warn" : "ok", `${tests.routes - tests.untested.length} of ${tests.routes} routes tested`];
+  // The switch's sentence is its tooltip: the section stays short.
+  const tip = on ? "When Claude writes a plan, Attentry names the tests it needs" : "No test suggestions in plans or on the change card";
+  return `<section class="agent">${head("Tests", tone, chip)}
+      ${lastRun(tests.last)}
+      <div class="split"><button data-act="runTests" ${testsRunning ? "disabled" : ""}><i class="play"></i>${esc(runLabel)}</button><button class="more" data-act="testMenu" ${testsRunning ? "disabled" : ""} title="Choose which tests to run" aria-label="Choose which tests to run">▾</button></div>
+      ${untestedRoutes(tests)}
+      <div class="mode">
+        <div class="tabs" role="tablist" aria-label="Test suggestions" title="${tip}">
+          <button role="tab" data-suggest="on" aria-selected="${on}" ${on ? "disabled" : ""}>Suggest tests</button>
+          <button role="tab" data-suggest="off" aria-selected="${!on}" ${on ? "" : "disabled"}>Off</button>
+        </div>
+      </div>
+    </section>`;
 }
 
 const MODES = {
@@ -225,7 +291,9 @@ const links = () => `<nav class="links" aria-label="Attentry">
 function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
-  app.innerHTML = findings() + agents() + setupSection() + footer() + links();
+  app.innerHTML = findings() + testsSection() + agents() + setupSection() + footer() + links();
+  // The panel's CSP drops style="" in markup; a width set from the script still applies.
+  for (const part of app.querySelectorAll?.(".bar i[data-n]") ?? []) part.style.flex = part.dataset.n;
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;
@@ -239,6 +307,8 @@ document.addEventListener("toggle", (e) => {
 document.addEventListener("click", (e) => {
   const fix = e.target.closest("[data-fix]");
   if (fix) return vscode.postMessage({ type: "copyFix", id: fix.dataset.fix });
+  const suggest = e.target.closest("[data-suggest]");
+  if (suggest) return vscode.postMessage({ type: "setSuggestions", on: suggest.dataset.suggest === "on" });
   const mode = e.target.closest("[data-mode]");
   if (mode) return vscode.postMessage({ type: "setMode", mode: mode.dataset.mode });
   const jump = e.target.closest("[data-jump]");
@@ -265,6 +335,8 @@ window.addEventListener("message", ({ data: m }) => {
   if (m.type === "findings") data = m.data;
   if (m.type === "agent") agent = m.info;
   if (m.type === "setup") setup = m.checks;
+  if (m.type === "tests") (tests = m.data), (runLabel = m.run ?? runLabel), (testsRunning = false);
+  if (m.type === "testsRunning") testsRunning = true;
   render();
 });
 render();

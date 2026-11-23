@@ -13,8 +13,13 @@ const MAX_NOTES = 8;
 const BIG_PLAN = 12; // files: past this, a plan is better done and checked in steps
 // `formatDate` or `formatDate(value)`.
 const NAME = /`([A-Za-z_$][\w$]*)(?:\([^`]*\))?`/g;
-const FILE = /(?<![\w/.-])((?:[\w.-]+\/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/])/g;
+// Not after a colon: localhost:3000/history.html is a URL, not the file 3000/history.html.
+const FILE = /(?<![\w/.:-])((?:[\w.-]+\/)*[\w.-]+\.[A-Za-z]{1,5})(?![\w/])/g;
 const ROUTE = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[^\s`'",)]*)/g;
+
+// The files a plan (or one step of it) names. A bare name only when the repo has it: "Node.js" is no file.
+export const filesIn = (text: string, all: Set<string>) =>
+  new Set([...text.matchAll(FILE)].map((m) => m[1]!.replace(/^\.\//, "")).filter((file) => file.includes("/") || all.has(file)));
 
 // Two words or more: `id` or `data` could be anything.
 const twoWords = (name: string) => nameWords(name).includes(" ");
@@ -23,20 +28,25 @@ const twoWords = (name: string) => nameWords(name).includes(" ");
 const ADDS = /\b(add|adds|adding|new|create|creates|creating|implement|introduce)\b/i;
 const KNOWN = /\balready\b|\bexist(s|ing)?\b/i;
 
-// Each route the plan names, once: whether a line naming it adds it, and whether it knows it's there.
-function plannedRoutes(plan: string) {
+// Each route the plan names, once: whether a line naming it adds it, whether it knows it's there,
+// and the lines that name it (what the plan says about it: "for admins").
+export function namedRoutes(plan: string) {
   const lines = plan.split("\n");
-  const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean }>();
+  const routes = new Map<string, { method: string; raw: string; adds: boolean; known: boolean; said: string }>();
   lines.forEach((line, i) => {
-    for (const [, method, raw] of line.matchAll(ROUTE)) {
-      const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false };
+    for (const [, method, written] of line.matchAll(ROUTE)) {
+      const raw = written!.replace(/[.;:!?]+$/, ""); // "Add DELETE /api/notes/:id." ends a sentence
+      const seen = routes.get(`${method} ${raw}`) ?? { method: method!, raw: raw!, adds: false, known: false, said: "" };
+      seen.said += `${line}\n`;
       seen.adds ||= ADDS.test(line);
       seen.known ||= KNOWN.test(lines.slice(Math.max(0, i - 1), i + 2).join("\n"));
       routes.set(`${method} ${raw}`, seen);
     }
   });
-  return [...routes.values()].filter((r) => r.adds && !r.known);
+  return [...routes.values()];
 }
+
+const plannedRoutes = (plan: string) => namedRoutes(plan).filter((r) => r.adds && !r.known);
 
 export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]): string[] {
   const { index } = scan;
@@ -55,9 +65,7 @@ export function reviewPlan(plan: string, scan: ScanResult, findings: Finding[]):
   }
 
   // Files it changes that change all the time.
-  // A bare name only when the repo has it: "Node.js" is no file.
-  const all = new Set(index.allFiles);
-  const files = new Set([...plan.matchAll(FILE)].map((m) => m[1]!.replace(/^\.\//, "")).filter((file) => file.includes("/") || all.has(file)));
+  const files = filesIn(plan, new Set(index.allFiles));
   for (const hotspot of findings.filter((f) => f.rule === "hotspot" && files.has(f.file))) {
     notes.push(`${hotspot.file} is a hotspot (${hotspot.title.toLowerCase()}): change it in small steps, and test after each.`);
   }

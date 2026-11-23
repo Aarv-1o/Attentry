@@ -29,6 +29,7 @@ export const takes = (m: MissingRoute) => {
 export interface UnusedRoute {
   confidence: Confidence;
   route: FullRoute;
+  calls: number; // the API calls in its project, none of which reach it
 }
 
 export interface CrossStack {
@@ -42,7 +43,7 @@ export interface CrossStack {
 // Called from outside the app (Stripe, Google, cron, uptime checks, browser redirects), never by its own frontend.
 const CALLED_FROM_OUTSIDE = /webhook|callback|oauth|redirect|health|status|ping|cron|tick|docs|openapi|metrics|verify|stream/i;
 
-const methodFits = (call: string | undefined, route: string) => !call || route === "ALL" || call === route;
+export const methodFits = (call: string | undefined, route: string) => !call || route === "ALL" || call === route;
 
 // A typo of the same word: note / notes, user / users, prof / profile.
 const nearWord = (a: string, b: string) => a !== "*" && b !== "*" && a !== b && (a.startsWith(b) || b.startsWith(a));
@@ -62,14 +63,14 @@ function closestRoute(path: ApiPath, routes: FullRoute[]): FullRoute | undefined
 
 // The routes a call reaches. A literal segment beats a parameter: `${id}` only stands in for
 // "/export" when no route takes a parameter there.
-function routesFor(path: ApiPath, routes: FullRoute[]): FullRoute[] {
+export function routesFor(path: ApiPath, routes: FullRoute[]): FullRoute[] {
   const strict = routes.filter((r) => reaches(path, r.path, "strict"));
   return strict.length ? strict : routes.filter((r) => reaches(path, r.path));
 }
 
 // Does the match rest on a real word in the path? `…/uppercase` "reaching" `/post/:id` only
 // because `:id` takes anything says nothing.
-const hasWordInCommon = (call: ApiPath, route: ApiPath) =>
+export const hasWordInCommon = (call: ApiPath, route: ApiPath) =>
   call.segments.some((s, i) => s !== "*" && route.segments[route.segments.length - call.segments.length + i] === s);
 
 function checkCall(call: ApiCall & { file: string }, hits: FullRoute[], path: ApiPath, routes: FullRoute[]): MissingRoute | undefined {
@@ -92,7 +93,9 @@ export function findCrossStack(
   apis: Map<string, FileApi>, imports: Map<string, ImportInfo[]>, extraCalls: (ApiCall & { file: string })[] = [],
 ): CrossStack {
   const repo = { apis, imports, files: new Set(apis.keys()) };
-  const routes = fullRoutes(repo).filter((r) => !isCatchAll(r.path));
+  // A test that builds its own app (`app.use("/notes", notes)`) doesn't add routes to the product.
+  const product = new Map([...apis].filter(([file]) => !isTestFile(file)));
+  const routes = fullRoutes({ ...repo, apis: product }).filter((r) => !isCatchAll(r.path));
   const calls = [...[...apis].flatMap(([file, api]) => api.calls.map((c) => ({ ...c, file }))), ...extraCalls]
     .map((call) => {
       const url = callUrl(call, call.file, repo);
@@ -123,7 +126,7 @@ export function findCrossStack(
       // The frontend uses other routes from the same file, just not this one: likely left behind.
       // A file nothing calls at all may serve another client (a mobile app, a script).
       const siblingsUsed = routes.some((r) => r.file === route.file && r !== route && uses(r));
-      return { confidence: siblingsUsed ? "likely" : "maybe", route };
+      return { confidence: siblingsUsed ? "likely" : "maybe", route, calls: calls.length };
     });
   return { allRoutes: routes, routes: routes.length, calls: calls.length, missing, unused };
 }

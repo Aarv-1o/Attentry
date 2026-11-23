@@ -3,7 +3,7 @@ import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createConnection, ProposedFeatures, TextDocumentSyncKind, type Connection } from "vscode-languageserver/node";
 import { codexHome, codexHooks, codexUsed, installCodex, refreshCodex, type CodexState } from "../agent/codex.ts";
-import { loadConfig, writeMode } from "../agent/config.ts";
+import { loadConfig, writeConfig } from "../agent/config.ts";
 import { checkSetup } from "../agent/doctor.ts";
 import { allowCurrentTests, hookState, init } from "../agent/init.ts";
 import { addMcp, mcpState } from "../agent/mcpSetup.ts";
@@ -22,6 +22,7 @@ import { explainFindings, findingsOn } from "../report/explain.ts";
 import { changedLines, isInChanges, type Changes } from "../scan/changes.ts";
 import type { FileCache } from "../index/fileScan.ts";
 import { scanRepo } from "../scan/scan.ts";
+import { runFromPanel, testChoices, testsView, type RunScope, type TestsView } from "../testing/panel.ts";
 import { chooseProject, projectRoot, projectsIn } from "../index/project.ts";
 import { codeActions, diagnosticsByFile, hotspotLens, hoverCard, uriOf } from "./convert.ts";
 
@@ -72,6 +73,7 @@ export function startServer(connection: Connection): void {
   let folderUri = ""; // the editor's spelling of `workspace`
   let options: Options = { show: "changes", hints: false, clientCommands: false, autoScan: true };
   let lastScanAt = 0;
+  let lastTestRun: TestsView["last"] = null; // Run all / Run for this file, from the panel
   let all: Finding[] = [];
   const files: FileCache = new Map(); // only when no background Attentry can start: then this one reads
   let changes: Changes = { ok: false, reason: "not scanned yet" };
@@ -189,7 +191,7 @@ export function startServer(connection: Connection): void {
         codeLensProvider: {},
         // "attentry.server.*": the editor's language client registers each of these as an editor
         // command, so they mustn't share names with the extension's own attentry.* commands.
-        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.chooseProject"] },
+        executeCommandProvider: { commands: ["attentry.server.notUseful", "attentry.server.toggleShow", "attentry.server.set", "attentry.server.rescan", "attentry.server.connectAgent", "attentry.server.connectCodex", "attentry.server.allowTests", "attentry.server.setMode", "attentry.server.setTestSuggestions", "attentry.server.runTests", "attentry.server.chooseProject"] },
       },
       serverInfo: { name: "attentry" },
     };
@@ -271,7 +273,14 @@ export function startServer(connection: Connection): void {
       if (await pickRoot()) await switched();
       return;
     }
-    if (command === "attentry.server.setMode") return void (await writeMode(root, (args?.[0] === "block" ? "block" : "suggest")));
+    if (command === "attentry.server.setMode") return void (await writeConfig(root, { mode: args?.[0] === "block" ? "block" : "suggest" }));
+    if (command === "attentry.server.setTestSuggestions") return void (await writeConfig(root, { testSuggestions: args?.[0] !== false }));
+    if (command === "attentry.server.runTests") {
+      // The output goes to the editor's Output panel once, not with every refresh of the panel.
+      const { output, ...run } = await runFromPanel(root, files, (args?.[0] as RunScope | undefined) ?? { kind: "all" });
+      lastTestRun = { ...run, at: Date.now() };
+      return { ...lastTestRun, output };
+    }
     return undefined;
   });
 
@@ -308,6 +317,13 @@ export function startServer(connection: Connection): void {
   });
   // The panel's Check setup: the doctor's checks, with the fixes the panel can do itself.
   connection.onRequest("attentry/setup", () => checkSetup(workspace, { extension: !!home }));
+  // The panel's Tests section: untested routes and the last run.
+  connection.onRequest("attentry/tests", () => testsView(root, files, lastTestRun));
+  // The run menu. `file`: the editor's open file, a full path: the project's own path for it, if it's in the project.
+  connection.onRequest("attentry/testChoices", ({ file }: { file?: string }) => {
+    const own = file ? relative(root, file).replace(/\\/g, "/") : undefined;
+    return testChoices(root, files, own && !own.startsWith("..") ? own : undefined);
+  });
   // Test connection: a planted edit through the hook the agent runs (Claude Code's own copy of the
   // plugin; Codex's launcher never changes, so the extension's is the one Codex runs), then whether
   // the agent's sessions run it, which the test alone can't show.

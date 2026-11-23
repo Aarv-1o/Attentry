@@ -4,9 +4,9 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { Sessions } from "../src/agent/session.ts";
-import { findTests, runTests } from "../src/agent/tests.ts";
+import { describeTests, failingTests, findTests, runTests } from "../src/agent/tests.ts";
 import { allowTests } from "../src/agent/trust.ts";
-import { makeRepo, withClaudeSettings } from "./helpers.ts";
+import { makeRepo, testsSettled, withClaudeSettings } from "./helpers.ts";
 
 const START = `export function load(url) {\n  try {\n    return fetch(url);\n  } catch (e) {}\n}\n`;
 const SAVE = `${START}export function save(x) {\n  try {\n    db.put(x);\n  } catch (e) {}\n}\n`;
@@ -24,7 +24,7 @@ async function task(mode?: "block") {
     await writeFile(join(root, file), text);
     return hook("PostToolUse", { tool_name: "Write", tool_input: { file_path: join(root, file) } });
   };
-  return { root, hook, edit };
+  return { root, sessions, hook, edit };
 }
 
 test("after an edit: only problems this task added, each told once, silent when clean", async () => {
@@ -35,16 +35,32 @@ test("after an edit: only problems this task added, each told once, silent when 
   assert.equal(told.hookSpecificOutput.hookEventName, "PostToolUse");
   assert.match(told.hookSpecificOutput.additionalContext, /^Attentry: this edit added 1 problem:\nindex\.js:9 warning attentry\/empty-catch: /);
   assert.doesNotMatch(told.hookSpecificOutput.additionalContext, /index\.js:4/, "the empty catch from before the task isn't this task's");
-  assert.equal(await edit("notes.js", "export const a = 2;\n"), undefined, "already told: not repeated");
+  // The third edit is the first check-in, which sums up the task: not the edit's own news.
+  assert.doesNotMatch((await edit("notes.js", "export const a = 2;\n")).hookSpecificOutput.additionalContext, /this edit added/, "already told: not repeated");
 });
 
-test("every 10 edits, a check-in; at the end, the change card for the person", async () => {
+test("a resumed or compacted conversation is the same task; a new or cleared one starts over", async () => {
+  const { hook, edit } = await task();
+  await hook("SessionStart", { source: "startup" });
+  await edit("index.js", SAVE);
+  await hook("SessionStart", { source: "compact" });
+  await hook("SessionStart", { source: "resume" });
+  await edit("notes.js", "export const a = 1;\n");
+  const checkIn = (await edit("notes.js", "export const a = 2;\n")).hookSpecificOutput.additionalContext;
+  assert.match(checkIn, /^Attentry check-in after 3 edits: this task added 1 problem\./, "the count and the problem from before carry on");
+  await hook("SessionStart", { source: "clear" });
+  assert.equal(await edit("notes.js", "export const a = 3;\n"), undefined, "a cleared conversation: index.js:9 is from before this task");
+});
+
+test("a check-in after 3 edits, then every 10; at the end, the change card for the person", async () => {
   const { hook, edit } = await task();
   await hook("SessionStart");
   await edit("index.js", SAVE);
-  let reply;
-  for (let i = 2; i <= 10; i++) reply = await edit("notes.js", `export const a = ${i};\n`);
-  assert.match(reply.hookSpecificOutput.additionalContext, /^Attentry check-in after 10 edits: this task added 1 problem\.\nFocus here:\n- index\.js:9 warning/);
+  const replies = [];
+  for (let i = 2; i <= 13; i++) replies[i] = await edit("notes.js", `export const a = ${i};\n`);
+  assert.match(replies[3].hookSpecificOutput.additionalContext, /^Attentry check-in after 3 edits: this task added 1 problem\./, "early: a short task still has one");
+  assert.equal(replies[10], undefined);
+  assert.match(replies[13].hookSpecificOutput.additionalContext, /^Attentry check-in after 13 edits: this task added 1 problem\.\nFocus here:\n- index\.js:9 warning/);
   const stop = await hook("Stop", { stop_hook_active: false });
   assert.equal(stop.systemMessage, [
     "Attentry change card",
@@ -100,14 +116,123 @@ test("tests run at check-ins in the background, a failure is told once, and the 
   await hook("SessionStart");
   await edit("broken", "");
   await edit("notes.md", "a"); // the second edit: a check-in, and the tests start
-  await new Promise((r) => setTimeout(r, 3000));
+  await testsSettled(sessions);
   const told = await edit("notes.md", "b");
-  assert.match(told.hookSpecificOutput.additionalContext, /Attentry: the tests failed at the last check-in \(npm test\):[^]*Fix them before going on/);
+  assert.match(told.hookSpecificOutput.additionalContext, /Attentry: the tests failed at the last check-in \(npm test\):[^]*\nCheck whether your changes caused it\. If they did, fix it before going on\. If it was failing before, leave it and tell the person\.$/);
   const again = await edit("notes.md", "c");
   assert.doesNotMatch(again?.hookSpecificOutput?.additionalContext ?? "", /tests failed/, "told once");
+  const failing = await hook("Stop", { stop_hook_active: false });
+  assert.match(failing.systemMessage, /\n- Tests: failed \(npm test, \d+s\)\. It may have been failing before this task: check before blaming the task\.$/, "Attentry can't tell who broke it: it says so");
   await rm(join(root, "broken"));
+  await edit("notes.md", "d");
   const stop = await hook("Stop", { stop_hook_active: false });
-  assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)/, "run again on the final code");
+  assert.match(stop.systemMessage, /\n- Tests: passed \(npm test, \d+s\)$/, "run again on the final code; no note when they pass");
+}));
+
+// A background session in a repo whose check-ins come every 2 edits; `edit` waits for the tests
+// the check-in started, so the next edit hears them.
+async function checkInRepo(files: Record<string, string>) {
+  const root = await makeRepo({ "index.js": START, ".attentry/config.json": JSON.stringify({ checkInEvery: 2 }), ...files });
+  const sessions = new Sessions(root, true);
+  const edit = async (text: string) => {
+    await writeFile(join(root, "notes.md"), text);
+    const reply = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s1", tool_name: "Write", tool_input: { file_path: join(root, "notes.md") } });
+    await testsSettled(sessions);
+    return reply.stdout ? (JSON.parse(reply.stdout).hookSpecificOutput.additionalContext as string) : "";
+  };
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s1" });
+  return { root, edit };
+}
+
+test("after a check-in the agent hears every test result: passed each run; not allowed, or no tests, once a task", () => withClaudeSettings({}, async () => {
+  const passing = await checkInRepo({ "package.json": JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }) });
+  await allowTests(passing.root, await findTests(passing.root, undefined));
+  await passing.edit("a");
+  await passing.edit("b"); // a check-in: the tests start
+  assert.match(await passing.edit("c"), /^Attentry: the tests passed at the last check-in \(npm test, \d+s\)\.$/);
+  await passing.edit("d");
+  assert.match(await passing.edit("e"), /tests passed/, "told after every run");
+
+  const blocked = await checkInRepo({ "package.json": JSON.stringify({ scripts: { test: "node -e \"process.exit(0)\"" } }) });
+  await blocked.edit("a");
+  await blocked.edit("b");
+  assert.match(await blocked.edit("c"), /^Attentry: the tests \(npm test\) didn't run at the check-in: the person hasn't allowed them for this folder yet\. Tell them: Allow tests in the Attentry sidebar\.$/);
+  await blocked.edit("d");
+  assert.doesNotMatch(await blocked.edit("e"), /tests/, "once a task");
+
+  const none = await checkInRepo({});
+  await none.edit("a");
+  await none.edit("b");
+  assert.match(await none.edit("c"), /^Attentry: this project has no tests yet, so the check-ins can't run any\./);
+  await none.edit("d");
+  assert.doesNotMatch(await none.edit("e"), /tests/, "once a task");
+}));
+
+const NOTES_APP = `const express = require("express");\nconst app = express();\napp.get("/api/notes", (req, res) => res.json([]));\napp.post("/api/notes", (req, res) => res.status(201).json(req.body));\nmodule.exports = app;\n`;
+const NOTES_TEST = `const request = require("supertest");\nconst app = require("../app");\ntest("lists", () => request(app).get("/api/notes").expect(200));\n`;
+
+test("no plan: the check-in names the tests the routes this task wrote need, once; not with a plan, not for tested routes", async () => {
+  const { hook, edit } = await task();
+  await hook("SessionStart");
+  await edit("app.js", NOTES_APP);
+  await edit("tests/notes.test.js", NOTES_TEST);
+  const checkIn = (await edit("notes.md", "a")).hookSpecificOutput.additionalContext as string;
+  assert.match(checkIn, /^Attentry check-in after 3 edits[^]*\n\nTests for the routes this task wrote \(no plan said which\):\n- `POST \/api\/notes`: the normal case works/);
+  assert.doesNotMatch(checkIn, /`GET \/api\/notes`/, "it has a test already");
+  for (const i of [1, 2, 3, 4, 5, 6, 7, 8, 9]) await edit("notes.md", String(i));
+  assert.doesNotMatch((await edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "once a task");
+
+  // A route that was there before the task, in a file it edits, isn't one it wrote.
+  const root = await makeRepo({ "app.js": NOTES_APP });
+  const sessions = new Sessions(root);
+  await sessions.handle({ hook_event_name: "SessionStart", session_id: "s2" });
+  let reply;
+  for (const i of [1, 2, 3]) {
+    await writeFile(join(root, "app.js"), NOTES_APP.replace("module.exports", `app.delete("/api/notes/:id", (req, res) => res.status(204).end());\n// ${i}\nmodule.exports`));
+    reply = await sessions.handle({ hook_event_name: "PostToolUse", session_id: "s2", tool_name: "Write", tool_input: { file_path: join(root, "app.js") } });
+  }
+  const added = JSON.parse(reply!.stdout).hookSpecificOutput.additionalContext as string;
+  assert.match(added, /- `DELETE \/api\/notes\/:id`: the normal case works/);
+  assert.doesNotMatch(added, /`(GET|POST) \/api\/notes`/, "there before the task");
+
+  const planned = await task();
+  await planned.hook("SessionStart");
+  await planned.hook("PreToolUse", { tool_name: "ExitPlanMode", tool_input: { plan: "Add GET and POST /api/notes in app.js." } });
+  await planned.edit("app.js", NOTES_APP);
+  await planned.edit("notes.md", "a");
+  assert.doesNotMatch((await planned.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the plan check already said which");
+
+  // Codex has no plan mode: it checks its plan with the check_plan tool, which is the same plan check.
+  const viaTool = await task();
+  await viaTool.hook("SessionStart");
+  await viaTool.sessions.tool("check_plan", { plan: "Add GET and POST /api/notes in app.js." });
+  await viaTool.edit("app.js", NOTES_APP);
+  await viaTool.edit("notes.md", "a");
+  assert.doesNotMatch((await viaTool.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the tool's plan check said which");
+
+  // The background Attentry outlives sessions: an earlier one's task is still there. The tool is
+  // the newest session's, the one the agent calling it is in.
+  const later = await task();
+  await later.hook("SessionStart", { session_id: "earlier" });
+  await later.hook("SessionStart");
+  await later.sessions.tool("check_plan", { plan: "Add GET and POST /api/notes in app.js." });
+  await later.edit("app.js", NOTES_APP);
+  await later.edit("notes.md", "a");
+  assert.doesNotMatch((await later.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "with an earlier session's task around too");
+});
+
+test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {
+  const hello = async (files: Record<string, string>, allow = false) => {
+    const root = await makeRepo({ "index.js": START, ...files });
+    if (allow) await allowTests(root, await findTests(root, undefined));
+    const reply = await new Sessions(root, true).handle({ hook_event_name: "SessionStart", session_id: "s1" });
+    return JSON.parse(reply.stdout).hookSpecificOutput.additionalContext as string;
+  };
+  const script = { "package.json": JSON.stringify({ scripts: { test: "node -e 0" } }) };
+  assert.match(await hello(script, true), /, and a check-in after 3 edits, then every 10\. The check-ins run the tests \(npm test\)\. If you have/);
+  assert.match(await hello(script), / The check-ins will run the tests \(npm test\) once the person allows them in the Attentry sidebar\./);
+  assert.match(await hello({}), /then every 10\. This project has no tests yet\. If you have/);
+  assert.match(await hello({ ...script, ".attentry/config.json": JSON.stringify({ tests: "off", checkInEvery: 5 }) }), /a check-in after 3 edits, then every 5\. If you have/, "off: nothing promised");
 }));
 
 test("a repo's tests run only once the person allowed them, and again only if they haven't changed", () => withClaudeSettings({}, async () => {
@@ -213,4 +338,22 @@ test("auth set up in Next.js middleware: a route with no check of its own is 'wo
   const card = (await hook("Stop"))?.systemMessage ?? "";
   assert.match(card, /Problems: none added/);
   assert.match(card, /To check: 1 route with no auth check of its own/);
+});
+
+test("a project's failing node --test is a failure, also when Attentry runs inside a test run", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ scripts: { test: "node --test \"tests/*.test.js\"" } }),
+    "tests/a.test.js": `require("node:test")("a", () => { throw new Error("no"); });\n`,
+  });
+  assert.ok(process.env.NODE_TEST_CONTEXT, "this test itself runs under node --test");
+  assert.equal((await runTests(await findTests(root, undefined), 60_000)).state, "failed");
+});
+
+test("the failing tests' names, read from each runner's output", () => {
+  const node = "✔ cents (0.4ms)\n✖ a 10% discount on 100 is 90 (0.5567ms)\n  actual: 10\n✖ failing tests:\n\n✖ a 10% discount on 100 is 90 (0.5567ms)\n";
+  assert.deepEqual(failingTests(node), ["a 10% discount on 100 is 90"]);
+  assert.deepEqual(failingTests("  ✓ adds (2 ms)\n  ✕ rejects a bad id (5 ms)\n"), ["rejects a bad id"], "jest");
+  assert.deepEqual(failingTests(" × splits the bill 3ms\n"), ["splits the bill"], "vitest");
+  assert.deepEqual(failingTests("FAILED tests/test_pay.py::test_refund - AssertionError: 1 != 2\n"), ["test_refund"], "pytest");
+  assert.equal(describeTests({ state: "failed", label: "npm test", seconds: 1, tail: [], failing: ["a", "b", "c"] }), "failed (npm test, 1s): a and 2 more");
 });

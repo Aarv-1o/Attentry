@@ -4,11 +4,12 @@ import { isProblem as matters, severityOf, worthChecking } from "../findings/sev
 import type { Finding } from "../findings/types.ts";
 import { briefLine } from "../report/brief.ts";
 import type { Config } from "./config.ts";
-import { changeCard } from "./card.ts";
+import { changeCard, type PlannedTests } from "./card.ts";
 import { fixedSince, keyOf, newSince, type Task } from "./ledger.ts";
 import { applyHunks, patchEdits, type Hunk } from "./patch.ts";
 import type { ExistingMatch } from "./reuse.ts";
 import { plural } from "../report/common.ts";
+import { stepOf } from "../testing/steps.ts";
 
 // What Attentry says at each moment of an agent's task. Short on purpose: the agent pays for
 // every word, so it hears only problems this task added, once each, and nothing when clean.
@@ -31,6 +32,7 @@ export interface HookInput {
   };
   stop_hook_active?: boolean;
   prompt?: string; // UserPromptSubmit: what the person asked
+  source?: string; // SessionStart: "startup", "resume", "clear" or "compact"
 }
 
 export interface HookReply {
@@ -42,6 +44,7 @@ const EDIT_TOOLS = /^(Write|Edit|MultiEdit|NotebookEdit|apply_patch)$/; // Claud
 const PER_EDIT = 5; // lines after one edit
 const FOCUS = 3; // lines in a check-in, and "worth a check" lines after an edit
 const MAX_BLOCKED_STOPS = 2; // then let it finish: a block that keeps failing is a loop
+export const UNPLANNED = "tests:unplanned"; // the agent heard the check-in's test suggestions
 
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const json = (value: object): HookReply => ({ stdout: `${JSON.stringify(value)}\n`, exitCode: 0 });
@@ -82,8 +85,29 @@ export function noteEdit(edits: FileEdit[], root: string, task: Task): void {
 }
 
 // After an edit: problems this task added that the agent hasn't been told about yet.
-export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config): HookReply {
+// The plan steps this edit finished by moving on to a later step's files: "after step 1 of 3
+// (the API)", or "after steps 1-2 of 3" when steps that share a file are passed together.
+function stepsFinished(edits: FileEdit[], root: string, task: Task): string | undefined {
+  for (const edit of task.steps ? edits : []) {
+    const next = stepOf(task.steps!, task.step, repoPath(root, edit.path));
+    if (next === undefined) continue;
+    const [from, of] = [task.step, task.steps!.length];
+    task.step = next;
+    return next - from === 1 ? `after step ${from + 1} of ${of} (${task.steps![from]!.title})` : `after steps ${from + 1}-${next} of ${of}`;
+  }
+  return undefined;
+}
+
+// The first check-in comes early: a short task (a handful of edits) otherwise never has one, so
+// the agent never hears its tests fail. Then every `every` edits.
+export const firstCheckIn = (every: number) => Math.min(3, every);
+export const nextCheckIn = (task: Task, every: number) => (task.lastCheckIn ? task.lastCheckIn + every : firstCheckIn(every));
+
+// `unplanned`: test suggestions for the routes this task wrote, when no plan was checked; told at
+// the next check-in, once.
+export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set<string>, findings: Finding[], config: Config, unplanned: string[] = []): HookReply {
   noteEdit(edits, root, task);
+  const finished = stepsFinished(edits, root, task);
   const added = newSince(task, findings).filter(matters).sort(worstFirst);
   task.added = added.length;
   const fresh = added.filter((f) => !told.has(keyOf(f)));
@@ -101,15 +125,16 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
     lines.push(...(lines.length ? [""] : []), "Attentry: worth a check, may be fine:", ...check.slice(0, FOCUS).map((f) => `- ${f.file}:${f.line} ${f.title}`));
     lines.push("If it's covered, leave the code as it is and tell the person you checked. If not, add the check.");
   }
-  // Tests run in the background at check-ins: a failure is told once, on the next edit.
-  const tests = task.tests;
-  if (tests && (tests.state === "failed" || tests.state === "timeout") && !task.testsTold) {
-    task.testsTold = true;
-    lines.push(...(lines.length ? [""] : []), `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`, ...tests.tail.slice(-5).map((l) => `  ${l}`), "Fix them before going on, or say why they fail.");
-  }
-  if (task.edits - task.lastCheckIn >= config.checkInEvery) {
+  const news = testNews(task, told);
+  if (news.length) lines.push(...(lines.length ? [""] : []), ...news);
+  if (finished !== undefined || task.edits >= nextCheckIn(task, config.checkInEvery)) {
     task.lastCheckIn = task.edits;
-    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root)));
+    const when = finished ?? `after ${plural(task.edits, "edit")}`;
+    lines.push(...(lines.length ? [""] : []), ...checkIn(task, findings, inRepo(root), when));
+    if (unplanned.length) {
+      told.add(UNPLANNED);
+      lines.push("", "Tests for the routes this task wrote (no plan said which):", ...unplanned.map((l) => `- ${l}`));
+    }
   }
   if (!lines.length) return SILENT;
   const message = lines.join("\n");
@@ -118,12 +143,36 @@ export function afterEdit(edits: FileEdit[], root: string, task: Task, told: Set
   return json({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: message } });
 }
 
-function checkIn(task: Task, findings: Finding[], exists: (file: string) => boolean): string[] {
+// Tests run in the background at check-ins, so their result is told on the next edit, once. Every
+// result, not just failures: silence can't tell "passed" from "never ran". Tests that can't run
+// (not allowed yet, none in the project) are said once a task: that doesn't change between check-ins.
+function testNews(task: Task, told: Set<string>): string[] {
+  const tests = task.tests;
+  if (!tests || task.testsTold) return [];
+  task.testsTold = true;
+  if (tests.state === "passed") return [`Attentry: the tests passed at the last check-in (${tests.label}, ${tests.seconds}s).`];
+  if (tests.state === "failed" || tests.state === "timeout") {
+    return [
+      `Attentry: the tests ${tests.state === "failed" ? "failed" : "didn't finish"} at the last check-in (${tests.label}):`,
+      ...(tests.failing ? [`  Failing: ${tests.failing.slice(0, 5).join("; ")}`] : []),
+      ...tests.tail.slice(-5).map((l) => `  ${l}`),
+      // They may have failed before the task (Attentry can't tell): an old bug isn't the agent's to chase.
+      "Check whether your changes caused it. If they did, fix it before going on. If it was failing before, leave it and tell the person.",
+    ];
+  }
+  if (tests.state === "off" || told.has(`tests:${tests.state}`)) return []; // off: the person's choice
+  told.add(`tests:${tests.state}`);
+  if (tests.state === "blocked") return [`Attentry: the tests (${tests.label}) didn't run at the check-in: the person hasn't allowed them for this folder yet. Tell them: Allow tests in the Attentry sidebar.`];
+  return ["Attentry: this project has no tests yet, so the check-ins can't run any. Tell the person, and offer to add tests for what this task builds."];
+}
+
+// `when`: "after 10 edits", or "after step 1 of 3 (the API)".
+function checkIn(task: Task, findings: Finding[], exists: (file: string) => boolean, when: string): string[] {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const cleanup = added.length - real.length;
   const fixed = fixedSince(task, findings, exists);
-  const head = `Attentry check-in after ${plural(task.edits, "edit")}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
+  const head = `Attentry check-in ${when}: this task added ${plural(real.length, "problem")}${fixed ? ` and fixed ${fixed}` : ""}.`;
   if (!real.length && !cleanup) return [`${head} Nothing to fix: carry on.`];
   return [
     head,
@@ -134,7 +183,7 @@ function checkIn(task: Task, findings: Finding[], exists: (file: string) => bool
 
 // When the agent wants to finish: the change card for the person; in block mode, not done
 // while the task has added security or crash problems.
-export function atStop(input: HookInput, root: string, task: Task, findings: Finding[], config: Config): HookReply {
+export function atStop(input: HookInput, root: string, task: Task, findings: Finding[], config: Config, planned?: PlannedTests): HookReply {
   const added = newSince(task, findings);
   const real = added.filter(matters).sort(worstFirst);
   const errors = real.filter((f) => severityOf(f) === "error");
@@ -143,7 +192,7 @@ export function atStop(input: HookInput, root: string, task: Task, findings: Fin
     return json({ decision: "block", reason: [`Attentry: not done yet. This task added ${plural(errors.length, "security or crash problem")}:`, ...errors.slice(0, PER_EDIT).map(briefLine), "Fix them, or tell the person why they're fine."].join("\n") });
   }
   if (!task.edits) return SILENT;
-  return json({ systemMessage: changeCard(task, findings, inRepo(root)) });
+  return json({ systemMessage: changeCard(task, findings, inRepo(root), planned) });
 }
 
 // The file as it will be after this edit, or undefined if the edit can't be applied to it as it
@@ -160,11 +209,17 @@ export function contentAfter(edit: FileEdit, before: string): string | undefined
   return changes.length ? text : undefined;
 }
 
-// Before Claude starts on a plan: what the repo already has that it should know. Never a block.
-export const planMessage = (notes: string[]) => ["Attentry read the plan. Before you start:", ...notes.map((n) => `- ${n}`)].join("\n");
-export function beforePlan(notes: string[], event: "PreToolUse" | "PostToolUse" = "PreToolUse"): HookReply {
-  if (!notes.length) return SILENT;
-  return json({ hookSpecificOutput: { hookEventName: event, additionalContext: planMessage(notes) } });
+// Before Claude starts on a plan: what the repo already has that it should know, and the tests
+// the plan needs (src/testing/suggest.ts). Never a block.
+export interface PlanReview { notes: string[]; tests: string[] }
+export function planMessage({ notes, tests }: PlanReview): string {
+  const lines = [notes.length ? "Attentry read the plan. Before you start:" : "Attentry read the plan.", ...notes.map((n) => `- ${n}`)];
+  if (tests.length) lines.push("Tests this plan needs (write them with the code they test):", ...tests.map((t) => `- ${t}`));
+  return lines.join("\n");
+}
+export function beforePlan(review: PlanReview, event: "PreToolUse" | "PostToolUse" = "PreToolUse"): HookReply {
+  if (!review.notes.length && !review.tests.length) return SILENT;
+  return json({ hookSpecificOutput: { hookEventName: event, additionalContext: planMessage(review) } });
 }
 
 // Claude Code keeps plans as Markdown in ~/.claude/plans. A plan written there is checked as it's

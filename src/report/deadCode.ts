@@ -23,13 +23,18 @@ function packagesSection(packages: UnusedPackage[]): string[] {
     const size = p.sizeBytes ? megabytes(p.sizeBytes).padStart(9) : "".padStart(9);
     lines.push(`     ${p.name.padEnd(width)} ${size}  ${p.dev ? "dev, " : ""}${p.manifest}${safe(p.confidence)}`);
   }
-  const byFolder = new Map<string, string[]>();
+  const byFolder = new Map<string, UnusedPackage[]>();
   for (const p of packages) {
     const folder = posix.dirname(p.manifest);
-    byFolder.set(folder, [...(byFolder.get(folder) ?? []), p.name]);
+    byFolder.set(folder, [...(byFolder.get(folder) ?? []), p]);
   }
-  for (const [folder, names] of byFolder) {
-    lines.push(`     → ${folder === "." ? "" : `In ${folder}: `}npm uninstall ${names.join(" ")}`);
+  for (const [folder, inFolder] of byFolder) {
+    const where = folder === "." ? "" : `In ${folder}: `;
+    const [installed, unsure] = [inFolder.filter((p) => p.installed), inFolder.filter((p) => !p.installed)];
+    if (installed.length) lines.push(`     → ${where}npm uninstall ${installed.map((p) => p.name).join(" ")}`);
+    // Named only next to an uninstall command: otherwise it's every name in the list above again.
+    const them = unsure.length === 1 ? "it" : "them";
+    if (unsure.length) lines.push(`     → ${where}${installed.length ? `${unsure.map((p) => p.name).join(", ")}: ` : ""}not installed, so what needs ${them} can't be checked. Run npm install and scan again before removing ${them}.`);
   }
   return [...lines, ""];
 }

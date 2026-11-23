@@ -14,7 +14,7 @@ const found: CrossStack = {
     { kind: "wrong-method", confidence: "likely", file: "src/a.ts", line: 9, method: "POST", path: parsePath("/api/users")!, closest: route("GET", "/api/users", "server/users.js", 3) },
     { kind: "missing-route", confidence: "maybe", file: "src/b.ts", line: 2, method: "GET", path: parsePath("/other/x")! },
   ],
-  unused: [{ confidence: "likely", route: route("DELETE", "/api/users/:id", "server/users.js", 9) }],
+  unused: [{ confidence: "likely", route: route("DELETE", "/api/users/:id", "server/users.js", 9), calls: 4 }],
 };
 
 test("cross-stack report: each kind with locations and the route it likely meant; hints hidden", () => {

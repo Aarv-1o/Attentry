@@ -77,7 +77,8 @@ export function describe(f: FunctionFacts): string | undefined {
   const who = f.name ? code(`${f.name}(${f.params})`) : "This code";
   const lines = f.endLine - f.startLine + 1;
   if (lines > LONG_LINES || f.steps > MANY_STEPS) {
-    return `${who} is ${lines} lines with ${f.steps} steps: it ${steps(parts)}. That's a lot for one function.`;
+    // The step count only when it's what makes it long: "128 lines with 1 steps" read as a typo.
+    return `${who} is ${lines} lines${f.steps > MANY_STEPS ? ` with ${f.steps} steps` : ""}: it ${steps(parts)}. That's a lot for one function.`;
   }
   return `${who}: ${f.when ? `when ${condition(f.when)}, it ` : "it "}${steps(parts)}.`;
 }

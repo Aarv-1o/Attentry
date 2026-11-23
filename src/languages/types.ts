@@ -1,7 +1,7 @@
 import type { Node } from "web-tree-sitter";
 import type { FunctionInfo } from "../index/functions.ts";
 import type { ImportInfo } from "../index/usage.ts";
-import type { FileApi } from "../rules/crossStack/types.ts";
+import type { ApiCall, FileApi } from "../rules/crossStack/types.ts";
 
 export type LanguageId = "javascript" | "typescript" | "tsx" | "python" | "astro";
 
@@ -24,6 +24,8 @@ export interface LanguageSupport {
   runsInBrowser(file: string, imports: string[]): boolean;
   // The HTTP routes this file serves and the API calls it makes, for the cross-stack check.
   extractApi(root: Node, file: string): FileApi;
+  // In a test file: the requests it sends the app in-process (supertest, TestClient), for test coverage.
+  extractTestCalls?(root: Node): ApiCall[];
   syntax: Syntax;
 }
 

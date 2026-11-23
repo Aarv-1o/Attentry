@@ -9,8 +9,13 @@ import { plural } from "../report/common.ts";
 import { scanRepo } from "../scan/scan.ts";
 import { loadConfig, type Config } from "./config.ts";
 import { describeTests, findTests, runTests, type TestRun } from "./tests.ts";
-import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, isEdit, isPlanFile, noteEdit, outsideProject, repoPath, type FileEdit, type HookInput, type HookReply } from "./hooks.ts";
+import { afterEdit, atStop, beforeEdit, beforePlan, contentAfter, editsOf, firstCheckIn, isEdit, isPlanFile, nextCheckIn, noteEdit, outsideProject, repoPath, UNPLANNED, type FileEdit, type HookInput, type HookReply, type PlanReview } from "./hooks.ts";
 import { reviewPlan } from "./plan.ts";
+import { readTexts } from "../index/texts.ts";
+import type { FullRoute } from "../rules/crossStack/resolve.ts";
+import { routeCoverage } from "../testing/coverage.ts";
+import { planSteps, type PlanStep } from "../testing/steps.ts";
+import { plannedWritten, suggestTests, type PlannedRoute } from "../testing/suggest.ts";
 import { relatedCode, relatedMessage } from "./related.ts";
 import { findExisting, newFunctions, type ExistingMatch } from "./reuse.ts";
 import { recordStart, startTask, type Task } from "./ledger.ts";
@@ -24,14 +29,25 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
+
+// A checked plan, from plan mode or the check_plan tool: its test suggestions stand in for the
+// check-ins', and a new plan starts its steps over (one without steps keeps the regular check-ins).
+function planHeard(task: Task, review: { steps: PlanStep[]; planned: PlannedRoute[] }): void {
+  task.planHeard = true;
+  if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
+  if (review.planned.length) task.plannedTests = review.planned;
+}
 const READ_WAIT_MS = 2_000; // a small repo is read by then: it answers as if it always had been
 const READING = "reading"; // the agent heard that Attentry is still reading the repo
 const OUTSIDE = "outside"; // the agent heard that its edits outside the project aren't checked
 // MCP sessions are named by Attentry's MCP server, one per agent session: never a hook's session id.
 export const MCP_SESSION = "mcp:";
 
-export const greeting = (project: string, files: number, mode: string) =>
-  `Attentry is on for ${project} (${plural(files, "file")}, ${mode} mode): after each edit you'll hear about copies and new problems this task adds, and every 10 edits a check-in with the tests. If you have Attentry's MCP tools, call find_existing before writing a helper.`;
+// `tests`: what the check-ins will do with the tests, from testsPromise.
+export const greeting = (project: string, files: number, config: Config, tests: string) =>
+  `Attentry is on for ${project} (${plural(files, "file")}, ${config.mode} mode): after each edit you'll hear about copies and new problems this task adds, and a check-in after ${firstCheckIn(config.checkInEvery)} edits, then every ${config.checkInEvery}.${tests} If you have Attentry's MCP tools, call find_existing before writing a helper.`;
+
+const routeKey = (r: FullRoute) => `${r.method} ${r.path.text}`;
 
 const tell = (event: string, text: string): HookReply =>
   ({ stdout: `${JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: text } })}\n`, exitCode: 0 });
@@ -44,7 +60,7 @@ export interface AgentStatus {
   added: number; // problems this task has added so far
   lastEditAt: number;
   untilCheckIn: number; // edits until the next check-in
-  checkInEvery: number;
+  checkInEvery: number; // edits from the last check-in to the next (the first comes sooner)
   files: number; // files the task changed
   tests: { state: TestRun["state"] | "running" | "not run"; text: string };
   agent: "claude" | "codex";
@@ -71,8 +87,8 @@ export class Sessions {
     this.reading ??= (async () => {
       this.readStart = Date.now();
       this.sourceFiles = (await listRepoFiles(this.root)).filter(isSource).length;
-      const findings = await this.findings();
-      for (const task of this.unstarted) recordStart(task, findings);
+      const [findings, routes] = await this.startingPoint();
+      for (const task of this.unstarted) recordStart(task, findings, routes);
       this.unstarted.clear();
     })()
       .catch(() => undefined) // a scan that failed fails again, with its error, on the next check
@@ -95,6 +111,18 @@ export class Sessions {
     return `${percent}% of ${plural(this.sourceFiles, "file")}${left}`;
   }
 
+  // The greeting promises only what the check-ins will really do with the tests: a promise of
+  // tests that then never run leaves the agent thinking they passed.
+  private async testsPromise(config: Config): Promise<string> {
+    if (!this.background || config.tests === "off") return ""; // only the background Attentry runs them
+    const commands = await findTests(this.root, config.tests);
+    if (!commands.length) return " This project has no tests yet.";
+    const label = commands.map((c) => c.label).join(", ");
+    return (await testsAllowed(this.root, commands))
+      ? ` The check-ins run the tests (${label}).`
+      : ` The check-ins will run the tests (${label}) once the person allows them in the Attentry sidebar.`;
+  }
+
   // Only commands the person allowed for this repo run: a cloned repo's test script could be anything.
   private async testRun(config: Config): Promise<TestRun> {
     if (config.tests === "off") return { state: "off", label: "", seconds: 0, tail: [] };
@@ -108,7 +136,8 @@ export class Sessions {
     if (task.testing) return task.testing;
     const atEdit = task.edits;
     task.testing = this.testRun(config)
-      .then((run) => {
+      // The output is for the panel's own runs: a task keeps only the tail.
+      .then(({ output: _, ...run }) => {
         task.tests = { ...run, atEdit };
         task.testsTold = false;
         return run;
@@ -121,6 +150,12 @@ export class Sessions {
     return collectFindings(await scanRepo(this.root, this.cache));
   }
 
+  // What a task starts with: the repo's findings, and its routes.
+  private async startingPoint(): Promise<[Finding[], string[]]> {
+    const scan = await scanRepo(this.root, this.cache);
+    return [await collectFindings(scan), scan.crossStack.allRoutes.map(routeKey)];
+  }
+
   // The task starts at the session's start, or before its first edit if that came first. `agent`:
   // whose hooks asked, when they say.
   private async taskOf(session: string, agent?: Task["agent"]) {
@@ -128,10 +163,11 @@ export class Sessions {
     if (!entry) {
       let task: Task;
       if (this.background && !this.read) this.unstarted.add((task = startTask()));
-      else task = startTask(await this.findings());
+      else task = startTask(...(await this.startingPoint()));
       this.tasks.set(session, (entry = { task, told: new Set() }));
     }
     if (agent) entry.task.agent = agent;
+    entry.task.heardAt = Date.now();
     return entry;
   }
 
@@ -158,14 +194,22 @@ export class Sessions {
   async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
     if (!(await this.ready())) return { text: `Attentry is still reading this repo (${this.progress()}). Ask again then.` };
+    // The background Attentry outlives sessions, so earlier ones' tasks are still here: the agent
+    // calling is the one heard from last (on a tie, the later session).
     const hooks = this.hookTasks();
-    const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
+    const newest = hooks.reduce<Task | undefined>((a, b) => (!a || b.heardAt >= a.heardAt ? b : a), undefined);
+    const task = hooks.length === 1 || (newest && Date.now() - newest.heardAt < ACTIVE_MS) ? newest : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
       root: this.root,
       index: () => buildIndex(this.root, this.cache),
       findings: () => this.findings(),
       task: () => task,
-      reviewPlan: (plan) => this.reviewPlan(plan),
+      // Codex has no plan mode: this tool is how its plans get checked, so the task hears it too.
+      reviewPlan: async (plan) => {
+        const review = await this.reviewPlan(plan);
+        if (task) planHeard(task, review);
+        return review;
+      },
     });
   }
 
@@ -182,7 +226,8 @@ export class Sessions {
     if (!latest) return undefined;
     const every = (await loadConfig(this.root)).checkInEvery;
     const tests = latest.testing ? { state: "running" as const, text: "running…" } : latest.tests ? { state: latest.tests.state, text: describeTests(latest.tests) } : { state: "not run" as const, text: "not run yet (they run at the first check-in)" };
-    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: every - (latest.edits - latest.lastCheckIn), checkInEvery: every, files: latest.editedFiles.size, tests, agent: latest.agent ?? "claude" };
+    const next = nextCheckIn(latest, every);
+    return { edits: latest.edits, added: latest.added, lastEditAt: latest.lastEditAt, untilCheckIn: next - latest.edits, checkInEvery: next - latest.lastCheckIn, files: latest.editedFiles.size, tests, agent: latest.agent ?? "claude" };
   }
 
   // New functions in what the agent is about to write that the repo already has.
@@ -204,19 +249,44 @@ export class Sessions {
     return matches.length ? beforeEdit(matches, told, await loadConfig(this.root)) : SILENT;
   }
 
+  // No plan said which tests this task needs (vibe coders rarely plan, and need it most): at a
+  // check-in, the plan check's suggestions for the routes it added that no test reaches. Worked out
+  // only when this edit brings a check-in.
+  private async unplannedTests(task: Task, told: Set<string>, edits: FileEdit[], config: Config): Promise<string[]> {
+    if (task.planHeard || told.has(UNPLANNED) || !config.testSuggestions || task.edits + 1 < nextCheckIn(task, config.checkInEvery)) return [];
+    const scan = await scanRepo(this.root, this.cache);
+    const coverage = routeCoverage(scan.index);
+    const edited = new Set([...task.editedFiles, ...edits.map((e) => repoPath(this.root, e.path))]);
+    const routes = coverage.filter((c) => !c.tests.length && edited.has(c.route.file)).map((c) => routeKey(c.route)).filter((r) => !task.routesAtStart.has(r));
+    if (!routes.length) return [];
+    return suggestTests(routes.join("\n"), scan, coverage, await readTexts(this.root, scan.index.files)).lines;
+  }
+
   // A plan, from ExitPlanMode or its file: notes it hasn't heard yet this session (writing the
   // plan file and then finishing the plan shouldn't say the same thing twice).
   private async planCheck(session: string, plan: string | undefined, event: "PreToolUse" | "PostToolUse"): Promise<HookReply> {
     if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
-    const { told } = await this.taskOf(session);
-    const notes = (await this.reviewPlan(plan)).filter((note) => !told.has(`plan:${note}`));
-    for (const note of notes) told.add(`plan:${note}`);
-    return beforePlan(notes, event);
+    const { task, told } = await this.taskOf(session);
+    const review = await this.reviewPlan(plan);
+    planHeard(task, review);
+    const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));
+    const unheard = { notes: fresh(review.notes), tests: fresh(review.tests) };
+    for (const line of [...unheard.notes, ...unheard.tests]) told.add(`plan:${line}`);
+    return beforePlan(unheard, event);
   }
 
-  private async reviewPlan(plan: string): Promise<string[]> {
+  private async reviewPlan(plan: string): Promise<PlanReview & { steps: PlanStep[]; planned: PlannedRoute[] }> {
     const scan = await scanRepo(this.root, this.cache);
-    return reviewPlan(plan, scan, await collectFindings(scan));
+    // Switched off in the panel or .attentry/config.json: no tests in the plan message or on the card.
+    const suggested = (await loadConfig(this.root)).testSuggestions
+      ? suggestTests(plan, scan, routeCoverage(scan.index), await readTexts(this.root, scan.index.files))
+      : { lines: [], routes: [] };
+    return {
+      notes: reviewPlan(plan, scan, await collectFindings(scan)),
+      tests: suggested.lines,
+      planned: suggested.routes,
+      steps: planSteps(plan, new Set(scan.index.allFiles)),
+    };
   }
 
   // A request from the person: the related code Claude hasn't heard about yet this session, so it
@@ -246,13 +316,16 @@ export class Sessions {
     const event = input.hook_event_name;
     if (event === "UserPromptSubmit") return this.relatedTo(input.session_id, input.prompt);
     if (event === "SessionStart") {
-      this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
+      // A new or cleared conversation is a new task. A resumed or compacted one carries on: starting
+      // over would forget its plan and count the problems it added so far as already there.
+      if (input.source !== "resume" && input.source !== "compact") this.tasks.delete(input.session_id);
       const ready = await this.ready();
       await this.taskOf(input.session_id, input.agent);
       // One line, once per session, so the agent (and the person asking it) knows Attentry is on.
-      const mode = (await loadConfig(this.root)).mode;
-      if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, mode)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
-      return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, mode));
+      const config = await loadConfig(this.root);
+      const tests = await this.testsPromise(config);
+      if (!ready) return tell(event, `${greeting(basename(this.root), this.sourceFiles, config, tests)} First it reads the repo (${this.progress()}): edits until then are checked once it's done.`);
+      return tell(event, greeting(basename(this.root), (await buildIndex(this.root, this.cache)).files.length, config, tests));
     }
     if (event === "PreToolUse" && input.tool_name === "ExitPlanMode") return this.planCheck(input.session_id, input.tool_input?.plan, event);
     // Outside the project: not this task's edit. A plan file is checked as a plan.
@@ -282,7 +355,8 @@ export class Sessions {
       const config = await loadConfig(this.root);
       this.markShared(task);
       const checkIns = task.lastCheckIn;
-      const reply = afterEdit(edits, this.root, task, told, await this.findings(), config);
+      const unplanned = await this.unplannedTests(task, told, edits, config);
+      const reply = afterEdit(edits, this.root, task, told, await this.findings(), config, unplanned);
       // A check-in: the tests, in the background (the agent doesn't wait).
       if (this.background && task.lastCheckIn !== checkIns) void this.startTests(task, config);
       return reply;
@@ -297,7 +371,10 @@ export class Sessions {
       if (this.background && entry.task.edits && (entry.task.tests?.atEdit ?? -1) < entry.task.edits) {
         await Promise.race([this.startTests(entry.task, config), new Promise((wait) => setTimeout(wait, STOP_WAIT_MS))]);
       }
-      return atStop(input, this.root, entry.task, await this.findings(), config);
+      const scan = await scanRepo(this.root, this.cache);
+      const { plannedTests } = entry.task;
+      const planned = plannedTests ? { ...plannedWritten(plannedTests, routeCoverage(scan.index), entry.task.editedFiles), total: plannedTests.length } : undefined;
+      return atStop(input, this.root, entry.task, await collectFindings(scan), config, planned);
     }
     return SILENT;
   }

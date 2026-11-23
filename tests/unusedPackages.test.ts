@@ -33,9 +33,9 @@ test("flags packages nothing uses, with their @types", async () => {
   assert.ok(found[0]!.sizeBytes! > 0);
 });
 
-test("is only 'likely' when node_modules isn't installed", async () => {
-  const root = await makeRepo({ "package.json": JSON.stringify({ dependencies: { lodash: "1" } }), "a.js": "" });
-  assert.equal((await findUnusedPackages(await buildIndex(root)))[0]?.confidence, "likely");
+test("is only 'likely' when node_modules isn't installed, and says it isn't", async () => {
+  const root = await makeRepo({ "package.json": JSON.stringify({ dependencies: { lodash: "1", "left-pad": "1" } }), "a.js": "", ...installed("left-pad") });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => `${p.name} ${p.confidence} ${p.installed}`), ["lodash likely false", "left-pad sure true"]);
 });
 
 test("does not flag packages used in other ways", async () => {
@@ -89,6 +89,39 @@ test("react counts as used with JSX, even with no import (the automatic runtime)
     "src/App.tsx": "export const App = () => <main />;\n",
   });
   assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["preact"]);
+});
+
+// The trpc Next.js starter, not installed: 8 of its packages were flagged wrongly, 2 rightly.
+test("without node_modules: config files named after a tool, its commands, and what frameworks need", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({
+      scripts: { dev: "run-s migrate dev:next", lint: "oxlint --type-aware src", test: "vitest" },
+      dependencies: { "@prisma/client": "1", "@trpc/next": "1", "@trpc/react-query": "1", "@tanstack/react-query": "1", clsx: "1" },
+      devDependencies: { "npm-run-all": "1", oxlint: "1", "oxlint-tsgolint": "1", oxfmt: "1", postcss: "1", vite: "1", vitest: "1", prisma: "1", "start-server-and-test": "1" },
+    }),
+    "postcss.config.js": "module.exports = { plugins: { '@tailwindcss/postcss': {} } };\n",
+    ".oxfmtrc.json": '{ "$schema": "./node_modules/oxfmt/configuration_schema.json" }\n',
+    "prisma/schema.prisma": 'generator client {\n  provider = "prisma-client-js"\n}\n',
+    "src/trpc.ts": 'import { createTRPCNext } from "@trpc/next";\nexport const trpc = createTRPCNext;\n',
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["clsx", "start-server-and-test"]);
+});
+
+test("plugins named in a tool's JS config count, quoted or not", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ devDependencies: { postcss: "1", autoprefixer: "1", tailwindcss: "1", "left-pad": "1" } }),
+    "postcss.config.js": "module.exports = {\n  plugins: {\n    tailwindcss: {},\n    autoprefixer: {},\n  },\n};\n",
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["left-pad"]);
+});
+
+test("a config file names its own tool only: not a package that merely shares a word", async () => {
+  const root = await makeRepo({
+    "package.json": JSON.stringify({ devDependencies: { postcss: "1", "postcss-nested": "1", jest: "1" } }),
+    "postcss.config.js": "module.exports = {};\n",
+    "src/jest-notes.md": "notes\n",
+  });
+  assert.deepEqual((await findUnusedPackages(await buildIndex(root))).map((p) => p.name), ["postcss-nested", "jest"]);
 });
 
 test("without node_modules: commands named unlike their package, and react-email's peers", async () => {

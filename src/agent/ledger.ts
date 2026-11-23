@@ -1,3 +1,5 @@
+import type { PlanStep } from "../testing/steps.ts";
+import type { PlannedRoute } from "../testing/suggest.ts";
 import { isProblem } from "../findings/severity.ts";
 import type { Finding } from "../findings/types.ts";
 import type { TestRun } from "./tests.ts";
@@ -17,6 +19,7 @@ export interface Task {
   editedFiles: Set<string>;
   stopsBlocked: number; // times finishing was blocked: give up after a couple, so it can't loop
   lastEditAt: number; // for the editor's live view
+  heardAt: number; // its agent's last hook: a tool call with several sessions around is the newest's
   added: number; // problems (not clean-up) this task had added at its last edit
   tests?: TestRun & { atEdit: number }; // the latest finished run, and the edit count it ran at
   testsTold: boolean; // the agent has heard about the latest failure
@@ -25,19 +28,27 @@ export interface Task {
   // are its own. (Alone, a problem anywhere is its own: deleting a caller makes a function dead elsewhere.)
   shared: boolean;
   agent?: "claude" | "codex"; // whose hooks: the panel shows the task under that agent
+  // The plan's steps, from the plan check, and the one the edits are on: moving to the next
+  // step is a check-in, with the tests.
+  steps?: PlanStep[];
+  step: number;
+  plannedTests?: PlannedRoute[]; // routes the plan check suggested tests for: the card counts them
+  planHeard?: boolean; // a plan was checked: its test suggestions stand in for the check-ins'
+  routesAtStart: Set<string>; // "GET /api/notes": test suggestions without a plan are for the routes it adds
 }
 
 const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
-export function startTask(findings: Finding[] = []): Task {
-  const task: Task = { started: new Map(), serious: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false };
-  recordStart(task, findings);
+export function startTask(findings: Finding[] = [], routes: string[] = []): Task {
+  const task: Task = { started: new Map(), serious: new Set(), routesAtStart: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, heardAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
+  recordStart(task, findings, routes);
   return task;
 }
 
 // What the task started with. Filled in later for a task that began while Attentry was still reading the repo.
-export function recordStart(task: Task, findings: Finding[]): void {
+export function recordStart(task: Task, findings: Finding[], routes: string[] = []): void {
+  for (const route of routes) task.routesAtStart.add(route);
   for (const f of findings) {
     task.started.set(keyOf(f), (task.started.get(keyOf(f)) ?? 0) + 1);
     if (isProblem(f)) task.serious.add(keyOf(f));
@@ -49,6 +60,9 @@ export function recordStart(task: Task, findings: Finding[]): void {
 export function newSince(task: Task, findings: Finding[]): Finding[] {
   const left = new Map(task.started);
   return findings.filter((f) => {
+    // Hotspots are the top few files by history, so files move in and out as commits land: a
+    // task can't add one, and calling it "new in this task" sent agents cleaning files they never broke.
+    if (f.category === "hotspot") return false;
     const n = left.get(keyOf(f)) ?? 0;
     if (n > 0) {
       left.set(keyOf(f), n - 1);

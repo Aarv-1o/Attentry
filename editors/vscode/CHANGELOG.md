@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- **Tests.** Attentry now knows which of your routes the tests reach, and says which tests a change needs. No AI model, and it never starts your app.
+  - **A Tests section in the panel**: routes with no test, a run button with a menu (all tests, the open file's tests, tests for changed files, or one test file), the result in one line, and up to three failing tests with where each is written. Full output opens in the Output panel.
+  - **Plans**: when the agent checks a plan (plan mode, or the `check_plan` tool), Attentry names the tests the plan needs. Without a plan, the first check-in names the tests for the routes the task wrote.
+  - **Check-ins run the tests** (once you've allowed them): the first after 3 edits, then every 10, and at the end of each plan step. The agent hears every result, passed or failed, and the change card says it too. A test that may have failed before the task isn't blamed on it.
+  - Switch test suggestions off in the panel, or with `"testSuggestions": false` in `.attentry/config.json`.
+- **The panel in Attentry's colors**: a teal accent, compact pill buttons and chips, and more room. Light and high-contrast themes keep readable colors.
+- A resumed conversation, or one Claude Code compacted, keeps its task. Before, Attentry started over: it forgot the plan it had checked, and problems the task had added counted as already there.
+- With several agent sessions in a row, the agent's tool calls count for its own task.
+- Hotspots (files that change often) are never "new in this task": check-ins no longer send the agent to clean up files it never broke.
+- A file the agent deleted no longer shows up as an unused file.
+- Unused packages: no more `npm uninstall` for packages that are in use through a config file (`postcss.config.js`, `.oxfmtrc.json`), a command named unlike the package (`run-s`), or another package that needs them (vite for vitest). When packages aren't installed, Attentry names the unused ones but gives no uninstall command, since it can't check what needs them.
+- Frontend calls through wrappers that take the method first, like `request('POST', '/login')`, are checked against the routes.
+- Separate projects in one folder are each checked on their own, and the project menu lists the projects inside a folder that groups them.
+- Fixed: a scan crash on wrapped Django views (`csrf_exempt(views.pay)`), and installed packages read as code in a git repo without a `.gitignore` (slow hooks, false findings).
+
 ## 0.1.7
 
 - The store page starts with what the agent actually hears after an edit, and has a shorter description.

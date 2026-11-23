@@ -11,7 +11,8 @@ const SKIP_DIRS = new Set([
 ]);
 
 // Repeated setup and unused helpers are normal in tests, so most checks skip them.
-const TEST_FILE = /(^|\/)(__tests__|tests?|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)tests?\.[cm]?[jt]s$|(^|\/)test_[^/]*\.py$|_test\.py$/;
+// Django's startapp makes each app a tests.py.
+const TEST_FILE = /(^|\/)(__tests__|tests?|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)tests?\.[cm]?[jt]s$|(^|\/)test_[^/]*\.py$|_test\.py$|(^|\/)tests\.py$/;
 export const isTestFile = (path: string) => TEST_FILE.test(path);
 
 // Code Attentry can't read yet (see src/languages/README.md to add one). Counted so a scan
@@ -34,12 +35,16 @@ export function isSource(path: string): boolean {
 
 async function gitFiles(root: string): Promise<string[] | undefined> {
   let files: string[];
+  let deleted: Set<string>;
+  const list = async (...args: string[]) => (await git(root, ["ls-files", ...args, "-z"])).split("\0").filter(Boolean);
   try {
-    files = (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"])).split("\0").filter(Boolean);
+    // --cached keeps a tracked file deleted since the last commit: the agent removing it isn't
+    // "an unused file" to remove.
+    [files, deleted] = await Promise.all([list("--cached", "--others", "--exclude-standard"), list("--deleted").then((d) => new Set(d))]);
   } catch {
     return undefined; // not a git repo, or git isn't installed: fall back to walking
   }
-  return withoutLinkedFolders(root, files);
+  return withoutLinkedFolders(root, files.filter((f) => !deleted.has(f)));
 }
 
 // Git for Windows lists a folder link (a junction) like a folder, with every file in it: one that
@@ -88,9 +93,14 @@ const AGENT_TOOLING = /(^|\/)\.(agents|claude|cursor|codex|gemini|windsurf|cline
 // Test fixtures: sample code for tests, often wrong on purpose.
 const TEST_FIXTURES = /(^|\/)(tests?|__tests__|spec)\/(.+\/)?(fixtures|__fixtures__)\/|(^|\/)__fixtures__\//;
 
+// Installed packages: skipped even in git, where .gitignore usually hides them. A new project is
+// often `git init` and `npm install` before it has a .gitignore, and scanning express's code
+// there buried the project's own findings under a thousand that aren't its.
+const INSTALLED = /(^|\/)(node_modules|\.venv|venv|site-packages|__pycache__)\//;
+
 // Every file in the repo (respecting .gitignore), as sorted repo-relative paths with "/" separators.
 export async function listRepoFiles(root: string): Promise<string[]> {
-  return ((await gitFiles(root)) ?? (await walkProject(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f)).sort();
+  return ((await gitFiles(root)) ?? (await walkProject(root))).filter((f) => !AGENT_TOOLING.test(f) && !TEST_FIXTURES.test(f) && !INSTALLED.test(f)).sort();
 }
 
 // An editor or agent opened on the home folder or a whole drive: walking it would read everything

@@ -75,3 +75,81 @@ test("frontend: client base URLs from another file, Vite's proxy rewrite, supera
     "web/src/notes.ts": `const cache = new Map();\nexport const note = () => cache.get("/users/1");\n`,
   }), ["missing-route GET /user/me web/src/users.ts:3", "routes 4"]);
 });
+
+test("Express: routers mounted in a loop over a list of { path, route }", async () => {
+  assert.deepEqual(await crossStack({
+    "src/app.js": `const routes = require("./routes");\nconst app = express();\napp.use("/v1", routes);\n`,
+    "src/routes/index.js": `const authRoute = require("./auth");
+const userRoute = require("./user");
+const router = express.Router();
+const defaultRoutes = [
+  { path: "/auth", route: authRoute },
+  { path: "/users", route: userRoute },
+];
+defaultRoutes.forEach((route) => {
+  router.use(route.path, route.route);
+});
+const adminRoutes = [{ path: "/admin", route: require("./admin") }];
+for (const r of adminRoutes) router.use(r.path, r.route);
+module.exports = router;
+`,
+    "src/routes/auth.js": `const router = express.Router();\nrouter.post("/login", login);\nmodule.exports = router;\n`,
+    "src/routes/user.js": `const router = express.Router();\nrouter.route("/:userId").get(show).delete(remove);\nmodule.exports = router;\n`,
+    "src/routes/admin.js": `const router = express.Router();\nrouter.get("/stats", stats);\nmodule.exports = router;\n`,
+    "web/api.js": `fetch("/v1/auth/login", { method: "POST" });\nfetch(\`/v1/users/\${id}\`);\nfetch("/v1/admin/stats");\nfetch("/v1/user/1");\n`,
+  }), ["missing-route GET /v1/user/1 web/api.js:4", "routes 4", "unused DELETE /v1/users/:userId"]);
+});
+
+test("Flask: blueprints imported with `from . import auth` inside an app factory", async () => {
+  assert.deepEqual(await crossStack({
+    "flaskr/__init__.py": `from flask import Flask
+
+def create_app():
+    app = Flask(__name__)
+    from . import auth
+    app.register_blueprint(auth.bp)
+    return app
+`,
+    "flaskr/auth.py": `from flask import Blueprint
+bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+@bp.route("/login", methods=["POST"])
+def login(): ...
+
+@bp.route("/logout")
+def logout(): ...
+`,
+    "web/app.js": `fetch("/auth/login", { method: "POST" });\nfetch("/auth/signout");\n`,
+  }), ["missing-route GET /auth/signout web/app.js:2", "routes 2", "unused GET /auth/logout"]);
+});
+
+test("Fastify: @fastify/autoload makes each folder under routes/ a prefix", async () => {
+  assert.deepEqual(await crossStack({
+    "src/app.ts": `import fastifyAutoload from "@fastify/autoload";
+export default async function app(fastify, opts) {
+  fastify.register(fastifyAutoload, { dir: path.join(import.meta.dirname, "routes"), autoHooks: true, options: { ...opts } });
+  fastify.register(fastifyAutoload, { dir: path.join(import.meta.dirname, "admin"), options: { prefix: "/admin" } });
+}
+`,
+    "src/routes/home.ts": `export default async function (fastify) {\n  fastify.get("/", home);\n}\n`,
+    "src/routes/api/tasks/index.ts": `export default async function (fastify) {\n  fastify.get("/:id", show);\n  fastify.post("/:id/assign", assign);\n}\n`,
+    "src/admin/stats.ts": `export default async function (fastify) {\n  fastify.get("/stats", stats);\n}\n`,
+    "web/api.ts": `fetch(\`/api/tasks/\${id}\`);\nfetch("/admin/stats");\nfetch("/api/task/1");\n`,
+  }), ["missing-route GET /api/task/1 web/api.ts:3", "routes 4", "unused POST /api/tasks/:id/assign"]);
+});
+
+test("Django: include() with a namespace tuple, inline patterns, and urlpatterns + static()", async () => {
+  assert.deepEqual(await crossStack({
+    "config/urls.py": `urlpatterns = [
+    path("api/", include(("project.api.urls", "api"))),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+`,
+    "project/api/urls.py": `urlpatterns = [
+    path("session/", include(([path("login/", LoginApi.as_view(), name="login"), path("logout/", LogoutApi.as_view())], "session"))),
+    path("shop/", include("project.shop.urls", namespace="store")),
+]
+`,
+    "project/shop/urls.py": `urlpatterns = [path("cart/", cart, name="cart")]\n`,
+    "web/api.js": `fetch("/api/session/login/", { method: "POST" });\nfetch("/api/shop/cart/");\nfetch("/api/session/signin/");\n`,
+  }), ["missing-route GET /api/session/signin web/api.js:3", "routes 3", "unused ALL /api/session/logout"]);
+});

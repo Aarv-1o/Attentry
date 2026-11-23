@@ -85,7 +85,8 @@ function deadCodeFindings(r: ScanResult): Finding[] {
   return [
     ...r.dead.packages.map((p) => make("unused-package", {
       confidence: p.confidence, file: p.manifest, line: 1, title: `Unused package: ${p.name}${p.dev ? " (dev)" : ""}${mb(p.sizeBytes)}`,
-      evidence: [`Nothing imports it, configures it or runs it from a script.`, `To remove: npm uninstall ${p.name}`],
+      evidence: [`Nothing imports it, configures it or runs it from a script.`,
+        p.installed ? `To remove: npm uninstall ${p.name}` : "It isn't installed, so what needs it can't be checked: run npm install and look again before removing it."],
     })),
     ...r.dead.files.map((f) => make("unused-file", {
       confidence: f.confidence, file: f.file, line: 1, endLine: f.lines, title: `Unused file (${f.lines} lines)`, evidence: [f.reason],
@@ -109,7 +110,7 @@ function crossStackFindings(r: ScanResult): Finding[] {
     })),
     ...r.crossStack.unused.map((u) => make("unused-route", {
       confidence: u.confidence, file: u.route.file, line: u.route.line, title: `Route nothing calls: ${u.route.method} ${u.route.path.text}`,
-      evidence: [`None of the ${r.crossStack.calls} API calls in this repo reach it.`],
+      evidence: [`None of the ${u.calls} API calls in this repo reach it.`],
     })),
   ];
 }
