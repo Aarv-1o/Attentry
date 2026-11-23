@@ -32,6 +32,7 @@ export interface HookInput {
   };
   stop_hook_active?: boolean;
   prompt?: string; // UserPromptSubmit: what the person asked
+  source?: string; // SessionStart: "startup", "resume", "clear" or "compact"
 }
 
 export interface HookReply {

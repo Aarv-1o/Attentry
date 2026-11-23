@@ -39,6 +39,19 @@ test("after an edit: only problems this task added, each told once, silent when 
   assert.doesNotMatch((await edit("notes.js", "export const a = 2;\n")).hookSpecificOutput.additionalContext, /this edit added/, "already told: not repeated");
 });
 
+test("a resumed or compacted conversation is the same task; a new or cleared one starts over", async () => {
+  const { hook, edit } = await task();
+  await hook("SessionStart", { source: "startup" });
+  await edit("index.js", SAVE);
+  await hook("SessionStart", { source: "compact" });
+  await hook("SessionStart", { source: "resume" });
+  await edit("notes.js", "export const a = 1;\n");
+  const checkIn = (await edit("notes.js", "export const a = 2;\n")).hookSpecificOutput.additionalContext;
+  assert.match(checkIn, /^Attentry check-in after 3 edits: this task added 1 problem\./, "the count and the problem from before carry on");
+  await hook("SessionStart", { source: "clear" });
+  assert.equal(await edit("notes.js", "export const a = 3;\n"), undefined, "a cleared conversation: index.js:9 is from before this task");
+});
+
 test("a check-in after 3 edits, then every 10; at the end, the change card for the person", async () => {
   const { hook, edit } = await task();
   await hook("SessionStart");

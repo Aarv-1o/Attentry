@@ -302,7 +302,9 @@ export class Sessions {
     const event = input.hook_event_name;
     if (event === "UserPromptSubmit") return this.relatedTo(input.session_id, input.prompt);
     if (event === "SessionStart") {
-      this.tasks.delete(input.session_id); // a new or cleared conversation is a new task
+      // A new or cleared conversation is a new task. A resumed or compacted one carries on: starting
+      // over would forget its plan and count the problems it added so far as already there.
+      if (input.source !== "resume" && input.source !== "compact") this.tasks.delete(input.session_id);
       const ready = await this.ready();
       await this.taskOf(input.session_id, input.agent);
       // One line, once per session, so the agent (and the person asking it) knows Attentry is on.
