@@ -29,6 +29,14 @@ import { isToolName, TOOLS, type ToolResult } from "./tools.ts";
 const SILENT: HookReply = { stdout: "", exitCode: 0 };
 const STOP_WAIT_MS = 45_000; // Claude Code gives a hook 60 seconds
 const ACTIVE_MS = 30 * 60 * 1000; // an agent that edited within this is still working
+
+// A checked plan, from plan mode or the check_plan tool: its test suggestions stand in for the
+// check-ins', and a new plan starts its steps over (one without steps keeps the regular check-ins).
+function planHeard(task: Task, review: { steps: PlanStep[]; planned: PlannedRoute[] }): void {
+  task.planHeard = true;
+  if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
+  if (review.planned.length) task.plannedTests = review.planned;
+}
 const READ_WAIT_MS = 2_000; // a small repo is read by then: it answers as if it always had been
 const READING = "reading"; // the agent heard that Attentry is still reading the repo
 const OUTSIDE = "outside"; // the agent heard that its edits outside the project aren't checked
@@ -192,7 +200,12 @@ export class Sessions {
       index: () => buildIndex(this.root, this.cache),
       findings: () => this.findings(),
       task: () => task,
-      reviewPlan: (plan) => this.reviewPlan(plan),
+      // Codex has no plan mode: this tool is how its plans get checked, so the task hears it too.
+      reviewPlan: async (plan) => {
+        const review = await this.reviewPlan(plan);
+        if (task) planHeard(task, review);
+        return review;
+      },
     });
   }
 
@@ -251,10 +264,7 @@ export class Sessions {
     if (!plan || !(await this.ready())) return SILENT; // a plan isn't held up for the first read
     const { task, told } = await this.taskOf(session);
     const review = await this.reviewPlan(plan);
-    task.planHeard = true;
-    // A new plan starts its steps over; one without steps keeps the regular check-ins only.
-    if (review.steps.length) [task.steps, task.step] = [review.steps, 0];
-    if (review.planned.length) task.plannedTests = review.planned;
+    planHeard(task, review);
     const fresh = (lines: string[]) => lines.filter((line) => !told.has(`plan:${line}`));
     const unheard = { notes: fresh(review.notes), tests: fresh(review.tests) };
     for (const line of [...unheard.notes, ...unheard.tests]) told.add(`plan:${line}`);

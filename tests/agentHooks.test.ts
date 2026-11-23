@@ -24,7 +24,7 @@ async function task(mode?: "block") {
     await writeFile(join(root, file), text);
     return hook("PostToolUse", { tool_name: "Write", tool_input: { file_path: join(root, file) } });
   };
-  return { root, hook, edit };
+  return { root, sessions, hook, edit };
 }
 
 test("after an edit: only problems this task added, each told once, silent when clean", async () => {
@@ -201,6 +201,14 @@ test("no plan: the check-in names the tests the routes this task wrote need, onc
   await planned.edit("app.js", NOTES_APP);
   await planned.edit("notes.md", "a");
   assert.doesNotMatch((await planned.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the plan check already said which");
+
+  // Codex has no plan mode: it checks its plan with the check_plan tool, which is the same plan check.
+  const viaTool = await task();
+  await viaTool.hook("SessionStart");
+  await viaTool.sessions.tool("check_plan", { plan: "Add GET and POST /api/notes in app.js." });
+  await viaTool.edit("app.js", NOTES_APP);
+  await viaTool.edit("notes.md", "a");
+  assert.doesNotMatch((await viaTool.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the tool's plan check said which");
 });
 
 test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {
