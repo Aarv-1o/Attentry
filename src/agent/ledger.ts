@@ -19,6 +19,7 @@ export interface Task {
   editedFiles: Set<string>;
   stopsBlocked: number; // times finishing was blocked: give up after a couple, so it can't loop
   lastEditAt: number; // for the editor's live view
+  heardAt: number; // its agent's last hook: a tool call with several sessions around is the newest's
   added: number; // problems (not clean-up) this task had added at its last edit
   tests?: TestRun & { atEdit: number }; // the latest finished run, and the edit count it ran at
   testsTold: boolean; // the agent has heard about the latest failure
@@ -40,7 +41,7 @@ const fileOfKey = (key: string) => key.split("|")[1]!;
 const ownFile = (task: Task, file: string) => !task.shared || task.editedFiles.has(file);
 
 export function startTask(findings: Finding[] = [], routes: string[] = []): Task {
-  const task: Task = { started: new Map(), serious: new Set(), routesAtStart: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
+  const task: Task = { started: new Map(), serious: new Set(), routesAtStart: new Set(), edits: 0, lastCheckIn: 0, editedFiles: new Set(), stopsBlocked: 0, lastEditAt: 0, heardAt: 0, added: 0, testsTold: false, shared: false, step: 0 };
   recordStart(task, findings, routes);
   return task;
 }

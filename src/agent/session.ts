@@ -167,6 +167,7 @@ export class Sessions {
       this.tasks.set(session, (entry = { task, told: new Set() }));
     }
     if (agent) entry.task.agent = agent;
+    entry.task.heardAt = Date.now();
     return entry;
   }
 
@@ -193,8 +194,11 @@ export class Sessions {
   async tool(name: string, args: Record<string, unknown>, session?: string): Promise<ToolResult> {
     if (!isToolName(name)) return { text: `Unknown tool: ${name}.`, isError: true };
     if (!(await this.ready())) return { text: `Attentry is still reading this repo (${this.progress()}). Ask again then.` };
+    // The background Attentry outlives sessions, so earlier ones' tasks are still here: the agent
+    // calling is the one heard from last (on a tie, the later session).
     const hooks = this.hookTasks();
-    const task = hooks.length === 1 ? hooks[0] : session ? this.tasks.get(session)?.task : undefined;
+    const newest = hooks.reduce<Task | undefined>((a, b) => (!a || b.heardAt >= a.heardAt ? b : a), undefined);
+    const task = hooks.length === 1 || (newest && Date.now() - newest.heardAt < ACTIVE_MS) ? newest : session ? this.tasks.get(session)?.task : undefined;
     return TOOLS[name](args, {
       root: this.root,
       index: () => buildIndex(this.root, this.cache),

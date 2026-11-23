@@ -209,6 +209,16 @@ test("no plan: the check-in names the tests the routes this task wrote need, onc
   await viaTool.edit("app.js", NOTES_APP);
   await viaTool.edit("notes.md", "a");
   assert.doesNotMatch((await viaTool.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "the tool's plan check said which");
+
+  // The background Attentry outlives sessions: an earlier one's task is still there. The tool is
+  // the newest session's, the one the agent calling it is in.
+  const later = await task();
+  await later.hook("SessionStart", { session_id: "earlier" });
+  await later.hook("SessionStart");
+  await later.sessions.tool("check_plan", { plan: "Add GET and POST /api/notes in app.js." });
+  await later.edit("app.js", NOTES_APP);
+  await later.edit("notes.md", "a");
+  assert.doesNotMatch((await later.edit("notes.md", "b")).hookSpecificOutput.additionalContext, /Tests for the routes/, "with an earlier session's task around too");
 });
 
 test("the greeting promises the tests only as far as the check-ins will run them", () => withClaudeSettings({}, async () => {
