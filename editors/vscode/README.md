@@ -61,6 +61,8 @@ Attentry is added for all your projects, and the extension keeps it up to date.
 
 - **You send a request:** the agent is told about code in your repo that matches it, so it builds
   on what's there.
+- **A plan:** the agent hears what the repo already has that the plan would duplicate, and which
+  tests the plan needs.
 - **Before an edit:** if the agent is about to write a function the repo already has, it's told
   where the existing one is.
 - **After an edit:** the problems that edit added, each one once. Old problems are left out.
@@ -114,6 +116,12 @@ several projects, pick one from the menu at the top (or **Attentry: Choose proje
 <img src="https://raw.githubusercontent.com/Aarv-1o/Attentry/main/site/assets/panel.png" width="300" alt="The Attentry panel: problems by category, Claude Code connected, and the current task: 4 edits to 3 files, no problems added">
 
 ## Tests
+
+Attentry knows which of your routes the tests reach, without starting your app. The panel's
+**Tests** section lists the routes with no test and runs your tests: all of them, the open file's,
+the ones for your changed files, or one test file. You get the result in one line and up to three
+failing tests, each linked to where it's written. When the agent plans, Attentry names the tests
+the plan needs; without a plan, the first check-in names the tests for the routes the task wrote.
 
 Attentry runs your tests at check-ins, but only commands you've allowed, because a test script can
 run anything. Connecting an agent allows the open repo's current test command. Elsewhere, or after
