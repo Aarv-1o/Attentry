@@ -65,7 +65,7 @@ function findings() {
   const where = show === "changes" && !data?.noChanges ? "in your changes" : "in this repo";
   const older = show === "changes" && data?.older ? ` <a data-act="toggleShow">${plural(data.older, "older finding")} →</a>` : "";
   // The headline answers "is anything wrong?"; the groups under it are the details.
-  const bar = total ? `<div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" style="flex:${of(part).length}"></i>`).join("")}</div>` : "";
+  const bar = total ? `<div class="bar" aria-hidden="true">${found.map(([part, , tone]) => `<i class="${tone}" data-n="${of(part).length}"></i>`).join("")}</div>` : "";
   const headline = !data
     ? `<p class="headline quiet">Checking…</p>`
     : problems
@@ -98,7 +98,7 @@ function checkInMeter(live) {
   lastDone = done;
   const ticks = Array.from({ length: checkInEvery }, (_, i) => `<i class="${i < done ? "on" : ""}${i === done - 1 && fresh ? " new" : ""}"></i>`).join("");
   return `<div class="meter" role="img" aria-label="${done} of ${checkInEvery} edits until the agent's next check-in">
-    <p>Next check-in in <b>${plural(untilCheckIn, "edit")}</b></p><div class="ticks" style="grid-template-columns:repeat(${checkInEvery},1fr)">${ticks}</div></div>`;
+    <p>Next check-in in <b>${plural(untilCheckIn, "edit")}</b></p><div class="ticks">${ticks}</div></div>`;
 }
 
 function task(live, working) {
@@ -156,16 +156,19 @@ function untestedRoutes(t) {
 function testsSection() {
   if (!tests) return "";
   const on = tests.suggestions;
-  return `<section class="agent">${head("Tests", tests.untested.length ? "warn" : "ok", tests.routes ? `${tests.routes - tests.untested.length} of ${tests.routes} routes tested` : "No routes found")}
+  // No routes is neither good nor bad news (a library, a CLI): a grey chip, not a green one.
+  const [tone, chip] = !tests.routes ? ["off", "No routes"] : [tests.untested.length ? "warn" : "ok", `${tests.routes - tests.untested.length} of ${tests.routes} routes tested`];
+  // The switch's sentence is its tooltip: the section stays short.
+  const tip = on ? "When Claude writes a plan, Attentry names the tests it needs" : "No test suggestions in plans or on the change card";
+  return `<section class="agent">${head("Tests", tone, chip)}
       ${lastRun(tests.last)}
-      <div class="split"><button data-act="runTests" ${testsRunning ? "disabled" : ""}>▶ ${esc(runLabel)}</button><button class="more" data-act="testMenu" ${testsRunning ? "disabled" : ""} title="Choose which tests to run" aria-label="Choose which tests to run">▾</button></div>
+      <div class="split"><button data-act="runTests" ${testsRunning ? "disabled" : ""}><i class="play"></i>${esc(runLabel)}</button><button class="more" data-act="testMenu" ${testsRunning ? "disabled" : ""} title="Choose which tests to run" aria-label="Choose which tests to run">▾</button></div>
       ${untestedRoutes(tests)}
       <div class="mode">
-        <div class="tabs" role="tablist" aria-label="Test suggestions">
+        <div class="tabs" role="tablist" aria-label="Test suggestions" title="${tip}">
           <button role="tab" data-suggest="on" aria-selected="${on}" ${on ? "disabled" : ""}>Suggest tests</button>
           <button role="tab" data-suggest="off" aria-selected="${!on}" ${on ? "" : "disabled"}>Off</button>
         </div>
-        <span class="quiet">${on ? "When Claude writes a plan, Attentry names the tests it needs." : "No test suggestions in plans or on the change card."}</span>
       </div>
     </section>`;
 }
@@ -289,6 +292,8 @@ function render() {
   const scroll = window.scrollY;
   // attentry-ignore xss: every value is escaped by esc() or words() above, and the panel's CSP runs only Attentry's own script
   app.innerHTML = findings() + testsSection() + agents() + setupSection() + footer() + links();
+  // The panel's CSP drops style="" in markup; a width set from the script still applies.
+  for (const part of app.querySelectorAll?.(".bar i[data-n]") ?? []) part.style.flex = part.dataset.n;
   for (const [id, open] of opened) {
     const group = document.getElementById(id);
     if (group) group.open = open;
