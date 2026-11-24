@@ -4,6 +4,7 @@
 [![Open VSX downloads](https://img.shields.io/open-vsx/dt/attentry/attentry?label=Open%20VSX%20downloads)](https://open-vsx.org/extension/attentry/attentry)
 [![GitHub stars](https://img.shields.io/github/stars/Aarv-1o/Attentry)](https://github.com/Aarv-1o/Attentry/stargazers)
 [![MIT licence](https://img.shields.io/github/license/Aarv-1o/Attentry)](LICENSE)
+[![Aarv-1o/Attentry MCP server](https://glama.ai/mcp/servers/Aarv-1o/Attentry/badges/score.svg)](https://glama.ai/mcp/servers/Aarv-1o/Attentry)
 
 **Your AI writes the code. Attentry checks it, without AI.**
 
