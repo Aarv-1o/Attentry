@@ -308,6 +308,14 @@ if (miniCode && miniChat) {
   }
 }
 
+// ---- Editor tiles: a phone has no editor to open, so those tiles lead to the store ----
+if (matchMedia("(max-width: 640px)").matches) {
+  for (const tile of document.querySelectorAll(".editor-tile[data-store]")) {
+    tile.href = tile.dataset.store;
+    tile.querySelector("span").textContent = tile.dataset.store.includes("open-vsx") ? "Open VSX" : "Marketplace";
+  }
+}
+
 // ---- Tests: four small panels, played one after another ----
 // Each card's data-steps are the pauses before its steps 1, 2, …; an element shows from step
 // data-from until data-until, and data-press is pressed at that step.

@@ -400,13 +400,16 @@ socket event "message:delete" loads a record by an id the caller sends without c
             <li><span><b>Click Connect Claude Code or Connect Codex</b> in the Attentry panel: it's added for all your projects.</span></li>
             <li><span><b>Start a new session</b> and ask for anything. Codex asks you once to trust <b>attentry-hooks</b>: say yes.</span></li>
           </ol>
-          <!-- One tile per editor, equal weight, in the order people install from (most from Open VSX). -->
+          <!-- One tile per editor, equal weight, in the order people install from (most from Open VSX).
+               Cursor, Antigravity and VS Code open the app on the extension; Windsurf's link isn't
+               documented, so it gets the store. Phones have no editor: app.js points them at the store. -->
           <div class="editors">
-            <a class="editor-tile" href="https://open-vsx.org/extension/attentry/attentry"><b>Cursor</b><span>Open VSX</span></a>
+            <a class="editor-tile" href="cursor:extension/attentry.attentry" data-store="https://open-vsx.org/extension/attentry/attentry"><b>Cursor</b><span>Opens the app</span></a>
             <a class="editor-tile" href="https://open-vsx.org/extension/attentry/attentry"><b>Windsurf</b><span>Open VSX</span></a>
-            <a class="editor-tile" href="antigravity-ide:extension/attentry.attentry"><b>Antigravity</b><span>Opens the app</span></a>
-            <a class="editor-tile" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry"><b>VS Code</b><span>Marketplace</span></a>
+            <a class="editor-tile" href="antigravity-ide:extension/attentry.attentry" data-store="https://open-vsx.org/extension/attentry/attentry"><b>Antigravity</b><span>Opens the app</span></a>
+            <a class="editor-tile" href="vscode:extension/attentry.attentry" data-store="https://marketplace.visualstudio.com/items?itemName=attentry.attentry"><b>VS Code</b><span>Opens the app</span></a>
           </div>
+          <p class="note">Or get it from the store: <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">VS Code Marketplace</a> · <a href="https://open-vsx.org/extension/attentry/attentry">Open VSX</a></p>
           <p class="note"><a href="https://github.com/Aarv-1o/Attentry">Star it on GitHub</a> if it helps.</p>
           <p class="note">Want to see it first? Open the <a href="https://github.com/Aarv-1o/attentry-demo">demo repo</a>: a notes app with problems planted on purpose, and what Attentry says about each.</p>
           <p class="note">Free and open source (MIT). It reads the code with its own rules, not another AI model, so your code stays on your laptop and there are no tokens to pay for.</p>
