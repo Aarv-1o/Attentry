@@ -1,6 +1,7 @@
 // The site's motion: things reveal the first time they scroll in, the prompt
 // types and erases what people ask agents, the globe turns with developers lighting up, problems
-// pop up around the frustrated developer, the agent edits a file in a small VS Code, and the
+// pop up around the frustrated developer, the agent edits a file in a small VS Code, the test
+// panels play one after another, and the
 // editor scene loops: Claude writes, Attentry spots, Claude fixes.
 // Everything runs only while it's on screen, and not at all for people who ask for less motion.
 
@@ -305,6 +306,43 @@ if (miniCode && miniChat) {
       await fadeRound(miniCode);
     }, 0.4);
   }
+}
+
+// ---- Tests: four small panels, played one after another ----
+// Each card's data-steps are the pauses before its steps 1, 2, …; an element shows from step
+// data-from until data-until, and data-press is pressed at that step.
+const tlive = document.getElementById("tlive");
+if (tlive && !still) {
+  const cards = [...tlive.querySelectorAll(".tcase")];
+  const show = (card, step) => {
+    for (const el of card.querySelectorAll("[data-from]")) {
+      const until = el.dataset.until === undefined ? Infinity : Number(el.dataset.until);
+      el.classList.toggle("on", step >= Number(el.dataset.from) && step < until);
+    }
+    for (const el of card.querySelectorAll("[data-press]")) el.classList.toggle("press", step === Number(el.dataset.press));
+  };
+  // On a narrow screen the cards are a row to swipe: bring the one playing into view.
+  const bringIn = (card) => {
+    if (tlive.scrollWidth > tlive.clientWidth) tlive.scrollTo({ left: card.offsetLeft - tlive.offsetLeft, behavior: "smooth" });
+  };
+  tlive.classList.add("playing");
+  for (const card of cards) show(card, 0);
+  loopWhileVisible(tlive, async (visible) => {
+    for (const card of cards) show(card, 0);
+    for (const card of cards) {
+      if (!visible()) return;
+      card.classList.add("active");
+      bringIn(card);
+      const pauses = card.dataset.steps.split(",").map(Number);
+      for (const [i, pause] of pauses.entries()) {
+        await wait(pause);
+        show(card, i + 1);
+      }
+      await wait(1400);
+      card.classList.remove("active");
+    }
+    await wait(2600);
+  }, 0.3);
 }
 
 // ---- The editor scene: Claude writes, Attentry spots, Claude fixes ----

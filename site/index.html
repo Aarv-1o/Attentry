@@ -35,13 +35,10 @@
     <nav class="nav" aria-label="Main">
       <a href="#story">The problem</a>
       <a href="#watch">See it work</a>
+      <a href="#tests">Tests</a>
       <a class="icon-link" href="https://github.com/Aarv-1o/Attentry" aria-label="Attentry on GitHub"><svg width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a>
-      <!-- Named by editor, not by store: people know which editor they use, not which store it reads. -->
-      <a class="btn btn-quiet store-alt" href="https://open-vsx.org/extension/attentry/attentry">Cursor · Windsurf</a>
-      <a class="btn btn-quiet store-alt" href="antigravity-ide:extension/attentry.attentry">Antigravity</a>
-      <!-- Opens VS Code itself; phones have no VS Code, so they get the Marketplace page instead. -->
-      <a class="btn btn-primary not-phone" href="vscode:extension/attentry.attentry">Get for VS Code</a>
-      <a class="btn btn-primary phone-only" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Get for VS Code</a>
+      <!-- Get started lists every editor; most installs come from Open VSX, not VS Code. -->
+      <a class="btn btn-primary" href="#get">Get Attentry</a>
     </nav>
   </div>
 </header>
@@ -59,10 +56,10 @@
           <!-- Under the headline, so the way in is on screen before any scrolling. -->
           <div class="reveal" data-delay="3">
             <div class="actions">
-              <a class="btn btn-primary" href="vscode:extension/attentry.attentry">Install in VS Code</a>
+              <a class="btn btn-primary" href="#get">Get Attentry</a>
               <a class="btn btn-quiet" href="#watch">See it work</a>
             </div>
-            <p class="source install-alt">Or get it from the <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">Marketplace</a>, or <a href="https://open-vsx.org/extension/attentry/attentry">Open VSX</a> for Cursor, Windsurf and Antigravity.</p>
+            <p class="source install-alt"><b>2.5K+ downloads</b> in its first month · Free and open source</p>
           </div>
         </div>
         <div class="globe-stage reveal" aria-hidden="true">
@@ -222,6 +219,121 @@ socket event "message:delete" loads a record by an id the caller sends without c
     </div>
   </section>
 
+  <!-- 4b · Tests -->
+  <section class="section" id="tests" aria-labelledby="tests-title">
+    <div class="wrap">
+      <div class="heading reveal">
+        <p class="eyebrow">Tests</p>
+        <h2 id="tests-title">Your tests run while the agent works.</h2>
+        <p class="lead">Attentry finds your test command (<code>npm test</code>, pytest and the like) and runs it in the background as the agent edits. It reads which routes your tests reach without ever starting your app.</p>
+      </div>
+      <!-- Four small live panels, played one after another while on screen. Without JavaScript or
+           with less motion asked for, each shows how its story ends. -->
+      <div class="tlive reveal" id="tlive">
+        <article class="tcase" data-steps="900,600">
+          <p class="when">When you connect</p>
+          <h3>It runs only what you allow</h3>
+          <div class="tui" aria-hidden="true">
+            <p class="tui-bar">Attentry · Tests</p>
+            <div class="tui-body">
+              <p class="tui-cmd">npm test</p>
+              <div class="swap">
+                <p class="tui-status warn" data-from="0" data-until="2"><i></i>Not run until you allow npm test</p>
+                <p class="tui-status ok" data-from="2"><i></i>Allowed: the check-ins run them</p>
+              </div>
+              <span class="tui-btn" data-press="1">Allow tests</span>
+            </div>
+          </div>
+          <p class="tcap">A test command can run anything, so it runs only what you allowed. Connecting your agent allows the open repo's.</p>
+        </article>
+        <article class="tcase" data-steps="600,900,500,600">
+          <p class="when">When a plan is checked</p>
+          <h3>The tests the plan needs</h3>
+          <div class="tui" aria-hidden="true">
+            <p class="tui-bar">Claude Code</p>
+            <div class="tui-body">
+              <p class="tmsg you" data-from="1">Plan: add POST /api/rides</p>
+              <div class="tmsg att" data-from="2">
+                <p><b>Attentry</b> Tests this plan needs (write them with the code they test):</p>
+                <p data-from="3">- POST /api/rides</p>
+                <p data-from="4">Put them in tests/rides.test.js, which tests the routes next to these.</p>
+              </div>
+            </div>
+          </div>
+          <p class="tcap">For each route the plan adds or changes, the agent hears which tests to write and where.</p>
+        </article>
+        <article class="tcase" data-steps="500,500,500,700,1600,1200,1500">
+          <p class="when">After 3 edits, then every 10</p>
+          <h3>A check-in with the results</h3>
+          <div class="tui" aria-hidden="true">
+            <p class="tui-bar">Check-in</p>
+            <div class="tui-body">
+              <p class="tui-cmd">Edits <i class="pip" data-from="1"></i><i class="pip" data-from="2"></i><i class="pip" data-from="3"></i></p>
+              <div class="swap">
+                <p class="tui-status idle" data-from="0" data-until="4"><i></i>Waiting for edits</p>
+                <p class="tui-status busy" data-from="4" data-until="5"><i></i>Running tests…</p>
+                <p class="tui-status bad" data-from="5" data-until="7"><i></i>Failed: 1 failing test</p>
+                <p class="tui-status ok" data-from="7"><i></i>Next check-in: passed</p>
+              </div>
+              <div class="swap tall">
+                <p class="tmsg att" data-from="5" data-until="6">Heard on its next edit:<br>returns 404 for a missing ride<br><span>tests/rides.test.js:18</span></p>
+                <p class="tmsg you" data-from="6" data-until="7">Claude: fixing the missing-ride check…</p>
+                <p class="tmsg att" data-from="7">Fixed before the task ends.</p>
+              </div>
+            </div>
+          </div>
+          <p class="tcap">Tests run in the background. On its next edit the agent hears whether they passed, and which failed.</p>
+        </article>
+        <article class="tcase" data-steps="900,400,1600">
+          <p class="when">In the panel</p>
+          <h3>What's untested, and a run button</h3>
+          <div class="tui" aria-hidden="true">
+            <p class="tui-bar">Attentry · Tests</p>
+            <div class="tui-body">
+              <p class="tui-cmd">Routes with no test · 2</p>
+              <p class="tui-route">POST /api/rides <span>server.js:24</span></p>
+              <p class="tui-route">DELETE /api/rides/:id <span>server.js:41</span></p>
+              <span class="tui-btn" data-press="1">&#9654; Run all tests &#9662;</span>
+              <div class="swap">
+                <p class="tui-status idle" data-from="0" data-until="2"><i></i>Not run yet</p>
+                <p class="tui-status busy" data-from="2" data-until="3"><i></i>Running…</p>
+                <p class="tui-status ok" data-from="3"><i></i>All tests passed · npm test, 3s · just now</p>
+              </div>
+            </div>
+          </div>
+          <p class="tcap">Runs all your tests, the open file's, the ones for changed files, or one test file. It never starts your app.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4c · Several projects in one folder -->
+  <section class="section" id="projects" aria-labelledby="projects-title">
+    <div class="wrap">
+      <div class="projects">
+        <div class="heading reveal">
+          <p class="eyebrow">Several projects</p>
+          <h2 id="projects-title">A folder of projects? Pick the one to check.</h2>
+          <p class="lead">Editors often get opened one folder too high: Downloads, or a folder of checkouts. If that folder holds one project, Attentry finds it by itself. If it holds several, pick one from the menu at the top of the panel. Your agent's checks follow the same choice, and it's remembered for that folder.</p>
+          <p class="note">From the keyboard: <b>Attentry: Choose project</b> in the command palette.</p>
+        </div>
+        <div class="picker reveal" data-delay="1" role="img" aria-label="The Attentry panel's project menu: Checking ridely, with uber-clone, notes-app and All of them as the other choices.">
+          <p class="picker-head">
+            <svg width="16" height="16" viewBox="0 0 64 64" aria-hidden="true"><path d="M13 57 L32 8 L51 57" fill="none" stroke="#f2f4f7" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 41 Q32 27 49 41 Q32 55 15 41 Z" fill="#f2f4f7"/><circle cx="32" cy="41" r="6" fill="#1fc8a4"/></svg>
+            Attentry
+          </p>
+          <div class="picker-row"><span class="picker-label">Checking</span><span class="picker-select">ridely <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+          <ul class="picker-list" aria-hidden="true">
+            <li class="on">ridely</li>
+            <li>uber-clone</li>
+            <li>notes-app</li>
+            <li class="all">All of them (the whole folder)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 5 · What it catches -->
   <section class="section" id="catches" aria-labelledby="catches-title">
     <div class="wrap">
@@ -284,16 +396,18 @@ socket event "message:delete" loads a record by an id the caller sends without c
           <p class="eyebrow">Get started</p>
           <h2 id="get-title">Let your agent build. Attentry keeps watch.</h2>
           <ol class="install">
-            <li><span><b>Install the extension</b> from the <a href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry">VS Code Marketplace</a>, or from <a href="https://open-vsx.org/extension/attentry/attentry">Open VSX</a> for Cursor, Windsurf and Antigravity.</span></li>
+            <li><span><b>Install the extension</b> in your editor, below.</span></li>
             <li><span><b>Click Connect Claude Code or Connect Codex</b> in the Attentry panel: it's added for all your projects.</span></li>
             <li><span><b>Start a new session</b> and ask for anything. Codex asks you once to trust <b>attentry-hooks</b>: say yes.</span></li>
           </ol>
-          <div class="actions">
-            <a class="btn btn-primary" href="vscode:extension/attentry.attentry">Install in VS Code</a>
-            <a class="btn btn-quiet" href="https://open-vsx.org/extension/attentry/attentry">Cursor and Windsurf</a>
-            <a class="btn btn-quiet" href="antigravity-ide:extension/attentry.attentry">Install in Antigravity</a>
-            <a class="btn btn-quiet" href="https://github.com/Aarv-1o/Attentry">Star on GitHub</a>
+          <!-- One tile per editor, equal weight, in the order people install from (most from Open VSX). -->
+          <div class="editors">
+            <a class="editor-tile" href="https://open-vsx.org/extension/attentry/attentry"><b>Cursor</b><span>Open VSX</span></a>
+            <a class="editor-tile" href="https://open-vsx.org/extension/attentry/attentry"><b>Windsurf</b><span>Open VSX</span></a>
+            <a class="editor-tile" href="antigravity-ide:extension/attentry.attentry"><b>Antigravity</b><span>Opens the app</span></a>
+            <a class="editor-tile" href="https://marketplace.visualstudio.com/items?itemName=attentry.attentry"><b>VS Code</b><span>Marketplace</span></a>
           </div>
+          <p class="note"><a href="https://github.com/Aarv-1o/Attentry">Star it on GitHub</a> if it helps.</p>
           <p class="note">Want to see it first? Open the <a href="https://github.com/Aarv-1o/attentry-demo">demo repo</a>: a notes app with problems planted on purpose, and what Attentry says about each.</p>
           <p class="note">Free and open source (MIT). It reads the code with its own rules, not another AI model, so your code stays on your laptop and there are no tokens to pay for.</p>
           <p class="note">Found a problem or have a question? Email <a href="mailto:dbzaarv123@gmail.com">dbzaarv123@gmail.com</a> or <a href="https://github.com/Aarv-1o/Attentry/issues">open an issue</a>.</p>
