@@ -120,25 +120,30 @@
   <!-- 2 · The cost of speed -->
   <section class="section" id="story" aria-labelledby="story-title">
     <div class="wrap">
+      <!-- The heading on the left, its two numbers stacked beside it: no empty half-row. -->
+      <div class="story-top">
       <div class="heading reveal">
         <p class="eyebrow">The problem</p>
         <h2 id="story-title">Fast code. Messy code.</h2>
         <p class="lead">The agent writes it in seconds. Nobody reads every line, and the agent never looks back: it doesn't know the repo already had that helper, or that the route it just added lets anyone in.</p>
       </div>
+      <div class="story-numbers">
       <div class="stats reveal" data-delay="1">
         <div class="stat"><b data-count="84" data-suffix="%">84%</b><span>of developers use or plan to use AI tools</span></div>
         <div class="stat"><b data-count="75" data-suffix="%">75%</b><span>of new code at Google is AI-generated</span></div>
       </div>
       <p class="source stats-source reveal" data-delay="1">Sources: <a href="https://survey.stackoverflow.co/2025/ai">Stack Overflow Developer Survey 2025</a> · <a href="https://www.semafor.com/article/04/24/2026/google-ceo-says-75-of-companys-new-code-is-ai-generated">Sundar Pichai, April 2026</a></p>
+      </div>
+      </div>
       <div class="cost">
         <div class="cost-art reveal" id="cost-art" aria-hidden="true">
           <img class="desk" src="assets/desk-stressed.png" alt="" width="760" height="745">
-          <span class="chip chip-red" style="--x: 4%; --y: 6%; --d: 0s">JWT secret in code</span>
-          <span class="chip chip-amber" style="--x: 52%; --y: 2%; --d: 1.4s">copy of timeAgo()</span>
-          <span class="chip chip-info" style="--x: 0%; --y: 30%; --d: 2.8s">unused file: oldCart.ts</span>
-          <span class="chip chip-red" style="--x: 56%; --y: 22%; --d: 4.2s">no rate limit on /login</span>
-          <span class="chip chip-amber" style="--x: 2%; --y: 62%; --d: 5.6s">query inside a loop</span>
-          <span class="chip chip-info" style="--x: 54%; --y: 70%; --d: 7s">nothing calls sendLegacyMail()</span>
+          <span class="chip chip-red" style="--x: 2%; --y: 2%; --d: 0s">JWT secret in code</span>
+          <span class="chip chip-amber" style="--x: 2%; --y: 10.5%; --d: 1.4s">copy of timeAgo()</span>
+          <span class="chip chip-info" style="--x: 2%; --y: 24%; --d: 2.8s">unused file: oldCart.ts</span>
+          <span class="chip chip-red" style="--x: 52%; --y: 2%; --d: 4.2s">no rate limit on /login</span>
+          <span class="chip chip-amber" style="--x: 2%; --y: 92.5%; --d: 5.6s">query inside a loop</span>
+          <span class="chip chip-info" style="--x: 46%; --y: 92.5%; --d: 7s">nothing calls sendLegacyMail()</span>
         </div>
         <div class="cost-cards">
           <div class="cost-card reveal"><b class="red" data-count="45" data-suffix="%">45%</b><p>of AI-generated code samples had a security flaw in Veracode's tests of over 100 models.</p><p class="source"><a href="https://www.veracode.com/2025-genai-code-security-report">Veracode GenAI Code Security Report, 2025</a></p></div>

@@ -157,7 +157,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .face-b { top: 18%; right: -2%; animation-delay: -2s; }
 .face-c { bottom: 6%; left: 14%; animation-delay: -4s; }
 
-.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-6); max-width: 560px; }
+.story-top { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--space-8); align-items: end; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 .stats-source { margin-top: var(--space-3); }
 .stat { display: grid; gap: var(--space-1); padding: var(--space-4) var(--space-5); border: 1px solid var(--hairline); border-radius: var(--radius-md); background: var(--surface); }
 .stat b { font-family: var(--display); font-size: clamp(32px, 4vw, 40px); font-weight: 500; line-height: 1.1; color: var(--ink); }
@@ -440,7 +441,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .editor-body { grid-template-columns: 40px minmax(0, 1fr); }
   .panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--hairline); }
   .step { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
-  .projects { grid-template-columns: minmax(0, 1fr); }
+  .projects, .story-top { grid-template-columns: minmax(0, 1fr); }
+  .story-top { gap: var(--space-6); }
   /* Too narrow for four: a row to swipe, one card in view at a time. */
   .tlive { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(260px, 46%); overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: var(--space-2); }
   .tcase { scroll-snap-align: start; }
@@ -464,7 +466,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
   .mini-body { grid-template-columns: 24px minmax(0, 1fr); height: auto; }
   .mini-code { min-height: 170px; }
   .mini-chat { grid-column: 1 / -1; min-height: 120px; border-left: 0; border-top: 1px solid var(--hairline); }
-  .chip { font-size: 11px; }
+  /* Too small for six chips around her: they sit under the drawing as tags. */
+  .chip { position: static; display: inline-block; margin: var(--space-1); opacity: 1; animation: none; font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
