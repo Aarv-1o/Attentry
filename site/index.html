@@ -225,7 +225,7 @@ socket event "message:delete" loads a record by an id the caller sends without c
       <div class="heading reveal">
         <p class="eyebrow">Tests</p>
         <h2 id="tests-title">Your tests run while the agent works.</h2>
-        <p class="lead">Attentry finds your test command (<code>npm test</code>, pytest and the like) and runs it in the background as the agent edits. It reads which routes your tests reach without ever starting your app.</p>
+        <p class="lead">Attentry finds your test command, like <code>npm test</code> or <code>pytest</code>, and runs it in the background as the agent edits. It reads which routes your tests reach without ever starting your app.</p>
       </div>
       <!-- Four small live panels, played one after another while on screen. Without JavaScript or
            with less motion asked for, each shows how its story ends. -->
@@ -241,7 +241,7 @@ socket event "message:delete" loads a record by an id the caller sends without c
                 <p class="tui-status warn" data-from="0" data-until="2"><i></i>Not run until you allow npm test</p>
                 <p class="tui-status ok" data-from="2"><i></i>Allowed: the check-ins run them</p>
               </div>
-              <span class="tui-btn" data-press="1">Allow tests</span>
+              <span class="tui-btn" data-press="1" data-from="0" data-until="2">Allow tests</span>
             </div>
           </div>
           <p class="tcap">A test command can run anything, so it runs only what you allowed. Connecting your agent allows the open repo's.</p>
@@ -291,8 +291,8 @@ socket event "message:delete" loads a record by an id the caller sends without c
             <p class="tui-bar">Attentry · Tests</p>
             <div class="tui-body">
               <p class="tui-cmd">Routes with no test · 2</p>
-              <p class="tui-route">POST /api/rides <span>server.js:24</span></p>
-              <p class="tui-route">DELETE /api/rides/:id <span>server.js:41</span></p>
+              <p class="tui-route">POST /api/rides<span>server.js:24</span></p>
+              <p class="tui-route">DELETE /api/rides/:id<span>server.js:41</span></p>
               <span class="tui-btn" data-press="1">&#9654; Run all tests &#9662;</span>
               <div class="swap">
                 <p class="tui-status idle" data-from="0" data-until="2"><i></i>Not run yet</p>

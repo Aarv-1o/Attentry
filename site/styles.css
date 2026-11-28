@@ -287,8 +287,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 
 /* Tests: four small live panels side by side. Steps show with data-from (and hide at data-until);
    app.js plays them, and without it each card rests on how its story ends. */
-.tlive { margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
-.tcase { display: grid; grid-template-rows: auto auto 1fr auto; gap: var(--space-2); padding: var(--space-5); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); transition: border-color 0.3s, box-shadow 0.3s; }
+.tlive { margin-top: var(--space-7); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, auto); gap: var(--space-4); }
+.tcase { display: grid; grid-row: span 4; grid-template-rows: subgrid; row-gap: var(--space-2); padding: var(--space-5); border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface); transition: border-color 0.3s, box-shadow 0.3s; }
 .tcase.active { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
 .tcase h3 { font-size: 16px; }
 .tcap { font-size: 13.5px; color: var(--mute); }
@@ -296,7 +296,8 @@ h3 { font-family: Inter, sans-serif; font-size: 18px; font-weight: 500; line-hei
 .tui-bar { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--hairline); font-size: 11px; color: var(--mute); }
 .tui-body { display: grid; gap: var(--space-2); align-content: start; padding: var(--space-3); min-height: 168px; }
 .tui-cmd { display: flex; align-items: center; gap: var(--space-2); color: var(--ink); }
-.tui-route { display: flex; justify-content: space-between; gap: var(--space-2); }
+.tui-route { display: grid; }
+.tui-route span { font-size: 11px; }
 .tui-route span, .tmsg span { color: var(--mute); }
 .tui-btn { justify-self: start; padding: var(--space-1) var(--space-3); border-radius: 999px; background: var(--paper); color: var(--paper-ink); font: 600 12px Inter, system-ui, sans-serif; transition: transform 0.12s, box-shadow 0.12s; }
 .tui-btn.press { transform: scale(0.94); box-shadow: 0 0 0 4px var(--teal-soft); }
